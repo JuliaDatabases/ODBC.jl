@@ -21,41 +21,43 @@ The package is officially listed in the Julia package manager now, so users can 
 Defined functions can be split into two categories: user-facing and backend. The user-facing functions defined
 so far are:
 
-* Connect() 
-* AdvancedConnect()
-* Query()
-* ListDrivers()
-* ListDatasources()
-* Disconnect()
+* connect() 
+* advancedconnect()
+* query()
+* querymeta()
+* listdrivers()
+* listdatasources()
+* disconnect()
 
 These functions implement the backend functions which are built to mirror the
 ODBC defined functions very closely (along with appropriate error-handling). 
 
-Connect(DSN, username, password): Connect requires the DSN string argument as the name of a pre-defined ODBC datasource.
+connect(DSN, username, password): Connect requires the DSN string argument as the name of a pre-defined ODBC datasource.
 Valid datasources (DSNs) must first be setup through the ODBC administrator prior to connecting in Julia. The 'username' and
-'password' arguments are optional as they may already be defined in the datasource. Connect() returns a Connection 
+'password' arguments are optional as they may already be defined in the datasource. connect() returns a Connection 
 object which contains basic information about the connection and ODBC connection and statement handles. Typically,
-Connect() is implemented by storing the Connection object in a variable to be able to disconnect or facilitate
+connect() is implemented by storing the Connection object in a variable to be able to disconnect or facilitate
 handling multiple connections. It's unneccesary to store the object though, as a global 'conn' object holds the most
 recently created Connection object and other ODBC functions will use it by default in the absence of a specified
 connection.
 
-AdvancedConnect(connectionstring): AdvancedConnect implements the native ODBC SQLDriverConnect function which allows
+advancedconnect(connectionstring): advancedconnect implements the native ODBC SQLDriverConnect function which allows
 flexibility in connecting to a datasource through specifying a 'connection string' (e.g. "DSN=userdsn;UID=johnjacob;PWD=jingle;")
 See ODBC API documentation (http://goo.gl/uXTuk) for additional details. If the connection string doesn't contain enough
 information for the driver to connect, the user will be prompted with the additional information needed. Furthermore,
 if an empty string is provided ("") the ODBC administrator will be brought up where the user can select the DSN to which
 to connect, even allowing the user to create a datasource or add a driver.
 
-Query(connection, query): If a connection object isn't specified, the query will be executed against the default
+query(connection, query): If a connection object isn't specified, the query will be executed against the default
 connection (stored in the variable 'conn' if you'd like to inspect). Once the query is executed, the resultset is 
-stored in a DataFrame. Results are pointed to in the connection object (connection.results).
+stored in a DataFrame. Results are pointed to in the connection object (connection.resultset). querymeta() will execute
+query string supplied, but only return metadata about the resultset (useful for large datasets)
 
-ListDrivers() and Listdatasources(): These two functions take no arguments and invoke the driver manager to list 
+listdrivers() and listdatasources(): These two functions take no arguments and invoke the driver manager to list 
 installed drivers or defined user and system DSNs, respectively. 
 
-Disconnect(connection object): Disconnect closes the open connection object, frees all handles and resets the default
-connection object as necessary. If invoked with no arguments (i.e. 'Disconnect()'), the default connection is closed.
+disconnect(connection object): Disconnect closes the open connection object, frees all handles and resets the default
+connection object as necessary. If invoked with no arguments (i.e. 'disconnect()'), the default connection is closed.
 
 Issues:
 * I've had trouble being able to test on Linux and OSX systems, so the ODBC driver manager shared object libraries 
