@@ -1,10 +1,12 @@
 module ODBC
 
 #Requires DataFrames
-require("DataFrames")
+#require("DataFrames")
 using DataFrames
 
-export Connect, AdvancedConnect, Query, Connection, conn, Connections, resultset, Disconnect, ListDrivers, ListDatasources
+export connect, advancedconnect, query, querymeta, Connection, Metadata, conn, Connections, disconnect, drivers, datasources
+
+import Base.show
 
 include("consts.jl")
 
@@ -26,11 +28,37 @@ function show(io,conn::Connection)
 		println("$(conn.dsn) Connection Number: $(conn.number)")
 		println("Connection pointer: $(conn.dbc_ptr)")
 		println("Statment pointer: $(conn.stmt_ptr)")
-		if conn.results == 0
+		if isequal(conn.resultset,null_resultset)
 		print("Contains resultset? No")
 		else
-		print("Contains resultset? Yes (access by referencing connection.results)")
+		print("Contains resultset? Yes (access by referencing [connection].results)")
 		end
+	end
+end
+#Metadata type holds metadata related to an executed query resultset
+type Metadata
+	querystring::String
+	cols::Int
+	rows::Int
+	colnames::Array{ASCIIString}
+	coltypes::Array{Int16}
+	colsizes::Array{Int}
+	coldigits::Array{Int16}
+	colnulls::Array{Int16}
+end
+function show(io,meta::Metadata)
+	if meta == null_meta
+		print("No metadata")
+	else
+		println("Resultset metadata on executed query")
+		println("------------------------------------")
+		println("Columns: $(meta.cols)")
+		println("Rows: $(meta.rows)")
+		println("Column Names: $(meta.colnames)")
+		println("Column Types: $(meta.coltypes)")
+		println("Column Sizes: $(meta.colsizes)")
+		println("Column Digits: $(meta.coldigits)")
+		println("Column Nullable: $(meta.colnulls)")
 	end
 end
 
@@ -40,6 +68,7 @@ Connections = ref(Connection)
 number_of_connections = 0
 const null_resultset = DataFrame(0)
 const null_connection = Connection("",0,C_NULL,C_NULL,null_resultset)
+const null_meta = Metadata("",0,0,ref(ASCIIString),ref(Int16),ref(Int),ref(Int16),ref(Int16))
 conn = null_connection #Create null default connection
 rowset = 1
 

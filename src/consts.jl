@@ -30,19 +30,27 @@ const SQL_DRIVER_NOPROMPT = 0
 const SQL_DRIVER_PROMPT = 2
 const SQL_ATTR_ROW_ARRAY_SIZE = 27
 
-const MULTIROWFETCH = 1024
+const MULTIROWFETCH = 1024 #Several drivers have an internal limit this size, = int(typemax(Uint16))
 
 #SQL Data Types; C Data Types; Julia Types
 #(*Note: SQL data types are returned in resultset metadata calls, and C data types are accepted by the DBMS for conversion)
+#Data Type Status: Pretty good, I think we're at 90% support, really only missing native DATE, TIME, GUID. I think there are some other Time Interval types too, but I haven't researched it much.
+#The other thing I haven't tested/played around with is Unicode support, I think we're reading it in right, but I'm not sure.
 const SQL_TINYINT = const SQL_C_TINYINT = -6; #Int8
-const SQL_SMALLINT = const SQL_C_SHORT = 5; #Int16
-const SQL_INTEGER = const SQL_C_LONG = 4; #Int32
+const SQL_SMALLINT = 5; #Int16
+const SQL_C_SHORT = -15 #Int16
+const SQL_INTEGER = 4; #Int32
+const SQL_C_LONG = -16 #Int32
 const SQL_REAL = 7; #Int32
-const SQL_BIGINT = const SQL_C_BIGINT = -5; #Int64
-const SQL_DECIMAL = 3; #Int32/64/Float32/64 depending on size and precision
-const SQL_NUMERIC = 2; #Int32/64/Float32/64 depending on size and precision
-const SQL_FLOAT = 6; const SQL_C_FLOAT = 7; #Int32/64/Float32/64 depending on size and precision
-const SQL_DOUBLE = const SQL_C_DOUBLE = 8; #Int32/64/Float32/64 depending on size and precision
+const SQL_BIGINT = -5; #Int64
+const SQL_C_BIGINT = -27; #Int64
+#I originally thought of trying to reduce the float types to Ints if the metadata returned 0 column digits, but several drivers don't accurately return here, so Float64 is the default so no precision is lost
+#An idea is to have DataFrames type inference support to reduce all these types to their smallest accurate representation
+const SQL_DECIMAL = 3; #Float64
+const SQL_NUMERIC = 2; #Float64
+const SQL_FLOAT = 6; #Float64
+const SQL_C_FLOAT = 7; #Float64
+const SQL_DOUBLE = const SQL_C_DOUBLE = 8; #Float64
 
 const SQL_CHAR = const SQL_C_CHAR = 1; #SQL and C data type for Uint8
 const SQL_VARCHAR = 12; #Uint8
@@ -51,12 +59,12 @@ const SQL_WCHAR = -8; #Uint8
 const SQL_WVARCHAR = -9; #Uint8
 const SQL_WLONGVARCHAR = -10; #Uint8
 
-const SQL_BIT = -7; #Uint8 (should leave as-is once retrieved?)
+const SQL_BIT = -7; #Int8 - Will be 0 or 1
 const SQL_BINARY = -2; #Uint8 (should leave as-is once retrieved?)
 const SQL_VARBINARY = -3; #Uint8 (should leave as-is once retrieved?)
 const SQL_LONGVARBINARY = -4; #Uint8 (should leave as-is once retrieved?)
 
-#For now, all other types are just interpreted as character strings
+#For now, all other types are just interpreted as SQL_C_CHAR, Uint8 bytestrings
 #const SQL_TYPE_DATE = 91 
 #const SQL_TYPE_TIME = 92
 #const SQL_TYPE_TIMESTAMP = 93

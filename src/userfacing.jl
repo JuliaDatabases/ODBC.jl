@@ -1,5 +1,5 @@
-#Connect: Connect to DSN, returns Connection object, also stores Connection information in global default 'conn' object and global 'Connections' connections array
-function Connect(dsn::String,username,password)
+#connect: Connect to DSN, returns Connection object, also stores Connection information in global default 'conn' object and global 'Connections' connections array
+function connect(dsn::String,username,password)
 	global number_of_connections
 	global Connections
 	global conn
@@ -23,9 +23,10 @@ function Connect(dsn::String,username,password)
 		error("[ODBC]: Connection failed")
 	end
 end
-Connect(dsn::String) = Connect(dsn,C_NULL,C_NULL) #Convenience method when username and password are already setup in DSN
-#AdvancedConnect
-function AdvancedConnect(conn_string::String)
+connect(dsn::String) = connect(dsn,C_NULL,C_NULL) #Convenience method when username and password are already setup in DSN
+connect(dsn::String,username::String) = connect(dsn,username,C_NULL) #Convenience method when dsn and username are all that are required
+#avancedconnect: 
+function advancedconnect(conn_string::String)
 	global number_of_connections
 	global Connections
 	global conn
@@ -49,30 +50,57 @@ function AdvancedConnect(conn_string::String)
 		error("[ODBC]: Connection failed")
 	end
 end
-AdvancedConnect() = AdvancedConnect(" ")
-#Query: Sends query string to DBMS, once executed, resultset metadata is returned, space is allocated, and results are returned
-function Query(connection::Connection, query::String) 
+advancedconnect() = advancedconnect(" ")
+#query: Sends query string to DBMS, once executed, resultset metadata is returned, space is allocated, and results are returned
+function query(connection::Connection, querystring::String, output::String) 
 	if connection == null_connection
 		error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
 	end
 	SQLFreeStmt(connection)
-	return_value = SQLExecDirect(connection.stmt_ptr,query)
+	return_value = SQLExecDirect(connection.stmt_ptr,querystring)
 	if return_value == SQL_SUCCESS
-		metadata = ResultMetadata(connection)
-		#metadata = (cols, rows, colnames, coltypes, colsizes, coldigits, colnulls)
-		boundcols = SQLBindCols(connection,metadata[1],metadata[2],metadata[4],metadata[5],metadata[6])
-		rawresults = SQLFetchScroll(connection,boundcols[1],metadata[2],boundcols[2],metadata[3],metadata[5])
-		connection.results = rawresults
-		return rawresults
+		meta = ResultMetadata(connection)
+		#meta has fields cols, rows, colnames, coltypes, colsizes, coldigits, colnulls
+		if (meta.rows != 0 && meta.cols != 0) #with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
+			boundcols = SQLBindCols(connection,meta)
+			if lowercase(strip(output)) == "dataframe"
+				results = SQLFetchScroll(connection,boundcols[1],meta.rows,boundcols[2],meta.colnames,meta.colsizes,boundcols[3])
+			else
+				DirectToFile(connection,boundcols[1],meta.rows,boundcols[2],meta.colnames,meta.colsizes,boundcols[3],output)
+				results = Dataframe("Results saved to $output")
+			end
+		else
+			results = DataFrame("No Rows Returned")
+		end
+		connection.resultset = results
+		return results
 	else
 		ErrorReport(SQL_HANDLE_DBC,connection.dbc_ptr)
 		ErrorReport(SQL_HANDLE_STMT,connection.stmt_ptr)
 		error("[ODBC]: Query execution failed")
 	end
 end
-Query(query::String) = Query(conn, query) #Convenience method when using default connection 'conn'
-#Disconnect:
-function Disconnect(connection::Connection)
+query(querystring::String) = query(conn, querystring, "DataFrame") #Convenience method when using default connection 'conn'
+#querymeta: Sends query string to DBMS, once executed, resultset metadata is returned
+function querymeta(connection::Connection, querystring::String) 
+	if connection == null_connection
+		error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
+	end
+	SQLFreeStmt(connection)
+	return_value = SQLExecDirect(connection.stmt_ptr,querystring)
+	if return_value == SQL_SUCCESS
+		meta = ResultMetadata(connection)
+		meta.querystring = querystring
+		return meta
+	else
+		ErrorReport(SQL_HANDLE_DBC,connection.dbc_ptr)
+		ErrorReport(SQL_HANDLE_STMT,connection.stmt_ptr)
+		error("[ODBC]: Query execution failed")
+	end
+end
+querymeta(querystring::String) = querymeta(conn, querystring) #Convenience method when using default connection 'conn'
+#disconnect:
+function disconnect(connection::Connection)
 	global conn
 	global Connections
 	global number_of_connections
@@ -101,9 +129,9 @@ function Disconnect(connection::Connection)
 		error("[ODBC]: Could not disconnect")
 	end
 end
-Disconnect() = Disconnect(conn)
+disconnect() = disconnect(conn)
 #List Installed Drivers
-function ListDrivers()
+function drivers()
 	descriptions = ref(String)
 	attributes = ref(String)
 	driver_desc = Array(Uint8, 256)
@@ -125,7 +153,7 @@ function ListDrivers()
 	drivers = [descriptions attributes]
 end
 #List defined DSNs
-function ListDatasources()
+function datasources()
 	descriptions = ref(String)
 	attributes = ref(String)
 	dsn_desc = Array(Uint8, 256)
