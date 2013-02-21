@@ -46,7 +46,8 @@ flexibility in connecting to a datasource through specifying a 'connection strin
 See ODBC API documentation (http://goo.gl/uXTuk) for additional details. If the connection string doesn't contain enough
 information for the driver to connect, the user will be prompted with the additional information needed. Furthermore,
 if an empty string is provided ("") the ODBC administrator will be brought up where the user can select the DSN to which
-to connect, even allowing the user to create a datasource or add a driver.
+to connect, even allowing the user to create a datasource or add a driver. (An excellent resource for learning how to construct
+connection strings for various DBMS/driver configurations is http://www.connectionstrings.com/)
 
 query(connection, query): If a connection object isn't specified, the query will be executed against the default
 connection (stored in the variable 'conn' if you'd like to inspect). Once the query is executed, the resultset is 
