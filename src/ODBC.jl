@@ -18,7 +18,7 @@ type Connection
 	stmt_ptr::Ptr{Void}
 	resultset::DataFrame
 end
-function show(io,conn::Connection)
+function show(io::IO,conn::Connection)
 	if conn == null_connection
 		print("Null ODBC Connection Object")
 	else
@@ -46,7 +46,7 @@ type Metadata
 	coldigits::Array{Int16}
 	colnulls::Array{Int16}
 end
-function show(io,meta::Metadata)
+function show(io::IO,meta::Metadata)
 	if meta == null_meta
 		print("No metadata")
 	else
