@@ -132,6 +132,7 @@ end
 disconnect() = disconnect(conn)
 #List Installed Drivers
 function drivers()
+        SQLAllocEnv()
 	descriptions = ref(String)
 	attributes = ref(String)
 	driver_desc = Array(Uint8, 256)
@@ -150,10 +151,11 @@ function drivers()
 		break
 		end
 	end
-	drivers = [descriptions attributes]
+	[descriptions attributes]
 end
 #List defined DSNs
 function datasources()
+        SQLAllocEnv()
 	descriptions = ref(String)
 	attributes = ref(String)
 	dsn_desc = Array(Uint8, 256)
@@ -172,5 +174,5 @@ function datasources()
 		break
 		end
 	end
-	dsns = [descriptions attributes]
+	[descriptions attributes]
 end
