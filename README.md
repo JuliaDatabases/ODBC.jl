@@ -5,10 +5,18 @@ A low-level ODBC interface for the Julia programming language
 
 
 Current Version: Developer Preview v0.0.0
+Last Update: 3/25/2013
+Latest updated notes:
+* Added batch statement support (assuming DMBS supports)
+* Added 'Write to file' functionality for returning resultsets directly to file (see `query()` below)
+* Overhaul of ODBC API low-level functions; all ODBC functions are now implemented, and users are free
+  to inspect 'ODBC API.jl' for useful functions
+* Added a preliminary 'test.jl' file. Connects to the public ensembl.org MySQL database, requires the MySQL
+  Driver to be installed prior
 
 
 The ODBC Julia module header file is ODBC.jl. The module contains SQL const definitions and 
-function definitions aligned with the ODBC API (http://goo.gl/l0Zin) in the `consts.jl` and 
+function definitions aligned with the ODBC API (http://goo.gl/l0Zin) in the `ODBC API.jl` and 
 `backend.jl` files, respectively.
 
 The package is officially listed in the Julia package manager now, so users can load the ODBC package as follows:
@@ -28,8 +36,8 @@ so far are:
 * `advancedconnect()`
 * `query()`
 * `querymeta()`
-* `drivers()`
-* `datasources()`
+* `listdrivers()`
+* `listdsns()`
 * `disconnect()`
 
 These functions implement the backend functions which are built to mirror the
@@ -80,20 +88,30 @@ driver.
 for various DBMS/driver configurations is
 http://www.connectionstrings.com/)
 
-#### `query(connection, query)`
+#### `query(connection, query, output, delim)`
 
 Query a database
 
 If a connection object isn't specified, the query will be executed against
-the default connection (stored in the variable `conn` if you'd like to
+the default connection (stored in the global variable `conn` if you'd like to
 inspect).
 
 Once the query is executed, the resultset is stored in a
-DataFrame. Results are pointed to in the connection object
-(connection.resultset). `querymeta()` will execute query string supplied,
-but only return metadata about the resultset (useful for large datasets)
+DataFrame by default (`output="DataFrame"`). Otherwise, the user may specify
+a file name to which the resultset is to be written, along with a the desired
+file delimiter (default `delim=','`). Depending on DBMS capability, users may also
+pass multiple query statements in a single query call and the resultsets
+will be returned in an array of DataFrames, or the user may specify an array
+of filename strings into which the results will be written. 
 
-#### `drivers()` and `datasources()`
+For the general user, a simple `query(querystring)` is enough to return a single
+resultset in a DataFrame. The alternative `sql"..."` string literal may also be used
+and is equivalent to calling `query(querystring)`.
+Results are pointed to in the connection object
+(connection.resultset). `querymeta()` will execute the query string,
+but only return metadata about the resultset (useful for large query result inspection).
+
+#### `listdrivers()` and `listdsns()`
 
 These two functions take no arguments and invoke the driver manager to
 list installed drivers or defined user and system DSNs, respectively.
