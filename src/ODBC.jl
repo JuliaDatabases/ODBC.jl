@@ -19,7 +19,7 @@ export connect, advancedconnect, query, querymeta, @sql_str, Connection, Metadat
 
 import Base.show, Base.connect
 
-include("ODBC API.jl")
+include("ODBC_API.jl")
 
 #Metadata type holds metadata related to an executed query resultset
 type Metadata
