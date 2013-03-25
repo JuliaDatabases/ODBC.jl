@@ -27,7 +27,18 @@
 #TODO: Is there a better way to ensure we link to the right ODBC .so, .dll, or .dylib file?
 @windows_only const odbc_dm = "odbc32"
 @osx_only const odbc_dm = "libiodbc.dylib"
-@linux_only const odbc_dm = "libodbc.so.1"
+@linux_only let
+    global odbc_dm
+    local lib
+    for lib in ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
+        try
+            dlopen(lib)
+            break
+        end
+        error("ODBC library not found")
+    end
+    @eval const odbc_dm = $lib
+end
 
 #MULIROWFETCH sets the default rowset fetch size used in retrieving resultset blocks from queries
 #TODO: How big can this be? RODBC sets it at 1024, but there seem to be issues in Julia with large dataset retrieval
