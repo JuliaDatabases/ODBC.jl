@@ -78,35 +78,6 @@ function show(io::IO,conn::Connection)
 		end
 	end
 end
-<<<<<<< HEAD
-#Metadata type holds metadata related to an executed query resultset
-type Metadata
-	querystring::String
-	cols::Int
-	rows::Int
-	colnames::Array{ASCIIString}
-	coltypes::Array{Int16}
-	colsizes::Array{Int}
-	coldigits::Array{Int16}
-	colnulls::Array{Int16}
-end
-function show(io::IO,meta::Metadata)
-	if meta == null_meta
-		print("No metadata")
-	else
-		println("Resultset metadata on executed query")
-		println("------------------------------------")
-		println("Columns: $(meta.cols)")
-		println("Rows: $(meta.rows)")
-		println("Column Names: $(meta.colnames)")
-		println("Column Types: $(meta.coltypes)")
-		println("Column Sizes: $(meta.colsizes)")
-		println("Column Digits: $(meta.coldigits)")
-		println("Column Nullable: $(meta.colnulls)")
-	end
-end
-=======
->>>>>>> Major Overhaul
 
 #Global module consts and variables
 const null_resultset = DataFrame(0)
