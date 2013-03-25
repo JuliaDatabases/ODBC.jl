@@ -102,14 +102,9 @@ end
 disconnect() = disconnect(conn)
 
 #List Installed Drivers
-<<<<<<< HEAD
-function drivers()
-        SQLAllocEnv()
-=======
 function listdrivers()
 	global env
 	if env == C_NULL env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) end
->>>>>>> Major Overhaul
 	descriptions = ref(String)
 	attributes = ref(String)
 	driver_desc = Array(Uint8, 256)
@@ -123,14 +118,9 @@ function listdrivers()
 	[descriptions attributes]
 end
 #List defined DSNs
-<<<<<<< HEAD
-function datasources()
-        SQLAllocEnv()
-=======
 function listdsns()
 	global env
 	if env == C_NULL env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) end
->>>>>>> Major Overhaul
 	descriptions = ref(String)
 	attributes = ref(String)
 	dsn_desc = Array(Uint8, 256)
