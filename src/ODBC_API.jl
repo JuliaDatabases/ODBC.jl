@@ -30,13 +30,15 @@
 @linux_only let
     global odbc_dm
     local lib
+    succeeded=false
     for lib in ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
         try
             dlopen(lib)
+            succeeded=true
             break
         end
-        error("ODBC library not found")
     end
+    if !succeeded error("ODBC library not found") end
     @eval const odbc_dm = $lib
 end
 
