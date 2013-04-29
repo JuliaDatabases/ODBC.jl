@@ -189,34 +189,39 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},o
 	else
 		delim = delimiter[result_number+1]
 	end
-	out_file = open(outer,"a")
-	holder = DataFrame(rowset,meta.cols)
-	names!(holder.colindex,meta.colnames)
+	out_file = open(outer,"w")
+	write(out_file,join(meta.colnames,delim)*"\n")
+
 	fetchseq = 1:rowset:meta.rows
 	for i in fetchseq
 		if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-			for j = 1:length(columns)
-				if typeof(columns[j]) == Array{Uint8,2}
-					holder[j] = nullstrip(copy(columns[j][1:rowset*(meta.colsizes[j]+1)]),meta.colsizes[j]+1,rowset)
-				else
-					holder[j] = copy(columns[j][1:rowset])
-				end	
+			for k = 1:rowset, j = 1:meta.cols
+				if j < meta.cols
+					if typeof(columns[j]) == Array{Uint8,2}	
+		        		write(out_file,escape_string(nullstrip(columns[j][:,k])))
+		        		write(out_file,delim)
+		        	else
+						write(out_file,string(columns[j][k]))
+						write(out_file,delim)
+		        	end
+		      	else
+		      		if typeof(columns[j]) == Array{Uint8,2}	
+		        		write(out_file,escape_string(nullstrip(columns[j][:,k])))
+		        		write(out_file,"\n")
+		        	else
+						write(out_file,string(columns[j][k]))
+						write(out_file,"\n")
+		        	end
+		      	end			
 			end
 		else
 			ODBCError(SQL_HANDLE_STMT,stmt)
 			ODBCFreeStmt(stmt)
 			error("[ODBC]: Fetching results failed; Return Code: $ret")
 		end
-		if i == fetchseq.start
-			print_table(out_file,holder,delim,'"',true)
-			print("Retrieving $(meta.rows) rows: ")
-		else
-			print_table(out_file,holder,delim,'"',false)
-			print(round(i/meta.rows,2))
-		end
 	end
 	close(out_file)
-	resultset = DataFrame("Results saved to $output")
+	resultset = DataFrame("Results saved to $outer")
 	return resultset
 end
 #ODBCFreeStmt: used to 'clear' a statement of bound columns, resultsets, and other bound parameters in preparation for a subsequent query
