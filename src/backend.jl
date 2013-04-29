@@ -92,7 +92,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,output::Union(String,Array{Str
 				juliatype = Int16
 			elseif contains((SQL_REAL,SQL_INTEGER),type_value)
 				ctype = SQL_C_LONG
-				juliatype = Int
+				juliatype = Int32
 			elseif type_value == SQL_BIGINT
 				ctype = SQL_C_BIGINT
 				juliatype = Int64
