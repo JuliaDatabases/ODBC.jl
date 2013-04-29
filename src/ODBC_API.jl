@@ -25,13 +25,14 @@
 ###################################################		Macros and Utility Functions	####################################################################################################
 #Link to ODBC Driver Manager (system-dependent)
 #TODO: Is there a better way to ensure we link to the right ODBC .so, .dll, or .dylib file?
-@windows_only const odbc_dm = "odbc32"
-@osx_only const odbc_dm = "libiodbc.dylib"
-@linux_only let
+let
     global odbc_dm
     local lib
     succeeded=false
-    for lib in ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
+    @linux_only lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
+	@windows_only lib_choices = ["odbc32"]
+	@osx_only lib_choices = ["libiodbc.dylib"]
+    for lib in lib_choices 
         try
             dlopen(lib)
             succeeded=true
@@ -42,7 +43,7 @@
     @eval const odbc_dm = $lib
 end
 
-#MULIROWFETCH sets the default rowset fetch size used in retrieving resultset blocks from queries
+#MULTIROWFETCH sets the default rowset fetch size used in retrieving resultset blocks from queries
 #TODO: How big can this be? RODBC sets it at 1024, but there seem to be issues in Julia with large dataset retrieval
 const MULTIROWFETCH = 256
 
