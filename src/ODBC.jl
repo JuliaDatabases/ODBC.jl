@@ -62,6 +62,8 @@ function show(io::IO,conn::Connection)
 		end
 	end
 end
+#There was a weird bug where Connections was showing each Connection 3 times, this seems to solve it
+show(io::IO,conns::Array{Connection,1}) = map(show,conns)
 
 #Global module consts and variables
 const null_resultset = DataFrame(0)
