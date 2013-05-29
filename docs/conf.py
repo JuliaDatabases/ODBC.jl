@@ -12,17 +12,11 @@
 # serve to show the default.
 
 import sys, os
-
 import juliadoc
-
-extensions = ['juliadoc.julia', 'juliadoc.jlhelp']
-html_theme_path = [juliadoc.get_theme_dir()]
-html_sidebars = juliadoc.default_sidebars()
 
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath('sphinx'))
 
 # -- General configuration -----------------------------------------------------
 
@@ -31,10 +25,10 @@ sys.path.insert(0, os.path.abspath('sphinx'))
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.mathjax', 'julia']
+extensions = ['sphinx.ext.mathjax', 'juliadoc.julia', 'juliadoc.jlhelp']
 
 # Add any paths that contain templates here, relative to this directory.
-#templates_path = ['_templates']
+templates_path = []
 
 # The suffix of source filenames.
 source_suffix = '.rst'
@@ -101,7 +95,7 @@ highlight_language = 'julia'
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-#html_theme = 'julia'
+html_theme = 'julia'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -109,7 +103,7 @@ highlight_language = 'julia'
 #html_theme_options = {}
 
 # Add any paths that contain custom themes here, relative to this directory.
-#html_theme_path = ['_themes']
+html_theme_path = [juliadoc.get_theme_dir()]
 
 # The name for this set of Sphinx documents.  If None, it defaults to
 # "<project> v<release> documentation".
@@ -141,11 +135,7 @@ highlight_language = 'julia'
 #html_use_smartypants = True
 
 # Custom sidebar templates, maps document names to template names.
-#html_sidebars = {
-#    '**': ['localtoc.html', 'relations.html', 'searchbox.html'],
-#    'index': [],
-#    'search': [],
-#}
+html_sidebars = juliadoc.default_sidebars()
 
 # Additional templates that should be rendered to pages, maps page names to
 # template names.

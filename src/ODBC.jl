@@ -1,16 +1,3 @@
-#TODO
-#'Create table' function passing a dataframe
-#create test.jl file that has mysql driver and connects to ensembl database
-#Asynchronous querying
-#Finish consts definitions from C header files
-#compare linux, windows, mac header files for differences
-#Test that functions work
-#Create backend/userfacing functions for ODBC API functions
-#read through the 64-bit stuff to really understand if any changes need to be made
-#How to deal with Unicode/ANSI function calling?
-#Fix LargeFetch function; could be more efficient probably
-#Excel, Access driver testing?
-
 module ODBC
 
 using DataFrames
