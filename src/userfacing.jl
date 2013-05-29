@@ -8,8 +8,8 @@ function connect(dsn::String;usr::String="",pwd::String="")
 	dbc = ODBCAllocHandle(SQL_HANDLE_DBC,env)
 	ODBCConnect!(dbc,dsn,usr,pwd)
 	stmt = ODBCAllocHandle(SQL_HANDLE_STMT,dbc)
-		for x in 1:length(Connections)
-			if (Connections[x].dsn==dsn)
+		for c in Connections
+			if (c.dsn==dsn)
 				dsn_number+=1
 			end
 		end
