@@ -45,7 +45,7 @@ end
 
 #MULTIROWFETCH sets the default rowset fetch size used in retrieving resultset blocks from queries
 #TODO: How big can this be? RODBC sets it at 1024, but there seem to be issues in Julia with large dataset retrieval
-const MULTIROWFETCH = 256
+const MULTIROWFETCH = 1024
 
 const SQL_SUCCESS = int16(0)
 const SQL_SUCCESS_WITH_INFO = int16(1)
