@@ -6,7 +6,7 @@ function connect(dsn::String;usr::String="",pwd::String="")
 	dsn_number = 0
 	env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) )
 	dbc = ODBCAllocHandle(SQL_HANDLE_DBC,env)
-	ODBCConnect(dbc,dsn,usr,pwd)
+	ODBCConnect!(dbc,dsn,usr,pwd)
 	stmt = ODBCAllocHandle(SQL_HANDLE_STMT,dbc)
 		for x in 1:length(Connections)
 			if (Connections[x].dsn==dsn)

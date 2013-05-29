@@ -17,7 +17,7 @@ function ODBCAllocHandle(handletype,parenthandle)
 	return handle
 end
 #ODBCConnect: Connect to qualified DSN (pre-established through ODBC Admin), with optional username and password inputs
-function ODBCConnect(dbc::Ptr{Void},dsn::String,username,password)
+function ODBCConnect!(dbc::Ptr{Void},dsn::String,username::String,password::String)
 	if @FAILED SQLConnect(dbc,dsn,username,password)
 		ODBCError(SQL_HANDLE_DBC,dbc)
 		error("[ODBC]: SQLConnect failed; Return Code: $ret")
