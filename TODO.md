@@ -1,6 +1,7 @@
 TODO
 =====
 * Large resultset REPL crash when not saving to a file?
+* Polish readthedocs-style documentation
 * Create SQL typealiases and use in conjunction with Julia-C typealiases for ODBC_API
 * Metadata tools: This would involve specilized queries for examining DBMS schema, tables, views, columns, with 
 associated metadata and possibly statistics. I know the driver managers support SQLTables and SQLStatistics, so it 
