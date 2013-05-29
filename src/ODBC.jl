@@ -19,7 +19,6 @@ type Metadata
 	coldigits::Array{Int16}
 	colnulls::Array{Int16}
 end
-show(meta::Metadata) = show(OUTPUT_STREAM,meta)
 function show(io::IO,meta::Metadata)
 	if meta == null_meta
 		print(io,"No metadata")
@@ -33,12 +32,8 @@ function show(io::IO,meta::Metadata)
 		println(io,"Column Sizes: $(meta.colsizes)")
 		println(io,"Column Digits: $(meta.coldigits)")
 		println(io,"Column Nullable: $(meta.colnulls)")
+		print(io,"Query: $(meta.querystring)")
 	end 
-end
-function show(io::IO,t::Array{Metadata,1})
-	for i in t
-		show(i)
-	end
 end
 #Connection object that holds information related to each established connection and retrieved resultsets
 type Connection
@@ -46,6 +41,8 @@ type Connection
 	number::Int
 	dbc_ptr::Ptr{Void}
 	stmt_ptr::Ptr{Void}
+	#Holding the last resultset if useful if the user runs several test queries just using `query()` or `sql"..."`
+	#then realizes the last resultset should actually be saved to a variable (happended to me all the time in RODBC)
 	resultset::Union(DataFrame,Array{DataFrame,1},Metadata,Array{Metadata,1})
 end
 function show(io::IO,conn::Connection)
@@ -61,7 +58,7 @@ function show(io::IO,conn::Connection)
 		if isequal(conn.resultset,null_resultset)
 		print("Contains resultset? No")
 		else
-		print("Contains resultset(s)? Yes (access by referencing the resultset field)")
+		print("Contains resultset(s)? Yes (access by referencing the resultset field (e.g. conn.resultset))")
 		end
 	end
 end
