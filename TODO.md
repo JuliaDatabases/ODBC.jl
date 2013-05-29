@@ -1,4 +1,7 @@
-#TODO
+TODO
+=====
+* Large resultset REPL crash when not saving to a file?
+* Create SQL typealiases and use in conjunction with Julia-C typealiases for ODBC_API
 * Metadata tools: This would involve specilized queries for examining DBMS schema, tables, views, columns, with 
 associated metadata and possibly statistics. I know the driver managers support SQLTables and SQLStatistics, so it 
 should be pretty simple to implement these.
@@ -11,3 +14,4 @@ spent a ton of time on this yet, so it's an eventual (I think the R package stil
 polling, so it would be cool to find a way to implement this. I'm not sure how useful it would be long term or exactly how
 it would be implemented (Call asyncquery() and then later call querydone() to see if it's finished?), but because the underlying
 api is capable this could be some cool functionality.
+* How to deal with Unicode/ANSI function calling?
