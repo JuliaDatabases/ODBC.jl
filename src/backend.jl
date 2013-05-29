@@ -25,7 +25,7 @@ function ODBCConnect!(dbc::Ptr{Void},dsn::String,username::String,password::Stri
 end
 ls
 #ODBCDriverConnect: Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin
-function ODBCDriverConnect(dbc::Ptr{Void},conn_string::String,driver_prompt::Uint16)
+function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::String,driver_prompt::Uint16)
 	window_handle = C_NULL	
 	@windows_only window_handle = ccall( (:GetForegroundWindow, "user32"), Ptr{Void}, () )
 		

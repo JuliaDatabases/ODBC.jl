@@ -8,14 +8,14 @@ function connect(dsn::String;usr::String="",pwd::String="")
 	dbc = ODBCAllocHandle(SQL_HANDLE_DBC,env)
 	ODBCConnect!(dbc,dsn,usr,pwd)
 	stmt = ODBCAllocHandle(SQL_HANDLE_STMT,dbc)
-		for c in Connections
-			if (c.dsn==dsn)
-				dsn_number+=1
-			end
+	for c in Connections
+		if (c.dsn==dsn)
+			dsn_number+=1
 		end
-		conn = Connection(dsn,dsn_number+1,dbc,stmt,null_resultset)
-		push!(Connections,conn)
-		println("Connection $(conn.number) to $(conn.dsn) successful.")  
+	end
+	conn = Connection(dsn,dsn_number+1,dbc,stmt,null_resultset)
+	push!(Connections,conn)
+	print("Connection $(conn.number) to $(conn.dsn) successful.")  
 end
 #avancedconnect: 
 function advancedconnect(conn_string::String=" ";driver_prompt::Uint16=SQL_DRIVER_PROMPT)
@@ -25,16 +25,16 @@ function advancedconnect(conn_string::String=" ";driver_prompt::Uint16=SQL_DRIVE
 	dsn_number = 0
 	env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) )
 	dbc = ODBCAllocHandle(SQL_HANDLE_DBC,env)
-	ODBCDriverConnect(dbc,conn_string,driver_prompt)
+	ODBCDriverConnect!(dbc,conn_string,driver_prompt)
 	stmt = ODBCAllocHandle(SQL_HANDLE_STMT,dbc)
-		for x in 1:length(Connections)
-			if (Connections[x].dsn==conn_string)
-				dsn_number+=1
-			end
+	for c in Connections
+		if (c.dsn==conn_string)
+			dsn_number+=1
 		end
-		conn = Connection(conn_string,dsn_number+1,dbc,stmt,null_resultset)
-		push!(Connections,conn)
-		println("Connection $(conn.number) to $(conn.dsn) successful.")  
+	end
+	conn = Connection(conn_string,dsn_number+1,dbc,stmt,null_resultset)
+	push!(Connections,conn)
+	print("Connection $(conn.number) to $(conn.dsn) successful.")  
 end
 #query: Sends query string to DBMS, once executed, resultset metadata is returned, space is allocated, and results are returned
 function query(conn::Connection=conn, querystring::String; file::Union(String,Array{String,1})="DataFrame",delim::Union(Char,Array{Char,1})='\t')
