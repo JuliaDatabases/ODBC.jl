@@ -66,12 +66,12 @@ end
 
 macro SUCCEEDED(func)
 	global ret = ret_lu(func)
-	:( ($func == SQL_SUCCESS || $func == SQL_SUCCESS_WITH_INFO) ? true : false )
+	:( return_code = $func; (return_code == SQL_SUCCESS || return_code == SQL_SUCCESS_WITH_INFO) ? true : false )
 end
 
 macro FAILED(func)
 	global ret = ret_lu(func)
-	:( ($func != SQL_SUCCESS && $func != SQL_SUCCESS_WITH_INFO) ? true : false )
+	:( return_code = $func; (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO) ? true : false )
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms712400(v=vs.85).aspx
