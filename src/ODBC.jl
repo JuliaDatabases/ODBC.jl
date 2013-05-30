@@ -66,6 +66,7 @@ end
 #There was a weird bug where Connections was showing each Connection 3 times, this seems to solve it
 show(io::IO,conns::Array{Connection,1}) = map(show,conns)
 
+typealias Output{T <: String} Union(Symbol,T,Array{T,1})
 #Global module consts and variables
 const null_resultset = DataFrame(0)
 const null_connection = Connection("",0,C_NULL,C_NULL,null_resultset)

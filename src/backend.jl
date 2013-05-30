@@ -71,7 +71,7 @@ function ODBCMetadata(stmt::Ptr{Void},querystring::String)
 	return Metadata(querystring,int(cols[1]),rows[1],colnames,coltypes,colsizes,coldigits,colnulls)
 end
 #ODBCFetch: Using resultset metadata, allocate space/arrays for previously generated resultset, retrieve results
-function ODBCFetch(stmt::Ptr{Void},meta::Metadata,output::Union(String,Array{String,1}),delimiter::Union(Char,Array{Char,1}),result_number::Int)
+function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char,Array{Char,1}),result_number::Int)
 	if (meta.rows != 0 && meta.cols != 0) #with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
 		rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
 		SQLSetStmtAttr(stmt,SQL_ATTR_ROW_ARRAY_SIZE,uint(rowset),SQL_IS_UINTEGER)
@@ -79,8 +79,8 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,output::Union(String,Array{Str
 		columns = ref(Any)
 		julia_types = ref(Any)
 		#Main numeric types are mapped to appropriate Julia types; all others currently default to strings via Uint8 Arrays
-		#Once Julia has a system for passing C structs, we can support native date and timestamp types
-		#See the bottom of 'ODBC_API.jl' file for more information on type mapping
+		#Once Julia has a system for passing C structs, we can support native date, timestamp, and interval types
+		#See the ODBC_Types.jl file for more information on type mapping
 		for x in 1:meta.cols
 			sqltype = meta.coltypes[x][2]
 			ctype = get(SQL2C,sqltype,SQL_C_CHAR)
@@ -95,9 +95,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,output::Union(String,Array{Str
 				error("[ODBC]: SQLBindCol $x failed; Return Code: $ret")
 			end
 		end
-		if !ismatch(r"dataframe"i,output)
-			resultset = ODBCDirectToFile(stmt,meta,columns,output,delimiter,result_number)
-		else	
+		if file == :DataFrame
 			if rowset < meta.rows #if we need multiple fetchscroll calls
 				resultset = ODBCLargeFetch(stmt,meta,columns,julia_types)
 			else #if we only need one fetchscroll call
@@ -114,6 +112,10 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,output::Union(String,Array{Str
 					error("[ODBC]: Fetching results failed; Return Code: $ret")
 				end
 			end
+		elseif typeof(file) == Symbol
+			error("[ODBC]: No result retrieval method is implemented for $file")
+		else
+			resultset = ODBCDirectToFile(stmt,meta,columns,file,delim,result_number)
 		end
 		return resultset
 	else
@@ -156,20 +158,20 @@ function ODBCLargeFetch(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},jul
 	end
 	return resultset
 end
-function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},output::Union(String,Array{String,1}),delimiter::Union(Char,Array{Char,1}),result_number::Int)
+function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},file::Output,delim::Union(Char,Array{Char,1}),result_number::Int)
 	#TODO:
 	#need to just straight copy columns as dataarrays then print_table on combined dataframe with each loop, with header = TRUE on first loop
-	#how to specify .csv .txt? allow delimiter in query()?
+	#how to specify .csv .txt? allow delim in query()?
 	rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
-	if typeof(output) == ASCIIString #If there's just one filename given
-		outer = output
+	if typeof(file) == ASCIIString #If there's just one filename given
+		outer = file
 	else
-		outer = output[result_number+1]
+		outer = file[result_number+1]
 	end
-	if typeof(delimiter) == Char
-		delim = delimiter
+	if typeof(delim) == Char
+		delim = delim
 	else
-		delim = delimiter[result_number+1]
+		delim = delim[result_number+1]
 	end
 	out_file = open(outer,"w")
 	write(out_file,join(meta.colnames,delim)*"\n")

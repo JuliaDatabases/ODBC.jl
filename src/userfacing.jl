@@ -37,7 +37,7 @@ function advancedconnect(conn_string::String=" ";driver_prompt::Uint16=SQL_DRIVE
 	print("Connection $(conn.number) to $(conn.dsn) successful.")  
 end
 #query: Sends query string to DBMS, once executed, resultset metadata is returned, space is allocated, and results are returned
-function query(conn::Connection=conn, querystring::String; file::Union(String,Array{String,1})="DataFrame",delim::Union(Char,Array{Char,1})='\t')
+function query(conn::Connection=conn, querystring::String; file::Output=:DataFrame,delim::Union(Char,Array{Char,1})='\t')
 	if conn == null_connection
 		error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
 	end
