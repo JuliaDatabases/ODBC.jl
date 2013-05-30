@@ -41,7 +41,7 @@ function query(conn::Connection=conn, querystring::String; file::Union(String,Ar
 	if conn == null_connection
 		error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
 	end
-	ODBCFreeStmt(conn.stmt_ptr)
+	ODBCFreeStmt!(conn.stmt_ptr)
 	ODBCQueryExecute(conn.stmt_ptr,querystring)
 	holder = ref(DataFrame)
 		while true
@@ -50,9 +50,11 @@ function query(conn::Connection=conn, querystring::String; file::Union(String,Ar
 			(@FAILED SQLMoreResults(conn.stmt_ptr)) && break
 		end
 	conn.resultset = length(holder) == 1 ? holder[1] : holder
-	ODBCFreeStmt(conn.stmt_ptr)
+	ODBCFreeStmt!(conn.stmt_ptr)
 	return conn.resultset
 end
+# sql"..." string literal for convenience; it doesn't do anything different than query right now,
+#but we could potentially do some interesting things here
 macro sql_str(s)
 	query(s)
 end
@@ -62,7 +64,7 @@ function querymeta(conn::Connection=conn, querystring::String; file::Union(Strin
 	if conn == null_connection
 		error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
 	end
-	ODBCFreeStmt(conn.stmt_ptr)
+	ODBCFreeStmt!(conn.stmt_ptr)
 	ODBCQueryExecute(conn.stmt_ptr,querystring)
 	holder = ref(Metadata)
 	while true
@@ -70,14 +72,14 @@ function querymeta(conn::Connection=conn, querystring::String; file::Union(Strin
 		(@FAILED SQLMoreResults(conn.stmt_ptr)) && break
 	end
 	conn.resultset = length(holder) == 1 ? holder[1] : holder
-	ODBCFreeStmt(conn.stmt_ptr)
+	ODBCFreeStmt!(conn.stmt_ptr)
 	return conn.resultset
 end
 #disconnect:
 function disconnect(connection::Connection=conn)
 	global conn
 	global Connections
-	ODBCFreeStmt(connection.stmt_ptr)
+	ODBCFreeStmt!(connection.stmt_ptr)
 	SQLDisconnect(connection.dbc_ptr)
 		for x = 1:length(Connections)
 			if connection.dsn == Connections[x].dsn && connection.number == Connections[x].number
@@ -86,7 +88,7 @@ function disconnect(connection::Connection=conn)
 					if length(Connections) != 0
 						conn = Connections[end]
 					else
-						conn = null_connection #Create null default connection
+						conn = null_connection #Reset conn to null default connection
 					end
 				end
 			end
@@ -96,7 +98,7 @@ end
 #List Installed Drivers
 function listdrivers()
 	global env
-	if env == C_NULL env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) end
+	env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) )
 	descriptions = ref(String)
 	attributes = ref(String)
 	driver_desc = Array(Uint8, 256)
@@ -107,12 +109,12 @@ function listdrivers()
 		push!(descriptions,nullstrip(driver_desc))
 		push!(attributes,nullstrip(driver_attr))
 	end
-	[descriptions attributes]
+	return [descriptions attributes]
 end
 #List defined DSNs
 function listdsns()
 	global env
-	if env == C_NULL env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) end
+	env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) )
 	descriptions = ref(String)
 	attributes = ref(String)
 	dsn_desc = Array(Uint8, 256)
@@ -123,5 +125,5 @@ function listdsns()
 		push!(descriptions,nullstrip(dsn_desc))
 		push!(attributes,nullstrip(dsn_attr))
 	end
-	[descriptions attributes]
+	return [descriptions attributes]
 end
