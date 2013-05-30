@@ -1,4 +1,6 @@
 #Translation of sqltypes.h; C typealiases for SQL functions
+#http://msdn.microsoft.com/en-us/library/windows/desktop/ms716298(v=vs.85).aspx
+#http://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
 typealias SQLCHAR Cuchar	
 typealias SQLSCHAR Cchar		
 typealias SQLDATE Cuchar	
@@ -151,7 +153,7 @@ const SQL_C_LONG = int16(4)
 const SQL_C_FLOAT = int16(7)
 const SQL_C_BIT = int16(-7)
 const SQL_C_TINYINT = int16(-6)
-const SQL_C_BIGINT = int16(-5)
+const SQL_C_BIGINT = int16(-27)
 const SQL_C_BINARY = int16(-2)
 #const SQL_C_TYPE_DATE = int16(91)
 #const SQL_C_TYPE_TIME = int16(92)
