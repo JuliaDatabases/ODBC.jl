@@ -20,18 +20,16 @@
  #Resultset Retrieval Functions
  #DBMS Meta Functions
  #Error Handling and Diagnostics
- #SQL - C - Julia Data Type Mappings
  
 ###################################################		Macros and Utility Functions	####################################################################################################
 #Link to ODBC Driver Manager (system-dependent)
-#TODO: Is there a better way to ensure we link to the right ODBC .so, .dll, or .dylib file?
 let
     global odbc_dm
     local lib
     succeeded=false
     @linux_only lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
 	@windows_only lib_choices = ["odbc32"]
-	@osx_only lib_choices = ["libiodbc.dylib"]
+	@osx_only lib_choices = ["libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
     for lib in lib_choices 
         try
             dlopen(lib)
@@ -44,7 +42,6 @@ let
 end
 
 #MULTIROWFETCH sets the default rowset fetch size used in retrieving resultset blocks from queries
-#TODO: How big can this be? RODBC sets it at 1024, but there seem to be issues in Julia with large dataset retrieval
 const MULTIROWFETCH = 1024
 
 const SQL_SUCCESS = int16(0)
@@ -59,7 +56,7 @@ const RETURN_VALUES = [SQL_ERROR=>"SQL_ERROR",SQL_INVALID_HANDLE=>"SQL_INVALID_H
 
 #Macros to to check if a function returned a success value or not; used with 'if' statements
 #e.g. if @SUCCEEDED SQLDisconnect(dbc) print("Disconnected successfully") end
-#ret_lu takes a function's return code and returns a text version by lookingup its value in the RETURN_VALUES dict (defined above)
+#ret_lu takes a function's return code and returns a text version by looking up its value in the RETURN_VALUES dict (defined above)
 function ret_lu(ret)
 	return get(RETURN_VALUES,ret,"SQL_DEFAULT_ERROR")
 end
@@ -674,45 +671,3 @@ function SQLGetDiagRec(handletype::Int16,handle::Ptr{Void},i::Int16,state::Array
 		Int16, (Int16,Ptr{Void},Int16,Ptr{Uint8},Ptr{Int},Ptr{Uint8},Int16,Ptr{Int16}),
 		handletype,handle,i,state,native,error_msg,length(error_msg),msg_length)
 end
-
-###################################################		SQL - C - Julia Data Type Mappings	####################################################################################################
-#SQL Data Types; C Data Types; Julia Types
-#(*Note: SQL data types are returned in resultset metadata calls, and C data types are accepted by the DBMS for conversion)
-#Data Type Status: Pretty good, I think we're at 95% support, really only missing native DATE, TIME, GUID. I think there are some other Time Interval types too.
-#The other thing I haven't tested/played around with is Unicode support, I think we're reading it in right, but I'm not sure.
-const SQL_TINYINT = const SQL_C_TINYINT = int16(-6); #Int8
-const SQL_SMALLINT = int16(5); #Int16
-const SQL_C_SHORT = int16(-15) #Int16
-const SQL_INTEGER = int16(4); #Int32
-const SQL_C_LONG = int16(-16) #Int32
-const SQL_REAL = int16(7); #Int32
-const SQL_BIGINT = int16(-5); #Int64
-const SQL_C_BIGINT = int16(-27); #Int64
-#I originally thought of trying to reduce the float types to Ints if the metadata returned 0 column digits, but several drivers don't accurately return the decimal_digits of a column
-#so Float64 is the default so no precision is lost
-#An idea is to have DataFrames type inference support to reduce all these types to their smallest accurate representation when they are plugged into the DataFrame
-#I believe R does something to this affect (though its type system is a completely different animal)
-const SQL_DECIMAL = int16(3); #Float64
-const SQL_NUMERIC = int16(2); #Float64
-const SQL_FLOAT = int16(6); #Float64
-const SQL_C_FLOAT = int16(7); #Float64
-const SQL_DOUBLE = const SQL_C_DOUBLE = int16(8); #Float64
-
-const SQL_CHAR = const SQL_C_CHAR = int16(1); #SQL and C data type for Uint8
-const SQL_VARCHAR = int16(12); #Uint8
-const SQL_LONGVARCHAR = int16(-1); #Uint8
-const SQL_WCHAR = int16(-8); #Uint8
-const SQL_WVARCHAR = int16(-9); #Uint8
-const SQL_WLONGVARCHAR = int16(-10); #Uint8
-
-const SQL_BIT = int16(-7); #Int8 - Will be 0 or 1
-const SQL_BINARY = int16(-2); #Uint8 (should leave as-is once retrieved?)
-const SQL_VARBINARY = int16(-3); #Uint8 (should leave as-is once retrieved?)
-const SQL_LONGVARBINARY = int16(-4); #Uint8 (should leave as-is once retrieved?)
-
-#For now, all other types are just interpreted as SQL_C_CHAR, Uint8 bytestrings
-#const SQL_TYPE_DATE = 91 
-#const SQL_TYPE_TIME = 92
-#const SQL_TYPE_TIMESTAMP = 93
-const SQL_TYPES = [-6=>"SQL_TINYINT",5=>"SQL_SMALLINT",4=>"SQL_INTEGER",7=>"SQL_REAL",-5=>"SQL_BIGINT",3=>"SQL_DECIMAL",2=>"SQL_NUMERIC",6=>"SQL_FLOAT",8=>"SQL_DOUBLE",1=>"SQL_CHAR",12=>"SQL_VARCHAR",
--1=>"SQL_LONGVARCHAR",-8=>"SQL_WCHAR",-9=>"SQL_WVARCHAR",-10=>"SQL_WLONGVARCHAR",-7=>"SQL_BIT",-2=>"SQL_BINARY",-3=>"SQL_VARBINARY",-4=>"SQL_LONGVARBINARY",91=>"SQL_TYPE_DATE",92=>"SQL_TYPE_TIME",93=>"SQL_TYPE_TIMESTAMP"]
