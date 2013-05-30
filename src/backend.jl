@@ -23,12 +23,11 @@ function ODBCConnect!(dbc::Ptr{Void},dsn::String,username::String,password::Stri
 		error("[ODBC]: SQLConnect failed; Return Code: $ret")
 	end
 end
-ls
 #ODBCDriverConnect: Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin
 function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::String,driver_prompt::Uint16)
 	window_handle = C_NULL	
 	@windows_only window_handle = ccall( (:GetForegroundWindow, "user32"), Ptr{Void}, () )
-		
+
 	if @FAILED SQLDriverConnect(dbc,window_handle,conn_string,ref(Uint8),ref(Int16),driver_prompt)
 		ODBCError(SQL_HANDLE_DBC,dbc)
 		error("[ODBC]: SQLDriverConnect failed; Return Code: $ret")
@@ -81,32 +80,15 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,output::Union(String,Array{Str
 		julia_types = ref(Any)
 		#Main numeric types are mapped to appropriate Julia types; all others currently default to strings via Uint8 Arrays
 		#Once Julia has a system for passing C structs, we can support native date and timestamp types
-		#See the 'consts.jl' file for more information
+		#See the bottom of 'ODBC_API.jl' file for more information on type mapping
 		for x in 1:meta.cols
-			type_value = meta.coltypes[x][2]
-			if contains((SQL_BIT,SQL_TINYINT),type_value)
-				ctype = SQL_C_TINYINT
-				juliatype = Int8
-			elseif type_value == SQL_SMALLINT
-				ctype = SQL_C_SHORT
-				juliatype = Int16
-			elseif contains((SQL_REAL,SQL_INTEGER),type_value)
-				ctype = SQL_C_BIGINT
-				juliatype = Int64
-			elseif type_value == SQL_BIGINT
-				ctype = SQL_C_BIGINT
-				juliatype = Int64
-			elseif contains((SQL_DECIMAL,SQL_NUMERIC,SQL_FLOAT,SQL_DOUBLE),type_value)
-				ctype = SQL_C_DOUBLE
-				juliatype = Float64
-			else
-				ctype = SQL_C_CHAR
-				juliatype = Uint8
-			end
-			holder = juliatype == Uint8 ? Array(Uint8, (meta.colsizes[x]+1,rowset)) : Array(juliatype, rowset)
-			jlsize = juliatype == Uint8 ? meta.colsizes[x]+1 : sizeof(juliatype)
-			push!(julia_types,juliatype == Uint8 ? String : juliatype)
-			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,jlsize,indicator,juliatype)
+			sqltype = meta.coltypes[x][2]
+			ctype = get(SQL2C,sqltype,SQL_C_CHAR)
+			jtype = get(SQL2Julia,sqltype,Uint8)
+			holder = jtype == Uint8 ? Array(Uint8, (meta.colsizes[x]+1,rowset)) : Array(jtype, rowset)
+			jlsize = jtype == Uint8 ? meta.colsizes[x]+1 : sizeof(jtype)
+			push!(julia_types,jtype == Uint8 ? String : jtype)
+			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,jlsize,indicator,jtype)
 				push!(columns,holder)
 			else #SQL_ERROR
 				ODBCError(SQL_HANDLE_STMT,stmt)
