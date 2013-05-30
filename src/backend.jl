@@ -128,7 +128,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,output::Union(String,Array{Str
 					resultset = DataFrame(columns, Index(meta.colnames))
 				else
 					ODBCError(SQL_HANDLE_STMT,stmt)
-					ODBCFreeStmt(stmt)
+					ODBCFreeStmt!(stmt)
 					error("[ODBC]: Fetching results failed; Return Code: $ret")
 				end
 			end
@@ -168,7 +168,7 @@ function ODBCLargeFetch(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},jul
 			end
 		else
 			ODBCError(SQL_HANDLE_STMT,stmt)
-			ODBCFreeStmt(stmt)
+			ODBCFreeStmt!(stmt)
 			error("[ODBC]: Fetching results failed; Return Code: $ret")
 		end
 	end
@@ -216,7 +216,7 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},o
 			end
 		else
 			ODBCError(SQL_HANDLE_STMT,stmt)
-			ODBCFreeStmt(stmt)
+			ODBCFreeStmt!(stmt)
 			error("[ODBC]: Fetching results failed; Return Code: $ret")
 		end
 	end
@@ -224,8 +224,8 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},o
 	resultset = DataFrame("Results saved to $outer")
 	return resultset
 end
-#ODBCFreeStmt: used to 'clear' a statement of bound columns, resultsets, and other bound parameters in preparation for a subsequent query
-function ODBCFreeStmt(stmt)
+#ODBCFreeStmt!: used to 'clear' a statement of bound columns, resultsets, and other bound parameters in preparation for a subsequent query
+function ODBCFreeStmt!(stmt)
 	SQLFreeStmt(stmt,SQL_CLOSE)
 	SQLFreeStmt(stmt,SQL_UNBIND)
 	SQLFreeStmt(stmt,SQL_RESET_PARAMS)
