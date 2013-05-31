@@ -467,10 +467,10 @@ function SQLBindParameter{T}(stmt::Ptr{Void},x::Int,iotype::Int16,ctype::Int16,s
 end
 SQLSetParam = SQLBindParameter
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711010(v=vs.85).aspx
-function SQLBindCols{T,N}(stmt::Ptr{Void},x::Int,ctype::Int16,holder::Array{T,N},jlsize::Int,indicator::Array{Int,2},::Type{T})
+function SQLBindCols{T,N}(stmt::Ptr{Void},x::Int,ctype::Int16,holder::Array{T,N},jlsize::Int,indicator::Ptr{Void},::Type{T})
 	return ccall( (:SQLBindCol, odbc_dm), stdcall, 
-		Int16, (Ptr{Void},Uint16,Int16,Ptr{T},Int,Ptr{Int}),
-		stmt,x,ctype,holder,jlsize,indicator[:,x])
+		Int16, (Ptr{Void},Uint16,Int16,Ptr{T},Int,Ptr{Void}),
+		stmt,x,ctype,holder,jlsize,indicator)
 end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711707(v=vs.85).aspx
 function SQLSetCursorName(stmt::Ptr{Void},cursor::String)

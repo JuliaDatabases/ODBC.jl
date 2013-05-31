@@ -75,9 +75,9 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char
 	if (meta.rows != 0 && meta.cols != 0) #with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
 		rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
 		SQLSetStmtAttr(stmt,SQL_ATTR_ROW_ARRAY_SIZE,uint(rowset),SQL_IS_UINTEGER)
-		indicator = Array(Int, (rowset,meta.cols))
+		# indicator = Array(Int32, (rowset,meta.cols))
 		columns = ref(Any)
-		julia_types = ref(Any)
+		julia_types = ref(DataType)
 		#Main numeric types are mapped to appropriate Julia types; all others currently default to strings via Uint8 Arrays
 		#Once Julia has a system for passing C structs, we can support native date, timestamp, and interval types
 		#See the ODBC_Types.jl file for more information on type mapping
@@ -88,7 +88,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char
 			holder = jtype == Uint8 ? Array(Uint8, (meta.colsizes[x]+1,rowset)) : Array(jtype, rowset)
 			jlsize = jtype == Uint8 ? meta.colsizes[x]+1 : sizeof(jtype)
 			push!(julia_types,jtype == Uint8 ? String : jtype)
-			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,jlsize,indicator,jtype)
+			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,jlsize,C_NULL,jtype)
 				push!(columns,holder)
 			else #SQL_ERROR
 				ODBCError(SQL_HANDLE_STMT,stmt)
@@ -97,7 +97,32 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char
 		end
 		if file == :DataFrame
 			if rowset < meta.rows #if we need multiple fetchscroll calls
-				resultset = ODBCLargeFetch(stmt,meta,columns,julia_types)
+				cols = ref(Any)
+				for j = 1:meta.cols
+					push!(cols,ref(julia_types[j]))
+				end
+				fetchseq = 1:rowset:meta.rows
+				for i in fetchseq
+					if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
+						if i == last(fetchseq)
+							colend = meta.rows - i + 1
+						else
+							colend = rowset
+						end
+						for j = 1:meta.cols
+							if typeof(columns[j]) == Array{Uint8,2}
+								append!(cols[j],nullstrip(columns[j][1:colend*(meta.colsizes[j]+1)],meta.colsizes[j]+1,colend))
+							else
+								append!(cols[j],deepcopy(columns[j][1:colend]))
+							end	
+						end
+					else
+						ODBCError(SQL_HANDLE_STMT,stmt)
+						ODBCFreeStmt!(stmt)
+						error("[ODBC]: Fetching results failed; Return Code: $ret")
+					end
+				end
+				resultset = DataFrame(cols, Index(meta.colnames))
 			else #if we only need one fetchscroll call
 				if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
 					for j = 1:meta.cols
@@ -122,48 +147,12 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char
 		return DataFrame("No Rows Returned")
 	end
 end
-function ODBCLargeFetch(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},julia_types::Array{Any,1})
-	rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
-	cols = Array(Any,length(columns))
-	for i = 1:length(columns)
-		cols[i] = DataArray(julia_types[i],meta.rows)
-		for j in 1:meta.rows
-		    cols[i][j] = DataFrames.baseval(julia_types[i])
-            cols[i][j] = NA
-		end
-	end
-	resultset = DataFrame(cols, Index(meta.colnames))
-	fetchseq = 1:rowset:meta.rows
-	for i in fetchseq
-		if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-			if i == last(fetchseq)
-				dfend = meta.rows
-				colend = meta.rows - i + 1
-			else
-				dfend = i+rowset-1		
-				colend = rowset
-			end
-			for j = 1:length(columns)
-				if typeof(columns[j]) == Array{Uint8,2}
-					resultset[i:dfend,j] = nullstrip(copy(columns[j][1:colend*(meta.colsizes[j]+1)]),meta.colsizes[j]+1,colend)
-				else
-					resultset[i:dfend,j] = copy(columns[j][1:colend])
-				end	
-			end
-		else
-			ODBCError(SQL_HANDLE_STMT,stmt)
-			ODBCFreeStmt!(stmt)
-			error("[ODBC]: Fetching results failed; Return Code: $ret")
-		end
-	end
-	return resultset
-end
 function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},file::Output,delim::Union(Char,Array{Char,1}),result_number::Int)
 	#TODO:
-	#need to just straight copy columns as dataarrays then print_table on combined dataframe with each loop, with header = TRUE on first loop
+	#I think we're double writing some values on the last rowset fetch! Need to confirm though...
 	#how to specify .csv .txt? allow delim in query()?
 	rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
-	if typeof(file) == ASCIIString #If there's just one filename given
+	if typeof(file) <: String #If there's just one filename given
 		outer = file
 	else
 		outer = file[result_number+1]
@@ -223,12 +212,11 @@ function nullstrip(string::Array{Uint8})
 	bytes = search(bytestring(string),"\0")[1] - 1
 	bytestring(string[1:bytes])
 end
-function nullstrip(stringblob, colsize::Real, rowset::Real)
-	a = DataArray(String,rowset)
+function nullstrip(stringblob, colsize::Int, rowset::Int)
+	a = Array(String,rowset)
 	n = 1
 	for i in 1:colsize:length(stringblob)
 		a[n] = nullstrip(stringblob[i:i+colsize-1])
-		if a[n] == "" a[n] = NA end
 		n+=1
 	end
 	return a
