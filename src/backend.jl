@@ -76,7 +76,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,output::Union(String,Array{Str
 	if (meta.rows != 0 && meta.cols != 0) #with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
 		rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
 		SQLSetStmtAttr(stmt,SQL_ATTR_ROW_ARRAY_SIZE,uint(rowset),SQL_IS_UINTEGER)
-		indicator = Array(Int, (rowset,meta.cols))
+		#indicator = Array(Int, (rowset,meta.cols))
 		columns = ref(Any)
 		julia_types = ref(Any)
 		#Main numeric types are mapped to appropriate Julia types; all others currently default to strings via Uint8 Arrays
@@ -106,7 +106,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,output::Union(String,Array{Str
 			holder = juliatype == Uint8 ? Array(Uint8, (meta.colsizes[x]+1,rowset)) : Array(juliatype, rowset)
 			jlsize = juliatype == Uint8 ? meta.colsizes[x]+1 : sizeof(juliatype)
 			push!(julia_types,juliatype == Uint8 ? String : juliatype)
-			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,jlsize,indicator,juliatype)
+			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,jlsize,C_NULL,juliatype)
 				push!(columns,holder)
 			else #SQL_ERROR
 				ODBCError(SQL_HANDLE_STMT,stmt)
