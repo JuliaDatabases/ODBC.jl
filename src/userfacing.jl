@@ -1,5 +1,5 @@
 #connect: Connect to DSN, returns Connection object, also stores Connection information in global default 'conn' object and global 'Connections' connections array
-function connect(dsn::String;usr::String="",pwd::String="")
+function connect(dsn::String; usr::String="", pwd::String="")
 	global Connections
 	global conn
 	global env
@@ -18,7 +18,7 @@ function connect(dsn::String;usr::String="",pwd::String="")
 	print("Connection $(conn.number) to $(conn.dsn) successful.")  
 end
 #avancedconnect: 
-function advancedconnect(conn_string::String=" ";driver_prompt::Uint16=SQL_DRIVER_PROMPT)
+function advancedconnect(conn_string::String=" "; driver_prompt::Uint16=SQL_DRIVER_PROMPT)
 	global Connections
 	global conn
 	global env
@@ -60,7 +60,7 @@ macro sql_str(s)
 end
 #querymeta: Sends query string to DBMS, once executed, resultset metadata is returned
 #it may seem odd to include the other arguments for querymeta, but it's so switching between query and querymeta doesn't require exluding args (convenience)
-function querymeta(conn::Connection=conn, querystring::String; file::Union(String,Array{String,1})="DataFrame",delim::Union(Char,Array{Char,1})='\t')
+function querymeta(conn::Connection=conn, querystring::String; file::Output=:DataFrame,delim::Union(Char,Array{Char,1})='\t')
 	if conn == null_connection
 		error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
 	end
