@@ -75,7 +75,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char
 	if (meta.rows != 0 && meta.cols != 0) #with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
 		rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
 		SQLSetStmtAttr(stmt,SQL_ATTR_ROW_ARRAY_SIZE,uint(rowset),SQL_IS_UINTEGER)
-		# indicator = Array(Int32, (rowset,meta.cols))
+		indicator = ref(Any)
 		columns = ref(Any)
 		julia_types = ref(DataType)
 		#Main numeric types are mapped to appropriate Julia types; all others currently default to strings via Uint8 Arrays
@@ -86,10 +86,12 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char
 			ctype = get(SQL2C,sqltype,SQL_C_CHAR)
 			jtype = get(SQL2Julia,sqltype,Uint8)
 			holder = jtype == Uint8 ? Array(Uint8, (meta.colsizes[x]+1,rowset)) : Array(jtype, rowset)
+			ind = Array(Int,rowset)
 			jlsize = jtype == Uint8 ? meta.colsizes[x]+1 : sizeof(jtype)
 			push!(julia_types,jtype == Uint8 ? String : jtype)
-			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,jlsize,C_NULL,jtype)
+			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,jlsize,ind,jtype)
 				push!(columns,holder)
+				push!(indicator,ind)
 			else #SQL_ERROR
 				ODBCError(SQL_HANDLE_STMT,stmt)
 				error("[ODBC]: SQLBindCol $x failed; Return Code: $ret")
@@ -140,14 +142,14 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char
 		elseif typeof(file) == Symbol
 			error("[ODBC]: No result retrieval method is implemented for $file")
 		else
-			resultset = ODBCDirectToFile(stmt,meta,columns,file,delim,result_number)
+			resultset = ODBCDirectToFile(stmt,meta,columns,file,delim,result_number,indicator)
 		end
 		return resultset
 	else
 		return DataFrame("No Rows Returned")
 	end
 end
-function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},file::Output,delim::Union(Char,Array{Char,1}),result_number::Int)
+function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},file::Output,delim::Union(Char,Array{Char,1}),result_number::Int,indicator::Array{Any,1})
 	#TODO:
 	#I think we're double writing some values on the last rowset fetch! Need to confirm though...
 	#how to specify .csv .txt? allow delim in query()?
