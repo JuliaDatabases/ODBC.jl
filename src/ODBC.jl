@@ -1,6 +1,7 @@
 module ODBC
 
 using DataFrames
+using ProgressMeter
 
 export connect, advancedconnect, query, querymeta, @sql_str, Connection, Metadata, conn, Connections, disconnect, listdrivers, listdsns
 
@@ -44,7 +45,7 @@ type Connection
 	stmt_ptr::Ptr{Void}
 	#Holding the last resultset if useful if the user runs several test queries just using `query()` or `sql"..."`
 	#then realizes the last resultset should actually be saved to a variable (happended to me all the time in RODBC)
-	resultset::Union(DataFrame,Array{DataFrame,1},Metadata,Array{Metadata,1})
+	resultset::Any
 end
 function show(io::IO,conn::Connection)
 	if conn == null_connection
@@ -57,9 +58,9 @@ function show(io::IO,conn::Connection)
 		println("Connection pointer: $(conn.dbc_ptr)")
 		println("Statement pointer: $(conn.stmt_ptr)")
 		if isequal(conn.resultset,null_resultset)
-		print("Contains resultset? No")
+			print("Contains resultset? No")
 		else
-		print("Contains resultset(s)? Yes (access by referencing the resultset field (e.g. conn.resultset))")
+			print("Contains resultset(s)? Yes (access by referencing the resultset field (e.g. conn.resultset))")
 		end
 	end
 end

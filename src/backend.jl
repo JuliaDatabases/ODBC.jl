@@ -104,6 +104,8 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char
 					push!(cols,ref(julia_types[j]))
 				end
 				fetchseq = 1:rowset:meta.rows
+				meter = meta.rows > 50000
+				meter && (p = Progress(length(fetchseq), 1))
 				for i in fetchseq
 					if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
 						if i == last(fetchseq)
@@ -123,6 +125,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char
 						ODBCFreeStmt!(stmt)
 						error("[ODBC]: Fetching results failed; Return Code: $ret")
 					end
+					meter && next!(p)
 				end
 				resultset = DataFrame(cols, Index(meta.colnames))
 			else #if we only need one fetchscroll call
@@ -168,6 +171,8 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},f
 	write(out_file,join(meta.colnames,delim)*"\n")
 
 	fetchseq = 1:rowset:meta.rows
+	meter = meta.rows > 50000
+	meter && (p = Progress(length(fetchseq), 1))
 	for i in fetchseq
 		if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
 			for k = 1:rowset, j = 1:meta.cols
@@ -194,6 +199,7 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},f
 			ODBCFreeStmt!(stmt)
 			error("[ODBC]: Fetching results failed; Return Code: $ret")
 		end
+		meter && next!(p)
 	end
 	close(out_file)
 	resultset = DataFrame("Results saved to $outer")
