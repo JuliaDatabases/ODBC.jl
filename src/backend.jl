@@ -71,7 +71,7 @@ function ODBCMetadata(stmt::Ptr{Void},querystring::String)
 	return Metadata(querystring,int(cols[1]),rows[1],colnames,coltypes,colsizes,coldigits,colnulls)
 end
 #ODBCFetch: Using resultset metadata, allocate space/arrays for previously generated resultset, retrieve results
-function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char,Array{Char,1}),result_number::Int)
+function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,result_number::Int)
 	if (meta.rows != 0 && meta.cols != 0) #with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
 		rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
 		SQLSetStmtAttr(stmt,SQL_ATTR_ROW_ARRAY_SIZE,uint(rowset),SQL_IS_UINTEGER)
@@ -152,10 +152,9 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Union(Char
 		return DataFrame("No Rows Returned")
 	end
 end
-function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},file::Output,delim::Union(Char,Array{Char,1}),result_number::Int,indicator::Array{Any,1})
+function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},file::Output,delim::Chars,result_number::Int,indicator::Array{Any,1})
 	#TODO:
 	#I think we're double writing some values on the last rowset fetch! Need to confirm though...
-	#how to specify .csv .txt? allow delim in query()?
 	rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
 	if typeof(file) <: String #If there's just one filename given
 		outer = file
@@ -176,23 +175,16 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},f
 	for i in fetchseq
 		if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
 			for k = 1:rowset, j = 1:meta.cols
-				if j < meta.cols
-					if typeof(columns[j]) == Array{Uint8,2}	
-		        		write(out_file,escape_string(nullstrip(columns[j][:,k])))
-		        		write(out_file,delim)
-		        	else
-						write(out_file,string(columns[j][k]))
-						write(out_file,delim)
-		        	end
-		      	else
-		      		if typeof(columns[j]) == Array{Uint8,2}	
-		        		write(out_file,escape_string(nullstrip(columns[j][:,k])))
-		        		write(out_file,"\n")
-		        	else
-						write(out_file,string(columns[j][k]))
-						write(out_file,"\n")
-		        	end
-		      	end			
+				if typeof(columns[j]) == Array{Uint8,2}	
+	        		write(out_file,nullstrip(columns[j][:,k],delim))
+	        		write(out_file,delim)
+	        	else
+					write(out_file,string(columns[j][k]))
+					write(out_file,delim)
+	        	end
+				if j == meta.cols
+					write(out_file,"\n")
+	        	end	
 			end
 		else
 			ODBCError(SQL_HANDLE_STMT,stmt)
@@ -213,18 +205,20 @@ function ODBCFreeStmt!(stmt)
 end
 #String Helper Function: String buffers are allocated for 256 characters, after data is fetched,
 #this function strips out all the unused buffer space and converts Array{Uint8} to Julia string
-function nullstrip(string::Array{Uint8})
-	if ndims(string) > 1
-		string = string[1:end]
+function nullstrip(bytes::Array{Uint8}, delim::Char='\0')
+	if ndims(bytes) > 1
+		bytes = bytes[1:end]
 	end
-	bytes = search(bytestring(string),"\0")[1] - 1
-	bytestring(string[1:bytes])
+	stripped = search(bytestring(bytes),"\0")[1] - 1
+	s = bytestring(bytes[1:stripped])
+	delim != '\0' && (s = replace(s,delim,"\\"*string(delim)))
+	return s
 end
-function nullstrip(stringblob, colsize::Int, rowset::Int)
+function nullstrip(stringblob, colsize::Int, rowset::Int, delim::Char='\0')
 	a = Array(String,rowset)
 	n = 1
 	for i in 1:colsize:length(stringblob)
-		a[n] = nullstrip(stringblob[i:i+colsize-1])
+		a[n] = nullstrip(stringblob[i:i+colsize-1], delim::Char)
 		n+=1
 	end
 	return a

@@ -37,7 +37,7 @@ function advancedconnect(conn_string::String=" "; driver_prompt::Uint16=SQL_DRIV
 	print("Connection $(conn.number) to $(conn.dsn) successful.")  
 end
 #query: Sends query string to DBMS, once executed, resultset metadata is returned, space is allocated, and results are returned
-function query(conn::Connection=conn, querystring::String; file::Output=:DataFrame,delim::Union(Char,Array{Char,1})='\t')
+function query(querystring::String,conn::Connection=conn; file::Output=:DataFrame,delim::Chars=',')
 	if conn == null_connection
 		error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
 	end
@@ -60,7 +60,7 @@ macro sql_str(s)
 end
 #querymeta: Sends query string to DBMS, once executed, resultset metadata is returned
 #it may seem odd to include the other arguments for querymeta, but it's so switching between query and querymeta doesn't require exluding args (convenience)
-function querymeta(conn::Connection=conn, querystring::String; file::Output=:DataFrame,delim::Union(Char,Array{Char,1})='\t')
+function querymeta(querystring::String,conn::Connection=conn; file::Output=:DataFrame,delim::Union(Char,Array{Char,1})='\t')
 	if conn == null_connection
 		error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
 	end

@@ -42,7 +42,7 @@ let
 end
 
 #MULTIROWFETCH sets the default rowset fetch size used in retrieving resultset blocks from queries
-const MULTIROWFETCH = 1024
+const MULTIROWFETCH = 65535 #1024
 
 const SQL_SUCCESS = int16(0)
 const SQL_SUCCESS_WITH_INFO = int16(1)
