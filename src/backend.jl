@@ -153,8 +153,6 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 	end
 end
 function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},file::Output,delim::Chars,result_number::Int,indicator::Array{Any,1})
-	#TODO:
-	#I think we're double writing some values on the last rowset fetch! Need to confirm though...
 	rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
 	if typeof(file) <: String #If there's just one filename given
 		outer = file

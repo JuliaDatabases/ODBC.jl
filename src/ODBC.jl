@@ -43,7 +43,7 @@ type Connection
 	number::Int
 	dbc_ptr::Ptr{Void}
 	stmt_ptr::Ptr{Void}
-	#Holding the last resultset if useful if the user runs several test queries just using `query()` or `sql"..."`
+	#Holding a reference to the last resultset is useful if the user runs several test queries just using `query()` or `sql"..."`
 	#then realizes the last resultset should actually be saved to a variable (happended to me all the time in RODBC)
 	resultset::Any
 end
