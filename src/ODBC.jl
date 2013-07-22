@@ -3,9 +3,9 @@ module ODBC
 using DataFrames
 using ProgressMeter
 
-export connect, advancedconnect, query, querymeta, @sql_str, Connection, Metadata, conn, Connections, disconnect, listdrivers, listdsns
+export advancedconnect, query, querymeta, @sql_str, Connection, Metadata, conn, Connections, disconnect, listdrivers, listdsns
 
-import Base.show, Base.connect, Base.Chars
+import Base.show, Base.Chars
 
 include("ODBC_Types.jl")
 include("ODBC_API.jl")

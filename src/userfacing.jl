@@ -1,5 +1,5 @@
 #connect: Connect to DSN, returns Connection object, also stores Connection information in global default 'conn' object and global 'Connections' connections array
-function connect(dsn::String, usr::String="", pwd::String="")
+function connect(dsn::String; usr::String="", pwd::String="")
 	global Connections
 	global conn
 	global env
