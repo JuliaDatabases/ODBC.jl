@@ -12,23 +12,23 @@ julia> using ODBC        # Loads the ODBC module for use (needs to be run with e
 ## Package Documentation
 Exported functions, macros, types, and variables include:
 #### Functions
-* `connect(dsn; usr="", pwd="")`
+* `ODBC.connect(dsn; usr="", pwd="")`
 
-  `connect` requires the `dsn` string argument as the name of a pre-defined ODBC
+  `ODBC.connect` requires the `dsn` string argument as the name of a pre-defined ODBC
 datasource.  Valid datasources (DSNs) must first be setup through the ODBC
-administrator (or IODBC, unixODBC, etc.) prior to connecting in Julia.
+administrator (or IODBC, unixODBC, etc.) prior to connecting in Julia. Note the use of `ODBC.` before `connect`, this is to prevent method ambiguity with the `Base.connect` family of methods.
 
   The `usr` and `pwd` named arguments are optional as they may already
 be defined in the datasource.
 
-  `connect` returns a `Connection` type which contains basic information
+  `ODBC.connect` returns a `Connection` type which contains basic information
 about the connection and ODBC handle pointers.
 
-  `connect` can be used by storing the `Connection` type in
+  `ODBC.connect` can be used by storing the `Connection` type in
 a variable to be able to disconnect or facilitate handling multiple
 connections like so:
   ```julia
-  co = connect("mydatasource",usr="johndoe",pwd="12345")
+  co = ODBC.connect("mydatasource",usr="johndoe",pwd="12345")
   ```
   But it's unneccesary to store the `Connection`, as an exported
 `conn` variable holds the most recently created `Connection` type and other
@@ -96,7 +96,7 @@ the `file` and `delim` arguments.
 * `listdsns()`
 
   Takes no arguments. Returns a list of defined datasources (DSNs) registered in the ODBC administator 
-  (IODBC, unixODBC, etc.). The datasource names can be used as the 1st argument in `connect(dsn)`.
+  (IODBC, unixODBC, etc.). The datasource names can be used as the 1st argument in `ODBC.connect(dsn)`.
 #### Macros
 * `sql"..."`
 
@@ -123,10 +123,10 @@ and `colnulls` (whether the resultset column is nullable).
 #### Variables
 * `conn`
   Global, exported variable that initially holds a null `Connection` type until a connection is successfully made by
-`connect` or `advancedconnect`. Is used by `query` and `querymeta` as the default datasource `Connection` if none is
+`ODBC.connect` or `advancedconnect`. Is used by `query` and `querymeta` as the default datasource `Connection` if none is
 explicitly specified. 
 * `Connections`
-  Global, exported variable of type `Array{Connection,1}`, that holds `Connection` types. When multiple calls to `connect`
+  Global, exported variable of type `Array{Connection,1}`, that holds `Connection` types. When multiple calls to `ODBC.connect`
 or `advancedconnect` are made, `Connections` stores each `Connection` type to manage the number of DSN connections. 
 It is also referenced when the default connection `conn` is disconnected and reset to `Connections[end]` if other 
 connections exist, or a null `Connection` type otherwise.
