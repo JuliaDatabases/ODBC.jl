@@ -88,7 +88,7 @@ function disconnect(connection::Connection=conn)
 	SQLDisconnect(connection.dbc_ptr)
 		for x = 1:length(Connections)
 			if connection.dsn == Connections[x].dsn && connection.number == Connections[x].number
-				Connections = delete!(Connections,x)
+				Connections = splice!(Connections,x)
 				if is(conn,connection)
 					if length(Connections) != 0
 						conn = Connections[end]
