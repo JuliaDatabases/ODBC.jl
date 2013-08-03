@@ -90,7 +90,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 			ind = Array(Int,rowset)
 			jlsize = jtype == Uint8 ? meta.colsizes[x]+1 : sizeof(jtype)
 			push!(julia_types,jtype == Uint8 ? String : jtype)
-			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,jlsize,ind,jtype)
+			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,int(jlsize),ind,jtype)
 				push!(columns,holder)
 				push!(indicator,ind)
 			else #SQL_ERROR
@@ -117,6 +117,8 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 						for j = 1:meta.cols
 							if typeof(columns[j]) == Array{Uint8,2}
 								append!(cols[j],nullstrip(columns[j][1:colend*(meta.colsizes[j]+1)],meta.colsizes[j]+1,colend))
+							elseif typeof(columns[j]) == Array{SQLDate,1}
+								append!(cols[j],map(x->date(x.year,x.month,x.day),columns[j][1:colend]))
 							else
 								append!(cols[j],deepcopy(columns[j][1:colend]))
 							end	
@@ -134,6 +136,8 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 					for j = 1:meta.cols
 						if typeof(columns[j]) == Array{Uint8,2}
 							columns[j] = DataArray(nullstrip(columns[j],meta.colsizes[j]+1,meta.rows))
+						elseif typeof(columns[j]) == Array{SQLDate,1}
+							columns[j] = DataArray(map(x->date(x.year,x.month,x.day),columns[j]))
 						end	
 					end
 					resultset = DataFrame(columns, Index(meta.colnames))
@@ -176,6 +180,9 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},f
 			for k = 1:rowset, j = 1:meta.cols
 				if typeof(columns[j]) == Array{Uint8,2}	
 	        		write(out_file,nullstrip(columns[j][:,k],delim))
+	        		write(out_file,delim)
+	        	elseif typeof(columns[j]) == Array{SQLDate,1}
+	        		write(out_file,string(columns[j][k]))
 	        		write(out_file,delim)
 	        	else
 					write(out_file,string(columns[j][k]))

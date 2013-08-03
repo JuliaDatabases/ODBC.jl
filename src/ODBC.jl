@@ -1,6 +1,7 @@
 module ODBC
 
 using DataFrames
+using Datetime
 using ProgressMeter
 
 export advancedconnect, query, querymeta, @sql_str, Connection, Metadata, conn, Connections, disconnect, listdrivers, listdsns
