@@ -302,10 +302,10 @@ end
 	const SQL_DRIVER_NOPROMPT = uint16(0)
 	const SQL_DRIVER_PROMPT = uint16(2)
  #Status:
-function SQLDriverConnect(dbc::Ptr{Void},window_handle::Ptr{Void},conn_string::String,out_conn::Array{Uint8,1},out_buff::Array{Int16,1},driver_prompt::Uint16)
+function SQLDriverConnect(dbc::Ptr{Void},window_handle::Ptr{Void},conn_string::String,out_conn::Ptr{Void},out_buff::Array{Int16,1},driver_prompt::Uint16)
 	return ccall( (:SQLDriverConnect, odbc_dm), stdcall, 
-		Int16, (Ptr{Void},Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Int16},Uint16),
-		dbc,window_handle,conn_string,length(conn_string),out_conn,length(out_conn),out_buff,driver_prompt)
+		Int16, (Ptr{Void},Ptr{Void},Ptr{Uint8},Int16,Ptr{Void},Int16,Ptr{Int16},Uint16),
+		dbc,window_handle,conn_string,length(conn_string),out_conn,0,out_buff,driver_prompt)
 end
 #SQLBrowseConnect
  #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714565(v=vs.85).aspx

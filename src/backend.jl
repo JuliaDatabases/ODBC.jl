@@ -27,8 +27,9 @@ end
 function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::String,driver_prompt::Uint16)
 	window_handle = C_NULL	
 	@windows_only window_handle = ccall( (:GetForegroundWindow, "user32"), Ptr{Void}, () )
-
-	if @FAILED SQLDriverConnect(dbc,window_handle,conn_string,ref(Uint8),ref(Int16),driver_prompt)
+	@windows_only driver_prompt = SQL_DRIVER_PROMPT
+	out_buff = Array(Int16,1)
+	if @FAILED SQLDriverConnect(dbc,window_handle,conn_string,C_NULL,out_buff,driver_prompt)
 		ODBCError(SQL_HANDLE_DBC,dbc)
 		error("[ODBC]: SQLDriverConnect failed; Return Code: $ret")
 	end

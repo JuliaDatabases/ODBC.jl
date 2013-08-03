@@ -18,26 +18,21 @@ function connect(dsn::String; usr::String="", pwd::String="")
 	print("Connection $(conn.number) to $(conn.dsn) successful.")  
 end
 #avancedconnect: 
-function advancedconnect(conn_string::String="", driver_prompt::Uint16=SQL_DRIVER_PROMPT)
+function advancedconnect(conn_string::String="", driver_prompt::Uint16=SQL_DRIVER_NOPROMPT)
 	global Connections
 	global conn
 	global env
 	dsn_number = 0
-	env == C_NULL && (env = ODBC.ODBCAllocHandle(ODBC.SQL_HANDLE_ENV,ODBC.SQL_NULL_HANDLE) )
-	print("env allocated")
-	dbc = ODBC.ODBCAllocHandle(ODBC.SQL_HANDLE_DBC,env)
-	print("dbc allocated")
-	ODBC.ODBCDriverConnect!(dbc,conn_string,driver_prompt)
-	print("connected")
-	stmt = ODBC.ODBCAllocHandle(ODBC.SQL_HANDLE_STMT,dbc)
-	print("stmt allocated")
+	env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) )
+	dbc = ODBCAllocHandle(SQL_HANDLE_DBC,env)
+	ODBCDriverConnect!(dbc,conn_string,driver_prompt)
+	stmt = ODBCAllocHandle(SQL_HANDLE_STMT,dbc)
 	for c in Connections
 		if (c.dsn==conn_string)
 			dsn_number+=1
 		end
 	end
-	conn = Connection(conn_string,dsn_number+1,dbc,stmt,ODBC.null_resultset)
-	print("conn made")
+	conn = Connection(conn_string,dsn_number+1,dbc,stmt,null_resultset)
 	push!(Connections,conn)
 	print("Connection $(conn.number) to $(conn.dsn) successful.")  
 end
