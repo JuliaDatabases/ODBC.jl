@@ -179,7 +179,23 @@ immutable SQLDate
 	month::Int16
 	day::Int16
 end
-string(x::SQLDate) = "$year-$month-$day"
+string(x::SQLDate) = "$(x.year)-$(x.month)-$(x.day)"
+immutable SQLTime
+	hour::Int16
+	minute::Int16
+	second::Int16
+end
+string(x::SQLTime) = "$(x.hour):$(x.minute):$(x.second)"
+immutable SQLTimestamp
+	year::Int16
+	month::Int16
+	day::Int16
+	hour::Int16
+	minute::Int16
+	second::Int16
+	fraction::Int #nanoseconds
+end
+string(x::SQLTimestamp) = "$(x.year)-$(x.month)-$(x.day) $(x.hour):$(x.minute):$(x.second)"
 
 const SQL2C = [
 	SQL_CHAR=>SQL_C_CHAR,
