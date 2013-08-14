@@ -3,10 +3,11 @@ module ODBC
 using DataFrames
 using Datetime
 using ProgressMeter
+using UTF16
 
 export advancedconnect, query, querymeta, @sql_str, Connection, Metadata, conn, Connections, disconnect, listdrivers, listdsns
 
-import Base.show, Base.Chars
+import Base: show, Chars, string
 
 include("ODBC_Types.jl")
 include("ODBC_API.jl")

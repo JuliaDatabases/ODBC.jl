@@ -86,10 +86,15 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 			sqltype = meta.coltypes[x][2]
 			ctype = get(SQL2C,sqltype,SQL_C_CHAR)
 			jtype = get(SQL2Julia,sqltype,Uint8)
-			holder = jtype == Uint8 ? Array(Uint8, (meta.colsizes[x]+1,rowset)) : Array(jtype, rowset)
+			holder = (jtype == Uint8  ? Array(Uint8,  (meta.colsizes[x]+1,rowset)) :
+                                  jtype == Uint16 ? Array(Uint16, (meta.colsizes[x]+1,rowset)) :
+                                  Array(jtype, rowset))
 			ind = Array(Int,rowset)
-			jlsize = jtype == Uint8 ? meta.colsizes[x]+1 : sizeof(jtype)
-			push!(julia_types,jtype == Uint8 ? String : jtype)
+			jlsize = (jtype == Uint8  ?  meta.colsizes[x]+1    :
+                                  jtype == Uint16 ? (meta.colsizes[x]+1)*2 :
+                                  sizeof(jtype))
+			push!(julia_types,jtype == Uint8  ? String :
+                                          jtype == Uint16 ? UTF16String : jtype)
 			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,int(jlsize),ind,jtype)
 				push!(columns,holder)
 				push!(indicator,ind)
@@ -115,7 +120,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 							colend = rowset
 						end
 						for j = 1:meta.cols
-							if typeof(columns[j]) == Array{Uint8,2}
+							if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
 								append!(cols[j],nullstrip(columns[j][1:colend*(meta.colsizes[j]+1)],meta.colsizes[j]+1,colend))
 							elseif typeof(columns[j]) == Array{SQLDate,1}
 								append!(cols[j],map(x->date(x.year,x.month,x.day),columns[j][1:colend]))
@@ -134,7 +139,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 			else #if we only need one fetchscroll call
 				if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
 					for j = 1:meta.cols
-						if typeof(columns[j]) == Array{Uint8,2}
+						if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
 							columns[j] = DataArray(nullstrip(columns[j],meta.colsizes[j]+1,meta.rows))
 						elseif typeof(columns[j]) == Array{SQLDate,1}
 							columns[j] = DataArray(map(x->date(x.year,x.month,x.day),columns[j]))
@@ -178,7 +183,7 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},f
 	for i in fetchseq
 		if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
 			for k = 1:rowset, j = 1:meta.cols
-				if typeof(columns[j]) == Array{Uint8,2}	
+				if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
 	        		write(out_file,nullstrip(columns[j][:,k],delim))
 	        		write(out_file,delim)
 	        	elseif typeof(columns[j]) == Array{SQLDate,1}
@@ -218,6 +223,15 @@ function nullstrip(bytes::Array{Uint8}, delim::Char='\0')
 	stripped = search(bytestring(bytes),"\0")[1] - 1
 	s = bytestring(bytes[1:stripped])
 	delim != '\0' && (s = replace(s,delim,"\\"*string(delim)))
+	return s
+end
+function nullstrip(bytes::Array{Uint16}, delim::Char='\0')
+	if ndims(bytes) > 1
+		bytes = bytes[1:end]
+	end
+	stripped = search(UTF16String(bytes),"\0")[1] - 1
+	s = UTF16String(bytes[1:stripped])
+	delim != '\0' && (s = replace(s,delim,utf16("\\"*string(delim))))
 	return s
 end
 function nullstrip(stringblob, colsize::Int, rowset::Int, delim::Char='\0')

@@ -72,9 +72,9 @@ typealias SQLHWND Ptr{Void}
 # SQL_CHAR 							SQL_C_CHAR 							Uint8
 # SQL_VARCHAR 						SQL_C_CHAR 							Uint8
 # SQL_LONGVARCHAR 					SQL_C_CHAR 							Uint8
-# SQL_WCHAR 						SQL_C_WCHAR 						Uint8
-# SQL_WVARCHAR 						SQL_C_WCHAR 						Uint8
-# SQL_WLONGVARCHAR 					SQL_C_WCHAR 						Uint8
+# SQL_WCHAR 						SQL_C_WCHAR 						Uint16
+# SQL_WVARCHAR 						SQL_C_WCHAR 						Uint16
+# SQL_WLONGVARCHAR 					SQL_C_WCHAR 						Uint16
 # SQL_DECIMAL 						SQL_C_DOUBLE 						Float64									
 # SQL_NUMERIC 						SQL_C_DOUBLE 						Float64									
 # SQL_SMALLINT 						SQL_C_SHORT 						Int16
@@ -222,9 +222,9 @@ const SQL2Julia = [
 	SQL_CHAR=>Uint8,
 	SQL_VARCHAR=>Uint8,
 	SQL_LONGVARCHAR=>Uint8,
-	SQL_WCHAR=>Uint8,
-	SQL_WVARCHAR=>Uint8,
-	SQL_WLONGVARCHAR=>Uint8,
+	SQL_WCHAR=>Uint16,
+	SQL_WVARCHAR=>Uint16,
+	SQL_WLONGVARCHAR=>Uint16,
 	SQL_DECIMAL=>Float64,
 	SQL_NUMERIC=>Float64,
 	SQL_SMALLINT=>Int16,
