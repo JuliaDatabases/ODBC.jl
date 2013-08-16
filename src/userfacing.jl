@@ -14,8 +14,9 @@ function connect(dsn::String; usr::String="", pwd::String="")
 		end
 	end
 	conn = Connection(dsn,dsn_number+1,dbc,stmt,null_resultset)
+	#print("Connection $(conn.number) to $(conn.dsn) successful.")
 	push!(Connections,conn)
-	print("Connection $(conn.number) to $(conn.dsn) successful.")  
+	return conn
 end
 #avancedconnect: 
 function advancedconnect(conn_string::String="", driver_prompt::Uint16=SQL_DRIVER_NOPROMPT)
@@ -33,8 +34,9 @@ function advancedconnect(conn_string::String="", driver_prompt::Uint16=SQL_DRIVE
 		end
 	end
 	conn = Connection(conn_string,dsn_number+1,dbc,stmt,null_resultset)
+	#print("Connection $(conn.number) to $(conn.dsn) successful.")
 	push!(Connections,conn)
-	print("Connection $(conn.number) to $(conn.dsn) successful.")  
+	return conn
 end
 #query: Sends query string to DBMS, once executed, resultset metadata is returned, space is allocated, and results are returned
 function query(querystring::String,conn::Connection=conn; file::Output=:DataFrame,delim::Chars=',')
@@ -44,11 +46,11 @@ function query(querystring::String,conn::Connection=conn; file::Output=:DataFram
 	ODBCFreeStmt!(conn.stmt_ptr)
 	ODBCQueryExecute(conn.stmt_ptr,querystring)
 	holder = ref(DataFrame)
-		while true
-			meta = ODBCMetadata(conn.stmt_ptr,querystring)
-			push!(holder,ODBCFetch(conn.stmt_ptr,meta,file,delim,length(holder)))
-			(@FAILED SQLMoreResults(conn.stmt_ptr)) && break
-		end
+	while true
+		meta = ODBCMetadata(conn.stmt_ptr,querystring)
+		push!(holder,ODBCFetch(conn.stmt_ptr,meta,file,delim,length(holder)))
+		(@FAILED SQLMoreResults(conn.stmt_ptr)) && break
+	end
 	conn.resultset = length(holder) == 1 ? holder[1] : holder
 	ODBCFreeStmt!(conn.stmt_ptr)
 	return conn.resultset
@@ -81,19 +83,19 @@ function disconnect(connection::Connection=conn)
 	global Connections
 	ODBCFreeStmt!(connection.stmt_ptr)
 	SQLDisconnect(connection.dbc_ptr)
-		for x = 1:length(Connections)
-			if connection.dsn == Connections[x].dsn && connection.number == Connections[x].number
-				splice!(Connections,x)
-				if is(conn,connection)
-					if length(Connections) != 0
-						conn = Connections[end]
-					else
-						conn = null_connection #Reset conn to null default connection
-					end
+	for x = 1:length(Connections)
+		if connection.dsn == Connections[x].dsn && connection.number == Connections[x].number
+			splice!(Connections,x)
+			if is(conn,connection)
+				if length(Connections) != 0
+					conn = Connections[end]
+				else
+					conn = null_connection #Reset conn to null default connection
 				end
 			end
 		end
-	println("$(connection.dsn) connection number $(connection.number) disconnected successfully")
+	end
+	#println("$(connection.dsn) connection number $(connection.number) disconnected successfully")
 end
 #List Installed Drivers
 function listdrivers()
