@@ -87,7 +87,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 			ctype = get(SQL2C,sqltype,SQL_C_CHAR)
 			jtype = get(SQL2Julia,sqltype,Uint8)
 			holder = (jtype == Uint8  ? Array(Uint8,  (meta.colsizes[x]+1,rowset)) :
-                                  jtype == Uint16 ? Array(Uint16, (meta.colsizes[x]+1,rowset)) :
+                                  jtype == Uint16 ? zeros(Uint16, (meta.colsizes[x]+1,rowset)) :
                                   Array(jtype, rowset))
 			ind = Array(Int,rowset)
 			jlsize = (jtype == Uint8  ?  meta.colsizes[x]+1    :
@@ -229,7 +229,7 @@ function nullstrip(bytes::Array{Uint16}, delim::Char='\0')
 	if ndims(bytes) > 1
 		bytes = bytes[1:end]
 	end
-	stripped = search(UTF16String(bytes),"\0")[1] - 1
+	stripped = search(UTF16String(bytes),utf16("\0"))[1] - 1
 	s = UTF16String(bytes[1:stripped])
 	delim != '\0' && (s = replace(s,delim,utf16("\\"*string(delim))))
 	return s
