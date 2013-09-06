@@ -74,7 +74,7 @@ end
 #ODBCFetch: Using resultset metadata, allocate space/arrays for previously generated resultset, retrieve results
 function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,result_number::Int)
 	if (meta.rows != 0 && meta.cols != 0) #with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
-		rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
+		rowset = MULTIROWFETCH > meta.rows ? (meta.rows < 0 ? 1 : meta.rows) : MULTIROWFETCH
 		SQLSetStmtAttr(stmt,SQL_ATTR_ROW_ARRAY_SIZE,uint(rowset),SQL_IS_UINTEGER)
 		indicator = ref(Any)
 		columns = ref(Any)
