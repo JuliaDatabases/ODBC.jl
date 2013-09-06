@@ -74,7 +74,8 @@ end
 #ODBCFetch: Using resultset metadata, allocate space/arrays for previously generated resultset, retrieve results
 function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,result_number::Int)
 	if (meta.rows != 0 && meta.cols != 0) #with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
-		rowset = MULTIROWFETCH > meta.rows ? (meta.rows < 0 ? 1 : meta.rows) : MULTIROWFETCH
+		resultrows = meta.rows < 0 ? 1 : meta.rows
+		rowset = MULTIROWFETCH > meta.rows ? resultrows : MULTIROWFETCH
 		SQLSetStmtAttr(stmt,SQL_ATTR_ROW_ARRAY_SIZE,uint(rowset),SQL_IS_UINTEGER)
 		indicator = ref(Any)
 		columns = ref(Any)
@@ -105,18 +106,18 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 			end
 		end
 		if file == :DataFrame
-			if rowset < meta.rows #if we need multiple fetchscroll calls
+			if rowset < resultrows #if we need multiple fetchscroll calls
 				cols = ref(Any)
 				for j = 1:meta.cols
 					push!(cols,ref(julia_types[j]))
 				end
-				fetchseq = 1:rowset:meta.rows
-				meter = meta.rows > 50000
+				fetchseq = 1:rowset:resultrows
+				meter = resultrows > 50000
 				meter && (p = Progress(length(fetchseq), 1))
 				for i in fetchseq
 					if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
 						if i == last(fetchseq)
-							colend = meta.rows - i + 1
+							colend = resultrows - i + 1
 						else
 							colend = rowset
 						end
@@ -141,7 +142,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 				if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
 					for j = 1:meta.cols
 						if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
-							columns[j] = DataArray(nullstrip(columns[j],meta.colsizes[j]+1,meta.rows))
+							columns[j] = DataArray(nullstrip(columns[j],meta.colsizes[j]+1,rowset))
 						elseif typeof(columns[j]) == Array{SQLDate,1}
 							columns[j] = DataArray(map(x->date(x.year,0 < x.month < 13 ? x.month : 1,x.day),columns[j]))
 						end	
@@ -164,7 +165,8 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 	end
 end
 function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},file::Output,delim::Chars,result_number::Int,indicator::Array{Any,1})
-	rowset = MULTIROWFETCH > meta.rows ? meta.rows : MULTIROWFETCH
+	resultrows = meta.rows < 0 ? 1 : meta.rows
+	rowset = MULTIROWFETCH > meta.rows ? resultrows : MULTIROWFETCH
 	if typeof(file) <: String #If there's just one filename given
 		outer = file
 	else
@@ -178,8 +180,8 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},f
 	out_file = open(outer,"w")
 	write(out_file,join(meta.colnames,delim)*"\n")
 
-	fetchseq = 1:rowset:meta.rows
-	meter = meta.rows > 50000
+	fetchseq = 1:rowset:resultrows
+	meter = resultrows > 50000
 	meter && (p = Progress(length(fetchseq), 1))
 	for i in fetchseq
 		if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
