@@ -94,7 +94,8 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
                                   jtype == Uint16 ? (meta.colsizes[x]+1)*2 :
                                   sizeof(jtype))
 			push!(julia_types,jtype == Uint8  ? String :
-                                          jtype == Uint16 ? UTF16String : jtype)
+                                          jtype == Uint16 ? UTF16String : 
+                                          jtype == SQLDate ? Date{ISOCalendar} : jtype)
 			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,int(jlsize),ind,jtype)
 				push!(columns,holder)
 				push!(indicator,ind)
@@ -123,7 +124,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 							if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
 								append!(cols[j],nullstrip(columns[j][1:colend*(meta.colsizes[j]+1)],meta.colsizes[j]+1,colend))
 							elseif typeof(columns[j]) == Array{SQLDate,1}
-								append!(cols[j],map(x->date(x.year,x.month,x.day),columns[j][1:colend]))
+								append!(cols[j],map(x->date(x.year,0 < x.month < 13 ? x.month : 1,x.day),columns[j][1:colend]))
 							else
 								append!(cols[j],deepcopy(columns[j][1:colend]))
 							end	
@@ -142,7 +143,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 						if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
 							columns[j] = DataArray(nullstrip(columns[j],meta.colsizes[j]+1,meta.rows))
 						elseif typeof(columns[j]) == Array{SQLDate,1}
-							columns[j] = DataArray(map(x->date(x.year,x.month,x.day),columns[j]))
+							columns[j] = DataArray(map(x->date(x.year,0 < x.month < 13 ? x.month : 1,x.day),columns[j]))
 						end	
 					end
 					resultset = DataFrame(columns, Index(meta.colnames))
