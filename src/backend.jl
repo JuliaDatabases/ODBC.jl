@@ -105,7 +105,24 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 				error("[ODBC]: SQLBindCol $x failed; Return Code: $ret")
 			end
 		end
-		if file == :DataFrame
+		if meta.rows < 0 #some DBMS can't return # of rows in resultset
+			cols = ref(Any)
+			for j = 1:meta.cols
+				push!(cols,ref(julia_types[j]))
+			end
+			while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
+				for j = 1:meta.cols
+					if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
+						append!(cols[j],nullstrip(columns[j],meta.colsizes[j]+1,rowset))
+					elseif typeof(columns[j]) == Array{SQLDate,1}
+						append!(cols[j],date(columns[j][1].year,0 < columns[j][1].month < 13 ? columns[j][1].month : 1,columns[j][1].day))
+					else
+						append!(cols[j],deepcopy(columns[j][1]))
+					end	
+				end
+			end
+			resultset = DataFrame(cols, Index(meta.colnames))
+		elseif file == :DataFrame
 			if rowset < resultrows #if we need multiple fetchscroll calls
 				cols = ref(Any)
 				for j = 1:meta.cols
