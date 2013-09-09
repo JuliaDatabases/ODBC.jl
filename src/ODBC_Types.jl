@@ -5,7 +5,7 @@ typealias SQLCHAR       Cuchar
 typealias SQLSCHAR      Cchar
 typealias SQLWCHAR      Uint16
 typealias SQLDATE       Cuchar
-typealias SQLDECIMAL    Cuchar
+typealias SQLDECIMAL    Cdouble
 typealias SQLDOUBLE     Cdouble
 typealias SQLFLOAT      Cdouble
 typealias SQLINTEGER    Cint
