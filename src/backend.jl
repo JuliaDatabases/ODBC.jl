@@ -106,18 +106,12 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,resu
 			end
 		end
 		if meta.rows < 0 #some DBMS can't return # of rows in resultset
-			testrowcounter = 0
-			testcolcounter = 0
 			cols = ref(Any)
 			for j = 1:meta.cols
 				push!(cols,ref(julia_types[j]))
 			end
 			while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-				testrowcounter += 1
-				println("testrowcounter: $testrowcounter")
 				for j = 1:meta.cols
-					testcolcounter += 1
-					println("testcolcounter: $testcolcounter")
 					if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
 						push!(cols[j],nullstrip(columns[j],meta.colsizes[j]+1,rowset)[1])
 					elseif typeof(columns[j]) == Array{SQLDate,1}
