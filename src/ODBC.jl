@@ -16,7 +16,7 @@ type Metadata
 	querystring::String
 	cols::Int
 	rows::Int
-	colnames::Array{ASCIIString}
+	colnames::Array{UTF8String}
 	coltypes::Array{(String,Int16)}
 	colsizes::Array{Int}
 	coldigits::Array{Int16}
