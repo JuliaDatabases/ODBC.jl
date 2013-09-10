@@ -28,14 +28,10 @@ function show(io::IO,meta::Metadata)
 	else
 		println(io,"Resultset metadata for executed query")
 		println(io,"------------------------------------")
+		print(io,"Query: $(meta.querystring)")
 		println(io,"Columns: $(meta.cols)")
 		println(io,"Rows: $(meta.rows)")
-		println(io,"Column Names: $(meta.colnames)")
-		println(io,"Column Types: $(meta.coltypes)")
-		println(io,"Column Sizes: $(meta.colsizes)")
-		println(io,"Column Digits: $(meta.coldigits)")
-		println(io,"Column Nullable: $(meta.colnulls)")
-		print(io,"Query: $(meta.querystring)")
+		println(io,DataFrame([meta.colnames meta.coltypes meta.colsizes meta.coldigits meta.colnulls], ["Column Names","Types","Sizes","Digits","Nullable"]))
 	end 
 end
 #Connection object that holds information related to each established connection and retrieved resultsets
