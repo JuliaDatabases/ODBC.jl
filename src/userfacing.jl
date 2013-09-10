@@ -39,16 +39,27 @@ function advancedconnect(conn_string::String="", driver_prompt::Uint16=SQL_DRIVE
 	return conn
 end
 #query: Sends query string to DBMS, once executed, resultset metadata is returned, space is allocated, and results are returned
-function query(querystring::String,conn::Connection=conn; file::Output=:DataFrame,delim::Chars=',')
+function query(querystring::String,conn::Connection=conn; output::Output=DataFrame,delim::Char=',')
 	if conn == null_connection
 		error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
 	end
 	ODBCFreeStmt!(conn.stmt_ptr)
 	ODBCQueryExecute(conn.stmt_ptr,querystring)
-	holder = ref(DataFrame)
+	holder = DataFrame[]
 	while true
 		meta = ODBCMetadata(conn.stmt_ptr,querystring)
-		push!(holder,ODBCFetch(conn.stmt_ptr,meta,file,delim,length(holder)))
+		if meta.rows == 0
+			push!(holder, DataFrame())
+		else
+			columns, indicator, rowset = ODBCBindCols(conn.stmt_ptr,meta)
+
+			if output == DataFrame
+				resultset = ODBCFetchDataFrame(conn.stmt_ptr,meta,columns,rowset)
+			else
+				resultset = ODBCDirectToFile(conn.stmt_ptr,meta,columns,rowset,output,delim,length(holder))
+			end
+			push!(holder,resultset)
+		end
 		(@FAILED SQLMoreResults(conn.stmt_ptr)) && break
 	end
 	conn.resultset = length(holder) == 1 ? holder[1] : holder
@@ -62,13 +73,13 @@ macro sql_str(s)
 end
 #querymeta: Sends query string to DBMS, once executed, resultset metadata is returned
 #it may seem odd to include the other arguments for querymeta, but it's so switching between query and querymeta doesn't require exluding args (convenience)
-function querymeta(querystring::String,conn::Connection=conn; file::Output=:DataFrame,delim::Union(Char,Array{Char,1})='\t')
+function querymeta(querystring::String,conn::Connection=conn; output::Output=DataFrame,delim::Char=',')
 	if conn == null_connection
 		error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
 	end
 	ODBCFreeStmt!(conn.stmt_ptr)
 	ODBCQueryExecute(conn.stmt_ptr,querystring)
-	holder = ref(Metadata)
+	holder = Metadata[]
 	while true
 		push!(holder,ODBCMetadata(conn.stmt_ptr,querystring))
 		(@FAILED SQLMoreResults(conn.stmt_ptr)) && break

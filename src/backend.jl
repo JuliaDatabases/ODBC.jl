@@ -72,161 +72,76 @@ function ODBCMetadata(stmt::Ptr{Void},querystring::String)
 	return Metadata(querystring,int(cols[1]),rows[1],colnames,coltypes,colsizes,coldigits,colnulls)
 end
 #ODBCFetch: Using resultset metadata, allocate space/arrays for previously generated resultset, retrieve results
-function ODBCFetch(stmt::Ptr{Void},meta::Metadata,file::Output,delim::Chars,result_number::Int)
-	if (meta.rows != 0 && meta.cols != 0) #with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
-		resultrows = meta.rows < 0 ? 1 : meta.rows
-		rowset = MULTIROWFETCH > meta.rows ? resultrows : MULTIROWFETCH
-		SQLSetStmtAttr(stmt,SQL_ATTR_ROW_ARRAY_SIZE,uint(rowset),SQL_IS_UINTEGER)
-		indicator = ref(Any)
-		columns = ref(Any)
-		julia_types = ref(DataType)
-		#Main numeric types are mapped to appropriate Julia types; all others currently default to strings via Uint8 Arrays
-		#Once Julia has a system for passing C structs, we can support native date, timestamp, and interval types
-		#See the ODBC_Types.jl file for more information on type mapping
-		for x in 1:meta.cols
-			sqltype = meta.coltypes[x][2]
-			ctype = get(SQL2C,sqltype,SQL_C_CHAR)
-			jtype = get(SQL2Julia,sqltype,Uint8)
-			holder = (jtype == Uint8  ? Array(Uint8,  (meta.colsizes[x]+1,rowset)) :
-                                  jtype == Uint16 ? zeros(Uint16, (meta.colsizes[x]+1,rowset)) :
-                                  Array(jtype, rowset))
-			ind = Array(Int,rowset)
-			jlsize = (jtype == Uint8  ?  meta.colsizes[x]+1    :
-                                  jtype == Uint16 ? (meta.colsizes[x]+1)*2 :
-                                  sizeof(jtype))
-			push!(julia_types,jtype == Uint8  ? String :
-                                          jtype == Uint16 ? UTF16String : 
-                                          jtype == SQLDate ? Date{ISOCalendar} : jtype)
-			if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,int(jlsize),ind,jtype)
-				push!(columns,holder)
-				push!(indicator,ind)
-			else #SQL_ERROR
-				ODBCError(SQL_HANDLE_STMT,stmt)
-				error("[ODBC]: SQLBindCol $x failed; Return Code: $ret")
-			end
-		end
-		if meta.rows < 0 #some DBMS can't return # of rows in resultset
-			cols = ref(Any)
-			for j = 1:meta.cols
-				push!(cols,ref(julia_types[j]))
-			end
-			while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-				for j = 1:meta.cols
-					if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
-						push!(cols[j],nullstrip(columns[j],meta.colsizes[j]+1,rowset)[1])
-					elseif typeof(columns[j]) == Array{SQLDate,1}
-						push!(cols[j],date(columns[j][1].year,0 < columns[j][1].month < 13 ? columns[j][1].month : 1,columns[j][1].day))
-					else
-						push!(cols[j],deepcopy(columns[j][1]))
-					end	
-				end
-			end
-			resultset = DataFrame(cols, Index(meta.colnames))
-		elseif file == :DataFrame
-			if rowset < resultrows #if we need multiple fetchscroll calls
-				cols = ref(Any)
-				for j = 1:meta.cols
-					push!(cols,ref(julia_types[j]))
-				end
-				fetchseq = 1:rowset:resultrows
-				meter = resultrows > 50000
-				meter && (p = Progress(length(fetchseq), 1))
-				for i in fetchseq
-					if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-						if i == last(fetchseq)
-							colend = resultrows - i + 1
-						else
-							colend = rowset
-						end
-						for j = 1:meta.cols
-							if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
-								append!(cols[j],nullstrip(columns[j][1:colend*(meta.colsizes[j]+1)],meta.colsizes[j]+1,colend))
-							elseif typeof(columns[j]) == Array{SQLDate,1}
-								append!(cols[j],map(x->date(x.year,0 < x.month < 13 ? x.month : 1,x.day),columns[j][1:colend]))
-							else
-								append!(cols[j],deepcopy(columns[j][1:colend]))
-							end	
-						end
-					else
-						ODBCError(SQL_HANDLE_STMT,stmt)
-						ODBCFreeStmt!(stmt)
-						error("[ODBC]: Fetching results failed; Return Code: $ret")
-					end
-					meter && next!(p)
-				end
-				resultset = DataFrame(cols, Index(meta.colnames))
-			else #if we only need one fetchscroll call
-				if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-					for j = 1:meta.cols
-						if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
-							columns[j] = DataArray(nullstrip(columns[j],meta.colsizes[j]+1,rowset))
-						elseif typeof(columns[j]) == Array{SQLDate,1}
-							columns[j] = DataArray(map(x->date(x.year,0 < x.month < 13 ? x.month : 1,x.day),columns[j]))
-						end	
-					end
-					resultset = DataFrame(columns, Index(meta.colnames))
-				else
-					ODBCError(SQL_HANDLE_STMT,stmt)
-					ODBCFreeStmt!(stmt)
-					error("[ODBC]: Fetching results failed; Return Code: $ret")
-				end
-			end
-		elseif typeof(file) == Symbol
-			error("[ODBC]: No result retrieval method is implemented for $file")
-		else
-			resultset = ODBCDirectToFile(stmt,meta,columns,file,delim,result_number,indicator)
-		end
-		return resultset
-	else
-		return DataFrame("No Rows Returned")
-	end
-end
-function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},file::Output,delim::Chars,result_number::Int,indicator::Array{Any,1})
-	resultrows = meta.rows < 0 ? 1 : meta.rows
-	rowset = MULTIROWFETCH > meta.rows ? resultrows : MULTIROWFETCH
-	if typeof(file) <: String #If there's just one filename given
-		outer = file
-	else
-		outer = file[result_number+1]
-	end
-	if typeof(delim) == Char
-		delim = delim
-	else
-		delim = delim[result_number+1]
-	end
-	out_file = open(outer,"w")
-	write(out_file,join(meta.colnames,delim)*"\n")
+function ODBCBindCols(stmt::Ptr{Void},meta::Metadata)
+	#with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
+	meta.rows == 0 && return (Any[],Any[],0)
+	rowset = MULTIROWFETCH > meta.rows ? (meta.rows < 0 ? 1 : meta.rows) : MULTIROWFETCH
+	SQLSetStmtAttr(stmt,SQL_ATTR_ROW_ARRAY_SIZE,uint(rowset),SQL_IS_UINTEGER)
 
-	fetchseq = 1:rowset:resultrows
-	meter = resultrows > 50000
-	meter && (p = Progress(length(fetchseq), 1))
-	for i in fetchseq
-		if @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-			for k = 1:rowset, j = 1:meta.cols
-				if typeof(columns[j]) == Array{Uint8,2} || typeof(columns[j]) == Array{Uint16,2}
-	        		write(out_file,nullstrip(columns[j][:,k],delim))
-	        		write(out_file,delim)
-	        	elseif typeof(columns[j]) == Array{SQLDate,1}
-	        		write(out_file,string(columns[j][k]))
-	        		write(out_file,delim)
-	        	else
-					write(out_file,string(columns[j][k]))
-					write(out_file,delim)
-	        	end
-				if j == meta.cols
-					write(out_file,"\n")
-	        	end	
-			end
-		else
+	#these Any arrays are where the ODBC manager dumps result data
+	indicator = Any[]
+	columns = Any[]
+	for x in 1:meta.cols
+		sqltype = meta.coltypes[x][2]
+		#we need the C type so the ODBC manager knows how to store the data
+		ctype = get(SQL2C,sqltype,SQL_C_CHAR)
+		#we need the julia type that corresponds to the C type size
+		jtype = get(SQL2Julia,sqltype,Uint8)
+		holder, jlsize = ODBCColumnAllocate(jtype,meta.colsizes[x]+1,rowset)
+		ind = Array(Int,rowset)
+		if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,int(jlsize),ind)
+			push!(columns,holder)
+			push!(indicator,ind)
+		else #SQL_ERROR
 			ODBCError(SQL_HANDLE_STMT,stmt)
-			ODBCFreeStmt!(stmt)
-			error("[ODBC]: Fetching results failed; Return Code: $ret")
+			error("[ODBC]: SQLBindCol $x failed; Return Code: $ret")
 		end
-		meter && next!(p)
+	end
+	return (columns, indicator, rowset)
+end
+
+ODBCColumnAllocate(x,y,z) 				= (Array(x,z),sizeof(x))
+ODBCColumnAllocate(x::Type{Uint8},y,z) 	= (zeros(x,(y,z)),y)
+ODBCColumnAllocate(x::Type{Uint16},y,z) = (zeros(x,(y,z)),y*2)
+
+ODBCStorage(x) 						= eltype(typeof(x))[]
+ODBCStorage(x::Array{Uint8}) 		= UTF8String[]
+ODBCStorage(x::Array{Uint16}) 		= UTF16String[]
+ODBCStorage(x::Array{SQLDate,1}) 	= Date{ISOCalendar}[]
+
+ODBCClean(x,y) = x[y]
+ODBCClean(x::Array{Uint8},y) 		= utf8(replace(bytestring(x[:,y]),'\0',""))
+ODBCClean(x::Array{Uint16},y) 		= utf16(replace(bytestring(x[:,y]),'\0',""))
+ODBCClean(x::Array{SQLDate,1},y) 	= date(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day)
+
+ODBCEscape(x) = string(x)
+ODBCEscape(x::String) = "\"" * x * "\""
+
+#function for fetching a resultset into a DataFrame
+function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int)
+	cols = Any[]
+	for i = 1:meta.cols
+		push!(cols, ODBCStorage(columns[i]))
+	end
+	while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
+		for col in 1:meta.cols, row in 1:rowset
+			push!(cols[col], ODBCClean(columns[col],row))
+		end
+	end
+	resultset = DataFrame(cols, Index(meta.colnames))
+end
+function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::String,delim::Char,l::Int)
+	out_file = l == 0 ? open(output,"w") : open(output,"a")
+	write(out_file,join(meta.colnames,delim)*"\n")
+	while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
+		for row in 1:rowset, col in 1:meta.cols
+			write(out_file,ODBCEscape(ODBCClean(columns[col],row)))
+	        write(out_file,delim)
+	        col == meta.cols && write(out_file,"\n")
+		end
 	end
 	close(out_file)
-	resultset = DataFrame("Results saved to $outer")
-	return resultset
+	return DataFrame()
 end
 #ODBCFreeStmt!: used to 'clear' a statement of bound columns, resultsets, and other bound parameters in preparation for a subsequent query
 function ODBCFreeStmt!(stmt)
