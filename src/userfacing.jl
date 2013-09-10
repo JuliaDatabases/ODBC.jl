@@ -112,15 +112,15 @@ end
 function listdrivers()
 	global env
 	env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) )
-	descriptions = ref(String)
-	attributes = ref(String)
-	driver_desc = Array(Uint8, 256)
+	descriptions = String[]
+	attributes = String[]
+	driver_desc = zeros(Uint8, 256)
 	desc_length = Array(Int16, 1)
-	driver_attr = Array(Uint8, 256)
+	driver_attr = zeros(Uint8, 256)
 	attr_length = Array(Int16, 1)
 	while @SUCCEEDED SQLDrivers(env,driver_desc,desc_length,driver_attr,attr_length)	
-		push!(descriptions,nullstrip(driver_desc))
-		push!(attributes,nullstrip(driver_attr))
+		push!(descriptions,ODBCClean(driver_desc,1))
+		push!(attributes,ODBCClean(driver_attr,1))
 	end
 	return [descriptions attributes]
 end
@@ -128,15 +128,15 @@ end
 function listdsns()
 	global env
 	env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) )
-	descriptions = ref(String)
-	attributes = ref(String)
-	dsn_desc = Array(Uint8, 256)
+	descriptions = String[]
+	attributes = String[]
+	dsn_desc = zeros(Uint8, 256)
 	desc_length = Array(Int16, 1)
-	dsn_attr = Array(Uint8, 256)
+	dsn_attr = zeros(Uint8, 256)
 	attr_length = Array(Int16, 1)
 	while @SUCCEEDED SQLDataSources(env,dsn_desc,desc_length,dsn_attr,attr_length)
-		push!(descriptions,nullstrip(dsn_desc))
-		push!(attributes,nullstrip(dsn_attr))
+		push!(descriptions,ODBCClean(dsn_desc,1))
+		push!(attributes,ODBCClean(dsn_attr,1))
 	end
 	return [descriptions attributes]
 end

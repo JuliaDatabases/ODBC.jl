@@ -49,21 +49,21 @@ function ODBCMetadata(stmt::Ptr{Void},querystring::String)
 		SQLNumResultCols(stmt,cols)
 		SQLRowCount(stmt,rows)
 		#Allocate arrays to hold each column's metadata
-		colnames = ref(ASCIIString)
+		colnames = UTF8String[]
 		coltypes = Array((String,Int16),0)
-		colsizes = ref(Int)
-		coldigits = ref(Int16)
-		colnulls = ref(Int16)
+		colsizes = Int[]
+		coldigits = Int16[]
+		colnulls = Int16[]
 		#Allocate space for and fetch the name, type, size, etc. for each column
 		for x in 1:cols[1]
-			column_name = Array(Uint8,256)
+			column_name = zeros(Uint8,256)
 			name_length = Array(Int16,1)
 			datatype = Array(Int16,1)
 			column_size = Array(Int,1)
 			decimal_digits = Array(Int16,1)
 			nullable = Array(Int16,1) 
 			SQLDescribeCol(stmt,x,column_name,name_length,datatype,column_size,decimal_digits,nullable)
-			push!(colnames,nullstrip(column_name))
+			push!(colnames,ODBCClean(column_name,1))
 			push!(coltypes,(get(SQL_TYPES,int(datatype[1]),"SQL_CHAR"),datatype[1]))
 			push!(colsizes,int(column_size[1]))
 			push!(coldigits,decimal_digits[1])
@@ -149,45 +149,16 @@ function ODBCFreeStmt!(stmt)
 	SQLFreeStmt(stmt,SQL_UNBIND)
 	SQLFreeStmt(stmt,SQL_RESET_PARAMS)
 end
-#String Helper Function: String buffers are allocated for 256 characters, after data is fetched,
-#this function strips out all the unused buffer space and converts Array{Uint8} to Julia string
-function nullstrip(bytes::Array{Uint8}, delim::Char='\0')
-	if ndims(bytes) > 1
-		bytes = bytes[1:end]
-	end
-	stripped = search(bytestring(bytes),"\0")[1] - 1
-	s = bytestring(bytes[1:stripped])
-	delim != '\0' && (s = replace(s,delim,"\\"*string(delim)))
-	return s
-end
-function nullstrip(bytes::Array{Uint16}, delim::Char='\0')
-	if ndims(bytes) > 1
-		bytes = bytes[1:end]
-	end
-	stripped = search(UTF16String(bytes),utf16("\0"))[1] - 1
-	s = UTF16String(bytes[1:stripped])
-	delim != '\0' && (s = replace(s,delim,utf16("\\"*string(delim))))
-	return s
-end
-function nullstrip(stringblob, colsize::Int, rowset::Int, delim::Char='\0')
-	a = Array(String,rowset)
-	n = 1
-	for i in 1:colsize:length(stringblob)
-		a[n] = nullstrip(stringblob[i:i+colsize-1], delim::Char)
-		n+=1
-	end
-	return a
-end
 #Error Reporting: Takes an SQL handle as input and retrieves any error messages associated with that handle; there may be more than one
 function ODBCError(handletype::Int16,handle::Ptr{Void})
 	i = int16(1)
-	state = Array(Uint8,6)
-	error_msg = Array(Uint8, 1024)
+	state = zeros(Uint8,6)
+	error_msg = zeros(Uint8, 1024)
 	native = Array(Int,1)
 	msg_length = Array(Int16,1)
 	while @SUCCEEDED SQLGetDiagRec(handletype,handle,i,state,native,error_msg,msg_length)
-		st = nullstrip(state)
-		msg = nullstrip(error_msg)
+		st = ODBCClean(state,1)
+		msg = ODBCClean(error_msg,1)
 		println("[ODBC] $st: $msg")
 		i = int16(i+1)
 	end
