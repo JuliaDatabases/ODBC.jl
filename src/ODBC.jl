@@ -64,13 +64,13 @@ end
 #There was a weird bug where Connections was showing each Connection 3 times, this seems to solve it
 show(io::IO,conns::Array{Connection,1}) = map(show,conns)
 
-typealias Output{T <: String} Union(Symbol,T,Array{T,1})
+typealias Output Union(DataType,String)
 #Global module consts and variables
 const null_resultset = DataFrame(0)
 const null_connection = Connection("",0,C_NULL,C_NULL,null_resultset)
-const null_meta = Metadata("",0,0,ref(ASCIIString),Array((String,Int16),0),ref(Int),ref(Int16),ref(Int16))
+const null_meta = Metadata("",0,0,UTF8String[],Array((String,Int16),0),Int[],Int16[],Int16[])
 env = C_NULL
-Connections = ref(Connection) #For managing references to multiple connections
+Connections = Connection[] #For managing references to multiple connections
 conn = null_connection #Create default connection = null
 ret = ""
 
