@@ -261,7 +261,7 @@ const SQL2Julia = [
 	SQL_BINARY        => Uint8,
 	SQL_VARBINARY     => Uint8,
 	SQL_LONGVARBINARY => Uint8,
-	SQL_TYPE_DATE     => SQLDate
+	SQL_TYPE_DATE     => SQLDate,
 	SQL_TYPE_TIMESTAMP=> SQLTimestamp]
 
 const SQL_TYPES = [
