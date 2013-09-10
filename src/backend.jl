@@ -104,15 +104,18 @@ ODBCColumnAllocate(x,y,z) 				= (Array(x,z),sizeof(x))
 ODBCColumnAllocate(x::Type{Uint8},y,z) 	= (zeros(x,(y,z)),y)
 ODBCColumnAllocate(x::Type{Uint16},y,z) = (zeros(x,(y,z)),y*2)
 
-ODBCStorage(x) 						= eltype(typeof(x))[]
-ODBCStorage(x::Array{Uint8}) 		= UTF8String[]
-ODBCStorage(x::Array{Uint16}) 		= UTF16String[]
-ODBCStorage(x::Array{SQLDate,1}) 	= Date{ISOCalendar}[]
+ODBCStorage(x) 							= eltype(typeof(x))[]
+ODBCStorage(x::Array{Uint8}) 			= UTF8String[]
+ODBCStorage(x::Array{Uint16}) 			= UTF16String[]
+ODBCStorage(x::Array{SQLDate,1}) 		= Date{ISOCalendar}[]
+ODBCStorage(x::Array{SQLTimestamp,1}) 	= DateTime{ISOCalendar,UTC}[]
 
 ODBCClean(x,y) = x[y]
-ODBCClean(x::Array{Uint8},y) 		= utf8(replace(bytestring(x[:,y]),'\0',""))
-ODBCClean(x::Array{Uint16},y) 		= utf16(replace(bytestring(x[:,y]),'\0',""))
-ODBCClean(x::Array{SQLDate,1},y) 	= date(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day)
+ODBCClean(x::Array{Uint8},y) 			= utf8(replace(bytestring(x[:,y]),'\0',""))
+ODBCClean(x::Array{Uint16},y) 			= utf16(replace(UTF16String(x[:,y]),'\0',""))
+ODBCClean(x::Array{SQLDate,1},y) 		= date(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day)
+ODBCClean(x::Array{SQLTimestamp,1},y)	= datetime(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day,
+													x[y].hour,x[y].minute,x[y].second)
 
 ODBCEscape(x) = string(x)
 ODBCEscape(x::String) = "\"" * x * "\""
