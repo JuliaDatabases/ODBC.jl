@@ -1,17 +1,21 @@
 #Translation of sqltypes.h; C typealiases for SQL functions
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716298(v=vs.85).aspx
 #http://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
-typealias SQLCHAR       Cuchar
-typealias SQLSCHAR      Cchar
+typealias SQLCHAR       Uint8
+typealias SQLSCHAR      Uint8
+typealias SQLVARCHAR    Uint8
 typealias SQLWCHAR      Uint16
-typealias SQLDATE       Cuchar
 typealias SQLDECIMAL    Cdouble
+typealias SQLNUMERIC    Cdouble
 typealias SQLDOUBLE     Cdouble
 typealias SQLFLOAT      Cdouble
+typealias SQLREAL       Cfloat
 typealias SQLINTEGER    Cint
 typealias SQLUINTEGER   Cuint
 typealias SQLSMALLINT   Cshort
 typealias SQLUSMALLINT  Cushort
+typealias SQLTIME       Cuchar
+typealias SQLTIMESTAMP  Cuchar
 
 if WORD_SIZE == 64
 	typealias SQLLEN        Int64
@@ -27,12 +31,7 @@ typealias SQLROWCOUNT   SQLULEN
 typealias SQLROWSETSIZE SQLULEN
 typealias SQLTRANSID    SQLULEN
 typealias SQLROWOFFSET  SQLLEN
-typealias SQLNUMERIC    Cuchar
 typealias SQLPOINTER    Ptr{Void}
-typealias SQLREAL       Cfloat
-typealias SQLTIME       Cuchar
-typealias SQLTIMESTAMP  Cuchar
-typealias SQLVARCHAR    Cuchar
 typealias SQLRETURN     SQLSMALLINT
 typealias SQLHANDLE     Ptr{Void}
 typealias SQLHENV       SQLHANDLE
