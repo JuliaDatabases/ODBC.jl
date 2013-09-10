@@ -234,9 +234,9 @@ end
 		#this sets the rowset size for ExtendedFetch and FetchScroll
  #Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
  #Status:
-function SQLSetStmtAttr{T<:Union(Ptr{Void},Uint)}(stmt::Ptr{Void},attribute::Int,value::T,value_length::Int)
+function SQLSetStmtAttr(stmt::Ptr{Void},attribute::Int,value::Uint,value_length::Int)
 	return ccall( (:SQLSetStmtAttr, odbc_dm), stdcall,
-		Int16, (Ptr{Void},Int,T,Int),
+		Int16, (Ptr{Void},Int,Uint,Int),
 		stmt,attribute,value,value_length)
 end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715438(v=vs.85).aspx
