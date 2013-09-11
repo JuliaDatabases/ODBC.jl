@@ -105,14 +105,14 @@ ODBCColumnAllocate(x::Type{Uint8},y,z) 	= (zeros(x,(y,z)),y)
 ODBCColumnAllocate(x::Type{Uint16},y,z) = (zeros(x,(y,z)),y*2)
 
 ODBCStorage(x) 							= eltype(typeof(x))[]
-ODBCStorage(x::Array{Uint8}) 			= UTF8String[]
-ODBCStorage(x::Array{Uint16}) 			= UTF16String[]
+ODBCStorage(x::Array{Uint8,2}) 			= UTF8String[]
+ODBCStorage(x::Array{Uint16,2}) 		= UTF16String[]
 ODBCStorage(x::Array{SQLDate,1}) 		= Date{ISOCalendar}[]
 ODBCStorage(x::Array{SQLTimestamp,1}) 	= DateTime{ISOCalendar,UTC}[]
 
 ODBCClean(x,y) = x[y]
-ODBCClean(x::Array{Uint8},y) 			= utf8(replace(utf8(x[:,y]),utf8("\0"),utf8("")))
-ODBCClean(x::Array{Uint16},y) 			= utf16(replace(UTF16String(x[:,y]),utf16("\0"),utf16("")))
+ODBCClean(x::Array{Uint8},y) 			= strip(utf8(filter!(x->x!=0x00,x[:,y])))
+ODBCClean(x::Array{Uint16},y) 			= strip(UTF16String(filter!(x->x!=0x0000,x[:,y])))
 ODBCClean(x::Array{SQLDate,1},y) 		= date(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day)
 ODBCClean(x::Array{SQLTimestamp,1},y)	= datetime(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day,
 													x[y].hour,x[y].minute,x[y].second)
