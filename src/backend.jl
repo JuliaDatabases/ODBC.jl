@@ -102,7 +102,7 @@ end
 
 ODBCColumnAllocate(x,y,z) 				= (Array(x,z),sizeof(x))
 ODBCColumnAllocate(x::Type{Uint8},y,z) 	= (zeros(x,(y,z)),y)
-ODBCColumnAllocate(x::Type{Uint16},y,z) = (println("Allocating UTF16String column"); t = (zeros(x,(y,z)),y*2); println("Column dims: $(size(t))"); return t)
+ODBCColumnAllocate(x::Type{Uint16},y,z) = (println("Allocating UTF16String column"); t = (zeros(x,(y,z)),y*2); println("Column dims: $(size(t[1]))"); return t)
 
 ODBCStorage(x) 							= eltype(typeof(x))[]
 ODBCStorage(x::Array{Uint8,2}) 			= UTF8String[]
