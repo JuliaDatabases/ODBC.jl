@@ -102,7 +102,7 @@ end
 
 ODBCColumnAllocate(x,y,z) 				= (Array(x,z),sizeof(x))
 ODBCColumnAllocate(x::Type{Uint8},y,z) 	= (zeros(x,(y,z)),y)
-ODBCColumnAllocate(x::Type{Uint16},y,z) = (println("Allocating UTF16String column"); t = (zeros(x,(y,z)),y*2); println("Column dims: $(size(t[1]))"); return t)
+ODBCColumnAllocate(x::Type{Uint16},y,z) = (zeros(x,(y,z)),y*2)
 
 ODBCStorage(x) 							= eltype(typeof(x))[]
 ODBCStorage(x::Array{Uint8,2}) 			= UTF8String[]
@@ -112,7 +112,7 @@ ODBCStorage(x::Array{SQLTimestamp,1}) 	= DateTime{ISOCalendar,UTC}[]
 
 ODBCClean(x,y) = x[y]
 ODBCClean(x::Array{Uint8},y) 			= strip(utf8(filter!(x->x!=0x00,x[:,y])))
-ODBCClean(x::Array{Uint16},y) 			= (println("Converting Uint16 to UTF16String: "); t = strip(UTF16String(filter!(x->x!=0x0000,x[:,y]))); println("Size of matrix: $(size(x)) \n Size of row: $(size(x[:,y])) \n Unconverted data: $(x[:,y]) \n UTF16String: $t \n Converted data: $t.data"); return t)
+ODBCClean(x::Array{Uint16},y) 			= UTF16String(x[:,y])
 ODBCClean(x::Array{SQLDate,1},y) 		= date(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day)
 ODBCClean(x::Array{SQLTimestamp,1},y)	= datetime(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day,
 													x[y].hour,x[y].minute,x[y].second)
