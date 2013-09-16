@@ -4,7 +4,6 @@
 typealias SQLCHAR       Uint8
 typealias SQLSCHAR      Uint8
 typealias SQLVARCHAR    Uint8
-typealias SQLWCHAR      Uint16
 typealias SQLDECIMAL    Cdouble
 typealias SQLNUMERIC    Cdouble
 typealias SQLDOUBLE     Cdouble
@@ -17,6 +16,11 @@ typealias SQLUSMALLINT  Cushort
 typealias SQLTIME       Cuchar
 typealias SQLTIMESTAMP  Cuchar
 
+if OS_NAME == :Windows
+	typealias SQLWCHAR Uint16
+else
+	typealias SQLWCHAR Uint8
+end
 if WORD_SIZE == 64
 	typealias SQLLEN        Int64
 	typealias SQLULEN       Uint64
