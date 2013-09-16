@@ -19,7 +19,7 @@ typealias SQLTIMESTAMP  Cuchar
 if OS_NAME == :Windows
 	typealias SQLWCHAR Uint16
 else
-	typealias SQLWCHAR Uint8
+	typealias SQLWCHAR Uint32
 end
 if WORD_SIZE == 64
 	typealias SQLLEN        Int64
