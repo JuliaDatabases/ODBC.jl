@@ -1,3 +1,22 @@
+#Link to ODBC Driver Manager (system-dependent)
+let
+    global odbc_dm
+    local lib
+    succeeded=false
+    @linux_only lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
+	@windows_only lib_choices = ["odbc32"]
+	@osx_only lib_choices = ["libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
+    for lib in lib_choices 
+        try
+            dlopen(lib)
+            succeeded=true
+            break
+        end
+    end
+    if !succeeded error("ODBC library not found") end
+    @eval const odbc_dm = $lib
+end
+
 #Translation of sqltypes.h; C typealiases for SQL functions
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716298(v=vs.85).aspx
 #http://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
@@ -16,10 +35,10 @@ typealias SQLUSMALLINT  Cushort
 typealias SQLTIME       Cuchar
 typealias SQLTIMESTAMP  Cuchar
 
-if OS_NAME == :Windows
-	typealias SQLWCHAR Uint16
-else
+if contains(odbc_dm,"iodbc")
 	typealias SQLWCHAR Uint32
+else
+	typealias SQLWCHAR Uint16
 end
 if WORD_SIZE == 64
 	typealias SQLLEN        Int64
