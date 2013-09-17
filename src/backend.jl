@@ -115,7 +115,7 @@ ODBCStorage(x::Array{SQLTimestamp,1}) 	= DateTime{ISOCalendar,UTC}[]
 ODBCClean(x,y) = x[y]
 ODBCClean(x::Array{Uint8},y) 			= strip(utf8(filter!(x->x!=0x00,x[:,y])))
 ODBCClean(x::Array{Uint16},y) 			= UTF16String(filter!(x->x!=0x0000,x[:,y]))
-ODBCClean(x::Array{Uint32},y)			= strip(utf8(filter!(x->x!=0x00,reinterpret(Uint8,x[:,y]))))
+ODBCClean(x::Array{Uint32},y)			= strip(utf8(filter!(x->x!=0x00,convert(Array{Uint8},x[:,y]))))
 ODBCClean(x::Array{SQLDate,1},y) 		= date(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day)
 ODBCClean(x::Array{SQLTimestamp,1},y)	= datetime(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day,
 													x[y].hour,x[y].minute,x[y].second)
