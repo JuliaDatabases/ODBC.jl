@@ -132,9 +132,9 @@ end
 # SQL_BINARY 						SQL_C_BINARY 						Uint8
 # SQL_VARBINARY 					SQL_C_BINARY 						Uint8
 # SQL_LONGVARBINARY 				SQL_C_BINARY 						Uint8
-# SQL_TYPE_DATE 					SQL_C_TYPE_DATE 					Uint8
-# SQL_TYPE_TIME 					SQL_C_TYPE_TIME 					Uint8
-# SQL_TYPE_TIMESTAMP 				SQL_C_TYPE_TIMESTAMP 				Uint8
+# SQL_TYPE_DATE 					SQL_C_TYPE_DATE 					SQLDate
+# SQL_TYPE_TIME 					SQL_C_TYPE_TIME 					SQLTime
+# SQL_TYPE_TIMESTAMP 				SQL_C_TYPE_TIMESTAMP 				SQLTimestamp
 # SQL_INTERVAL_MONTH				SQL_C_INTERVAL_MONTH 				Uint8
 # SQL_INTERVAL_YEAR					SQL_C_INTERVAL_YEAR 				Uint8
 # SQL_INTERVAL_YEAR_TO_MONTH		SQL_C_INTERVAL_YEAR_TO_MONTH 		Uint8
@@ -172,7 +172,7 @@ const SQL_VARBINARY     = int16( -3) # Variable length binary data of maximum le
 const SQL_LONGVARBINARY = int16( -4) # Variable length binary data. Maximum length is data source–dependent.
 const SQL_TYPE_DATE     = int16( 91) # Year, month, and day fields, conforming to the rules of the Gregorian calendar.
 const SQL_TYPE_TIMESTAMP            = int16( 93) # Year, month, day, hour, minute, and second fields, with valid values as defined for the DATE and TIME data types.
-#const SQL_TYPE_TIME                 = int16( 92) # Hour, minute, and second fields, with valid values for hours of 00 to 23, valid values for minutes of 00 to 59, and valid values for seconds of 00 to 61. Precision p indicates the seconds precision.
+const SQL_TYPE_TIME                 = int16( 92) # Hour, minute, and second fields, with valid values for hours of 00 to 23, valid values for minutes of 00 to 59, and valid values for seconds of 00 to 61. Precision p indicates the seconds precision.
 #const SQL_INTERVAL_MONTH            = int16(102)
 #const SQL_INTERVAL_YEAR             = int16(101)
 #const SQL_INTERVAL_YEAR_TO_MONTH    = int16(107)
@@ -201,7 +201,7 @@ const SQL_C_BIGINT    = int16(-27)
 const SQL_C_BINARY    = int16( -2)
 const SQL_C_TYPE_DATE = int16( 91)
 const SQL_C_TYPE_TIMESTAMP            = int16( 93)
-#const SQL_C_TYPE_TIME                 = int16( 92)
+const SQL_C_TYPE_TIME                 = int16( 92)
 #const SQL_C_INTERVAL_MONTH            = int16(102)
 #const SQL_C_INTERVAL_YEAR             = int16(101)
 #const SQL_C_INTERVAL_YEAR_TO_MONTH    = int16(107)
@@ -237,7 +237,7 @@ immutable SQLTimestamp
 	hour::Int16
 	minute::Int16
 	second::Int16
-	fraction::Int #nanoseconds
+	fraction::Int32 #nanoseconds
 end
 string(x::SQLTimestamp) = "$(x.year)-$(x.month)-$(x.day) $(x.hour):$(x.minute):$(x.second)"
 
@@ -262,6 +262,7 @@ const SQL2C = [
 	SQL_VARBINARY     => SQL_C_BINARY,
 	SQL_LONGVARBINARY => SQL_C_BINARY,
 	SQL_TYPE_DATE     => SQL_C_TYPE_DATE,
+	SQL_TYPE_TIME 	  => SQL_C_TYPE_TIME,
 	SQL_TYPE_TIMESTAMP=> SQL_C_TYPE_TIMESTAMP]
 
 const SQL2Julia = [
