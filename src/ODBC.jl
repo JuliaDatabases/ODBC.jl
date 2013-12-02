@@ -2,7 +2,6 @@ module ODBC
 
 using DataFrames
 using Datetime
-using UTF16
 
 export advancedconnect, query, querymeta, @sql_str, Connection, Metadata, conn, Connections, disconnect, listdrivers, listdsns
 
