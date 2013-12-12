@@ -109,7 +109,7 @@ ODBCStorage(x) 							= eltype(typeof(x))[]
 ODBCStorage(x::Array{Uint8,2}) 			= UTF8String[]
 ODBCStorage(x::Array{Uint16,2}) 		= UTF16String[]
 ODBCStorage(x::Array{Uint32,2}) 		= UTF8String[]
-ODBCStorage(x::Array{SQLDate,1}) 		= Date{ISOCalendar}[]
+ODBCStorage(x::Array{SQLDate,1}) 		= Date[]
 ODBCStorage(x::Array{SQLTime,1}) 		= SQLTime[]
 ODBCStorage(x::Array{SQLTimestamp,1}) 	= DateTime{ISOCalendar,UTC}[]
 
@@ -130,10 +130,13 @@ function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1}
 	for i = 1:meta.cols
 		push!(cols, ODBCStorage(columns[i]))
 	end
+	rowsleft = meta.rows
 	while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-		for col in 1:meta.cols, row in 1:rowset
+		r = min(rowset,rowsleft)
+		for col in 1:meta.cols, row in 1:r
 			push!(cols[col], ODBCClean(columns[col],row))
 		end
+		rowsleft -= r
 	end
 	resultset = DataFrame(cols, Index(meta.colnames))
 end
