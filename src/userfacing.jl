@@ -54,7 +54,7 @@ function query(querystring::String,conn::Connection=conn; output::Output=DataFra
 			columns, indicator, rowset = ODBCBindCols(conn.stmt_ptr,meta)
 
 			if output == DataFrame
-				resultset = ODBCFetchDataFrame(conn.stmt_ptr,meta,columns,rowset)
+				resultset = ODBCFetchDataFrame(conn.stmt_ptr,meta,columns,rowset,indicator)
 			else
 				resultset = ODBCDirectToFile(conn.stmt_ptr,meta,columns,rowset,output,delim,length(holder))
 			end
@@ -106,7 +106,6 @@ function disconnect(connection::Connection=conn)
 			end
 		end
 	end
-	#println("$(connection.dsn) connection number $(connection.number) disconnected successfully")
 end
 #List Installed Drivers
 function listdrivers()
@@ -119,8 +118,8 @@ function listdrivers()
 	driver_attr = zeros(Uint8, 256)
 	attr_length = Array(Int16, 1)
 	while @SUCCEEDED SQLDrivers(env,driver_desc,desc_length,driver_attr,attr_length)	
-		push!(descriptions,ODBCClean(driver_desc,1))
-		push!(attributes,ODBCClean(driver_attr,1))
+		push!(descriptions,ODBCClean(driver_desc,1,desc_length[1]))
+		push!(attributes,ODBCClean(driver_attr,1,attr_length[1]))
 	end
 	return [descriptions attributes]
 end
@@ -135,8 +134,8 @@ function listdsns()
 	dsn_attr = zeros(Uint8, 256)
 	attr_length = Array(Int16, 1)
 	while @SUCCEEDED SQLDataSources(env,dsn_desc,desc_length,dsn_attr,attr_length)
-		push!(descriptions,ODBCClean(dsn_desc,1))
-		push!(attributes,ODBCClean(dsn_attr,1))
+		push!(descriptions,ODBCClean(dsn_desc,1,desc_length[1]))
+		push!(attributes,ODBCClean(dsn_attr,1,attr_length[1]))
 	end
 	return [descriptions attributes]
 end

@@ -63,7 +63,7 @@ function ODBCMetadata(stmt::Ptr{Void},querystring::String)
 			decimal_digits = Array(Int16,1)
 			nullable = Array(Int16,1) 
 			SQLDescribeCol(stmt,x,column_name,name_length,datatype,column_size,decimal_digits,nullable)
-			push!(colnames,ODBCClean(column_name,1))
+			push!(colnames,ODBCClean(column_name,1,name_length[1]))
 			push!(coltypes,(get(SQL_TYPES,int(datatype[1]),"SQL_CHAR"),datatype[1]))
 			push!(colsizes,int(column_size[1]))
 			push!(coldigits,decimal_digits[1])
@@ -113,30 +113,30 @@ ODBCStorage(x::Array{SQLDate,1}) 		= Date[]
 ODBCStorage(x::Array{SQLTime,1}) 		= SQLTime[]
 ODBCStorage(x::Array{SQLTimestamp,1}) 	= DateTime{ISOCalendar,UTC}[]
 
-ODBCClean(x,y) = x[y]
-ODBCClean(x::Array{Uint8},y) 			= strip(utf8(filter!(x->x!=0x00,x[:,y])))
-ODBCClean(x::Array{Uint16},y) 			= UTF16String(filter!(x->x!=0x0000,x[:,y]))
-ODBCClean(x::Array{Uint32},y)			= strip(utf8(filter!(x->x!=0x00,convert(Array{Uint8},x[:,y]))))
-ODBCClean(x::Array{SQLDate,1},y) 		= date(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day)
-ODBCClean(x::Array{SQLTimestamp,1},y)	= datetime(int64(x[y].year),int64(0 < x[y].month < 13 ? x[y].month : 1),int64(x[y].day),
+ODBCClean(x,y,z) = x[y]
+ODBCClean(x::Array{Uint8},y,z) 			= bytestring(x[1:z,y])
+ODBCClean(x::Array{Uint16},y,z) 		= UTF16String(x[1:z,y])
+ODBCClean(x::Array{Uint32},y,z)			= bytestring(convert(Array{Uint8},x[1:z,y]))
+ODBCClean(x::Array{SQLDate,1},y,z) 		= date(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day)
+ODBCClean(x::Array{SQLTimestamp,1},y,z)	= datetime(int64(x[y].year),int64(0 < x[y].month < 13 ? x[y].month : 1),int64(x[y].day),
 													int64(x[y].hour),int64(x[y].minute),int64(x[y].second),int64(div(x[y].fraction,1000000)))
 
 ODBCEscape(x) = string(x)
 ODBCEscape(x::String) = "\"" * x * "\""
 
 #function for fetching a resultset into a DataFrame
-function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int)
+function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
 	cols = Any[]
 	for i = 1:meta.cols
 		push!(cols, ODBCStorage(columns[i]))
 	end
-	rowsleft = meta.rows
+	rowstatus = zeros(Int64,rowset)
+	SQLSetStmtAttr(stmt,SQL_ATTR_ROW_STATUS_PTR,rowstatus,SQL_NTS)
 	while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-		r = min(rowset,rowsleft)
-		for col in 1:meta.cols, row in 1:r
-			push!(cols[col], ODBCClean(columns[col],row))
+		for col in 1:meta.cols, row in 1:rowset
+			rowstatus[row] == 0 || break
+			push!(cols[col], ODBCClean(columns[col],row,indicator[col][row]))
 		end
-		rowsleft -= r
 	end
 	resultset = DataFrame(cols, Index(meta.colnames))
 end
@@ -165,10 +165,10 @@ function ODBCError(handletype::Int16,handle::Ptr{Void})
 	state = zeros(Uint8,6)
 	error_msg = zeros(Uint8, 1024)
 	native = Array(Int,1)
-	msg_length = Array(Int16,1)
+	msg_length = zeros(Int16,1)
 	while @SUCCEEDED SQLGetDiagRec(handletype,handle,i,state,native,error_msg,msg_length)
-		st = ODBCClean(state,1)
-		msg = ODBCClean(error_msg,1)
+		st = ODBCClean(state,1,5)
+		msg = ODBCClean(error_msg,1,msg_length[1])
 		println("[ODBC] $st: $msg")
 		i = int16(i+1)
 	end
