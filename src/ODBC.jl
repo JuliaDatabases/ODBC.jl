@@ -5,7 +5,7 @@ using Datetime
 
 export advancedconnect, query, querymeta, @sql_str, Connection, Metadata, conn, Connections, disconnect, listdrivers, listdsns
 
-import Base: show, Chars, string
+import Base: show, string
 
 include("ODBC_Types.jl")
 include("ODBC_API.jl")
@@ -51,8 +51,6 @@ function show(io::IO,conn::Connection)
 		println("----------------------")
 		println("Connection Data Source: $(conn.dsn)")
 		println("$(conn.dsn) Connection Number: $(conn.number)")
-		println("Connection pointer: $(conn.dbc_ptr)")
-		println("Statement pointer: $(conn.stmt_ptr)")
 		if isequal(conn.resultset,null_resultset)
 			print("Contains resultset? No")
 		else
