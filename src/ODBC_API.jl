@@ -245,6 +245,7 @@ end
  #Description: sets attributes related to a statement.
  #Valid attributes
 	const SQL_ATTR_ROW_ARRAY_SIZE = 27
+	const SQL_ATTR_ROW_STATUS_PTR = 25
 		#this sets the rowset size for ExtendedFetch and FetchScroll
  #Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
  #Status:
@@ -254,6 +255,15 @@ function SQLSetStmtAttr(stmt::Ptr{Void},attribute::Int,value::Uint,value_length:
 		stmt,attribute,value,value_length) 
 	@unix_only ret = ccall( (:SQLSetStmtAttr, odbc_dm),
 			Int16, (Ptr{Void},Int,Uint,Int),
+			stmt,attribute,value,value_length) 
+	return ret
+end
+function SQLSetStmtAttr(stmt::Ptr{Void},attribute::Int,value::Array{Int},value_length::Int)
+	@windows_only ret = ccall( (:SQLSetStmtAttr, odbc_dm), stdcall,
+		Int16, (Ptr{Void},Int,Ptr{Int},Int),
+		stmt,attribute,value,value_length) 
+	@unix_only ret = ccall( (:SQLSetStmtAttr, odbc_dm),
+			Int16, (Ptr{Void},Int,Ptr{Int},Int),
 			stmt,attribute,value,value_length) 
 	return ret
 end
