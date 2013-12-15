@@ -244,8 +244,9 @@ end
  #http://msdn.microsoft.com/en-us/library/windows/desktop/ms712631(v=vs.85).aspx
  #Description: sets attributes related to a statement.
  #Valid attributes
-	const SQL_ATTR_ROW_ARRAY_SIZE = 27
 	const SQL_ATTR_ROW_STATUS_PTR = 25
+	const SQL_ATTR_ROWS_FETCHED_PTR  = 26
+	const SQL_ATTR_ROW_ARRAY_SIZE = 27
 		#this sets the rowset size for ExtendedFetch and FetchScroll
  #Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
  #Status:

@@ -100,19 +100,24 @@ function ODBCBindCols(stmt::Ptr{Void},meta::Metadata)
 	return (columns, indicator, rowset)
 end
 
+#ODBCColumnAllocate is used to allocate the raw underlying C-type buffers
+# to be bound in SQLBindCol
 ODBCColumnAllocate(x,y,z) 				= (Array(x,z),sizeof(x))
 ODBCColumnAllocate(x::Type{Uint8},y,z) 	= (zeros(x,(y,z)),y)
 ODBCColumnAllocate(x::Type{Uint16},y,z) = (zeros(x,(y,z)),y*2)
 ODBCColumnAllocate(x::Type{Uint32},y,z) = (zeros(x,(y,z)),y*4)
 
-ODBCStorage(x) 							= eltype(typeof(x))[]
-ODBCStorage(x::Array{Uint8,2}) 			= UTF8String[]
-ODBCStorage(x::Array{Uint16,2}) 		= UTF16String[]
-ODBCStorage(x::Array{Uint32,2}) 		= UTF8String[]
-ODBCStorage(x::Array{SQLDate,1}) 		= Date[]
-ODBCStorage(x::Array{SQLTime,1}) 		= SQLTime[]
-ODBCStorage(x::Array{SQLTimestamp,1}) 	= DateTime{ISOCalendar,UTC}[]
+#ODBCAllocate is the Julia type array that the raw underlying C-type buffer
+# data is converted to when moved to a DataFrame or written to file
+ODBCAllocate(x,y) 							= zeros(eltype(typeof(x)),y)
+ODBCAllocate(x::Array{Uint8,2},y) 			= Array(UTF8String,y)
+ODBCAllocate(x::Array{Uint16,2},y) 			= Array(UTF16String,y)
+ODBCAllocate(x::Array{Uint32,2},y) 			= Array(UTF8String,y)
+ODBCAllocate(x::Array{SQLDate,1},y) 		= Array(Date,y)
+ODBCAllocate(x::Array{SQLTime,1},y) 		= Array(SQLTime,y)
+ODBCAllocate(x::Array{SQLTimestamp,1},y) 	= Array(DateTime{ISOCalendar,UTC},y)
 
+#ODBCClean does any necessary transformations from raw C-type to Julia type
 ODBCClean(x,y,z) = x[y]
 ODBCClean(x::Array{Uint8},y,z) 			= bytestring(x[1:z,y])
 ODBCClean(x::Array{Uint16},y,z) 		= UTF16String(x[1:z,y])
@@ -121,23 +126,35 @@ ODBCClean(x::Array{SQLDate,1},y,z) 		= date(x[y].year,0 < x[y].month < 13 ? x[y]
 ODBCClean(x::Array{SQLTimestamp,1},y,z)	= datetime(int64(x[y].year),int64(0 < x[y].month < 13 ? x[y].month : 1),int64(x[y].day),
 													int64(x[y].hour),int64(x[y].minute),int64(x[y].second),int64(div(x[y].fraction,1000000)))
 
+ODBCCopy!(dest,dsto,src,n,ind) = unsafe_copy!(pointer(dest,dsto),pointer(src,1),n)
+function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint8,2},n,ind)
+	for i=0:n-1
+        @inbounds arrayset(dest, utf8(bytestring(src[1:ind[i+1],i+1])), i+dsto)
+    end
+end
+
+#ODBCEscape takes a Julia value and gets it ready for writing to a file
 ODBCEscape(x) = string(x)
 ODBCEscape(x::String) = "\"" * x * "\""
 
 #function for fetching a resultset into a DataFrame
 function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
-	cols = Any[]
+	tic()
+	cols = Array(Any,meta.cols)
 	for i = 1:meta.cols
-		push!(cols, ODBCStorage(columns[i]))
+		cols[i] = ODBCAllocate(columns[i],meta.rows)
 	end
-	rowstatus = zeros(Int64,rowset)
-	SQLSetStmtAttr(stmt,SQL_ATTR_ROW_STATUS_PTR,rowstatus,SQL_NTS)
+	rowsfetched = zeros(Int64,1)
+	SQLSetStmtAttr(stmt,SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,SQL_NTS)
+	r = 1
 	while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-		for col in 1:meta.cols, row in 1:rowset
-			rowstatus[row] == 0 || break
-			push!(cols[col], ODBCClean(columns[col],row,indicator[col][row]))
+		rows = rowsfetched[1] < rowset ? rowsfetched[1] : rowset
+		for col in 1:meta.cols
+			@inbounds ODBCCopy!(cols[col],r,columns[col],rows,indicator[col])
 		end
+		r += rows
 	end
+	toc()
 	resultset = DataFrame(cols, Index(meta.colnames))
 end
 function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::String,delim::Char,l::Int)
