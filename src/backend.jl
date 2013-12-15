@@ -132,6 +132,16 @@ function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint8,2},n,ind)
         @inbounds arrayset(dest, utf8(bytestring(src[1:ind[i+1],i+1])), i+dsto)
     end
 end
+function ODBCCopy!(dest::Array{UTF16String},dsto,src::Array{Uint16,2},n,ind)
+	for i=0:n-1
+        @inbounds arrayset(dest, UTF16String(src[1:ind[i+1],i+1]), i+dsto)
+    end
+end
+function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint32,2},n,ind)
+	for i=0:n-1
+        @inbounds arrayset(dest, utf8(bytestring(convert(Array{Uint8},src[1:ind[i+1],i+1]))), i+dsto)
+    end
+end
 
 #ODBCEscape takes a Julia value and gets it ready for writing to a file
 ODBCEscape(x) = string(x)
