@@ -134,12 +134,12 @@ function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint8,2},n,ind)
 end
 function ODBCCopy!(dest::Array{UTF16String},dsto,src::Array{Uint16,2},n,ind)
 	for i=1:n
-        @inbounds arrayset(dest, UTF16String(src[1:ind[i],i]), i+dsto-1)
+        @inbounds arrayset(dest, UTF16String(src[1:div(ind[i],2),i]), i+dsto-1)
     end
 end
 function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint32},n,ind)
 	for i=1:n
-        @inbounds arrayset(dest, utf8(bytestring(convert(Array{Uint8},src[1:ind[i],i]))), i+dsto-1)
+        @inbounds arrayset(dest, utf8(bytestring(convert(Array{Uint8},src[1:div(ind[i],4),i]))), i+dsto-1)
     end
 end
 function ODBCCopy!{D<:Date}(dest::Array{D},dsto,src::Array{SQLDate},n,ind)
