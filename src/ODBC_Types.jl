@@ -229,7 +229,7 @@ immutable SQLTime
 	minute::Int16
 	second::Int16
 end
-string(x::SQLTime) = "$(x.hour):$(x.minute):$(x.second)"
+show(io::IO,x::SQLTime) = print(io,"$(x.hour):$(x.minute):$(x.second)")
 immutable SQLTimestamp
 	year::Int16
 	month::Int16
@@ -286,6 +286,7 @@ const SQL2Julia = [
 	SQL_VARBINARY     => Uint8,
 	SQL_LONGVARBINARY => Uint8,
 	SQL_TYPE_DATE     => SQLDate,
+	SQL_TYPE_TIME 	  => SQLTime,
 	SQL_TYPE_TIMESTAMP=> SQLTimestamp]
 
 const SQL_TYPES = [
