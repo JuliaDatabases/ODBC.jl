@@ -128,18 +128,30 @@ ODBCClean(x::Array{SQLTimestamp,1},y,z)	= datetime(int64(x[y].year),int64(0 < x[
 
 ODBCCopy!(dest,dsto,src,n,ind) = unsafe_copy!(pointer(dest,dsto),pointer(src,1),n)
 function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint8,2},n,ind)
-	for i=0:n-1
-        @inbounds arrayset(dest, utf8(bytestring(src[1:ind[i+1],i+1])), i+dsto)
+	for i=1:n
+        @inbounds arrayset(dest, utf8(bytestring(src[1:ind[i],i])), i+dsto-1)
     end
 end
 function ODBCCopy!(dest::Array{UTF16String},dsto,src::Array{Uint16,2},n,ind)
-	for i=0:n-1
-        @inbounds arrayset(dest, UTF16String(src[1:ind[i+1],i+1]), i+dsto)
+	for i=1:n
+        @inbounds arrayset(dest, UTF16String(src[1:ind[i],i]), i+dsto-1)
     end
 end
-function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint32,2},n,ind)
-	for i=0:n-1
-        @inbounds arrayset(dest, utf8(bytestring(convert(Array{Uint8},src[1:ind[i+1],i+1]))), i+dsto)
+function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint32},n,ind)
+	for i=1:n
+        @inbounds arrayset(dest, utf8(bytestring(convert(Array{Uint8},src[1:ind[i],i]))), i+dsto-1)
+    end
+end
+function ODBCCopy!(dest::Array{Date},dsto,src::Array{SQLDate},n,ind)
+	for i=1:n
+        @inbounds arrayset(dest, date(src[i].year,
+        	0 < src[i].month < 13 ? src[i].month : 1,src[i].day), i+dsto-1)
+    end
+end
+function ODBCCopy!(dest::Array{DateTime},dsto,src::Array{SQLTimestamp},n,ind)
+	for i=1:n
+        @inbounds arrayset(dest, datetime(src[i].year,0 < src[i].month < 13 ? src[i].month : 1,
+        	src[i].day,src[i].hour,src[i].minute,src[i].second,div(src[i].fraction,1000000)),i+dsto-1)
     end
 end
 
