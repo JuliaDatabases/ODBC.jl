@@ -3,18 +3,20 @@ let
     global odbc_dm
     local lib
     succeeded=false
-    @linux_only lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
-	@windows_only lib_choices = ["odbc32"]
-	@osx_only lib_choices = ["libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
-    for lib in lib_choices 
-        try
-            dlopen(lib)
-            succeeded=true
-            break
-        end
-    end
-    if !succeeded error("ODBC library not found") end
-    @eval const odbc_dm = $lib
+    if !isdefined(:odbc_dm)
+	    @linux_only lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
+		@windows_only lib_choices = ["odbc32"]
+		@osx_only lib_choices = ["libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
+	    for lib in lib_choices 
+	        try
+	            dlopen(lib)
+	            succeeded=true
+	            break
+	        end
+	    end
+	    if !succeeded error("ODBC library not found") end
+	    @eval const odbc_dm = $lib
+	end
 end
 
 #Translation of sqltypes.h; C typealiases for SQL functions
