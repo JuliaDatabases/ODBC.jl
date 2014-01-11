@@ -74,6 +74,11 @@ end
 macro sql_str(s)
 	query(s)
 end
+# Replaces backticks in the query string with escaped quotes for convenience
+# in using "" in column names, etc.
+macro query(x)
+    :(query(replace($x,'`','\"')))
+end
 #querymeta: Sends query string to DBMS, once executed, resultset metadata is returned
 #it may seem odd to include the other arguments for querymeta, but it's so switching between query and querymeta doesn't require exluding args (convenience)
 function querymeta(querystring::String,conn::Connection=conn; output::Output=DataFrame,delim::Char=',')

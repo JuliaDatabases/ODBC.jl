@@ -3,7 +3,10 @@ module ODBC
 using DataFrames
 using Datetime
 
-export advancedconnect, query, querymeta, @sql_str, Connection, Metadata, conn, Connections, disconnect, listdrivers, listdsns
+export advancedconnect, 
+	   query, querymeta, @query, @sql_str, 
+	   Connection, Metadata, conn, Connections, 
+	   disconnect, listdrivers, listdsns
 
 import Base: show, string
 
