@@ -52,9 +52,12 @@ function query(querystring::String,conn::Connection=conn; output::Output=DataFra
 			push!(holder, DataFrame())
 		else
 			columns, indicator, rowset = ODBCBindCols(conn.stmt_ptr,meta)
-
 			if output == DataFrame
-				resultset = ODBCFetchDataFrame(conn.stmt_ptr,meta,columns,rowset,indicator)
+				if meta.rows > 0
+					resultset = ODBCFetchDataFrame(conn.stmt_ptr,meta,columns,rowset,indicator)
+				else
+					resultset = ODBCFetchDataFramePush!(conn.stmt_ptr,meta,columns,rowset,indicator)
+				end
 			else
 				resultset = ODBCDirectToFile(conn.stmt_ptr,meta,columns,rowset,output,delim,length(holder))
 			end

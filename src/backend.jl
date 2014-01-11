@@ -171,13 +171,34 @@ function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1}
 	for i = 1:meta.cols
 		cols[i] = ODBCAllocate(columns[i],meta.rows)
 	end
-	rowsfetched = zeros(Int64,1)
+	rowsfetched = zeros(Int,1)
 	SQLSetStmtAttr(stmt,SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,SQL_NTS)
 	r = 1
 	while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
 		rows = rowsfetched[1] < rowset ? rowsfetched[1] : rowset
 		for col in 1:meta.cols
 			@inbounds ODBCCopy!(cols[col],r,columns[col],rows,indicator[col])
+		end
+		r += rows
+	end
+	toc()
+	resultset = DataFrame(cols, Index(meta.colnames))
+end
+function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
+	tic()
+	cols = Array(Any,meta.cols)
+	for i = 1:meta.cols
+		cols[i] = ODBCAllocate(columns[i],0)
+	end
+	rowsfetched = zeros(Int,1)
+	SQLSetStmtAttr(stmt,SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,SQL_NTS)
+	r = 1
+	while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
+		rows = rowsfetched[1] < rowset ? rowsfetched[1] : rowset
+		for col in 1:meta.cols
+			temp = ODBCAllocate(columns[col],rows)
+			@inbounds ODBCCopy!(temp,r,columns[col],rows,indicator[col])
+			append!(cols[col],temp)
 		end
 		r += rows
 	end
