@@ -144,14 +144,14 @@ function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint32},n,ind)
 end
 function ODBCCopy!{D<:Date}(dest::Array{D},dsto,src::Array{SQLDate},n,ind)
 	for i=1:n
-        @inbounds arrayset(dest, date(src[i].year,
-        	0 < src[i].month < 13 ? src[i].month : 1,src[i].day), i+dsto-1)
+        @inbounds arrayset(dest, date(int64(src[i].year),
+        	int64(0 < src[i].month < 13 ? src[i].month : 1),int64(src[i].day)), i+dsto-1)
     end
 end
 function ODBCCopy!{D<:DateTime}(dest::Array{D},dsto,src::Array{SQLTimestamp},n,ind)
 	for i=1:n
-        @inbounds arrayset(dest, datetime(src[i].year,0 < src[i].month < 13 ? src[i].month : 1,
-        	src[i].day,src[i].hour,src[i].minute,src[i].second,div(src[i].fraction,1000000)),i+dsto-1)
+        @inbounds arrayset(dest, datetime(int64(src[i].year),int64(0 < src[i].month < 13 ? src[i].month : 1),
+        	int64(src[i].day),int64(src[i].hour),int64(src[i].minute),int64(src[i].second),int64(div(src[i].fraction,1000000))),i+dsto-1)
     end
 end
 function ODBCCopy!(dest::Array{SQLTime},dsto,src::Array{SQLTime},n,ind)
