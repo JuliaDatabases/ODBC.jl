@@ -434,10 +434,10 @@ end
 function SQLNativeSql(dbc::Ptr{Void},query_string::String,output_string::Array{Uint8,1},length_ind::Array{Int,1})
 	@windows_only ret = ccall( (:SQLNativeSql, odbc_dm), stdcall,
 		Int16, (Ptr{Void},Ptr{Uint8},Int,Ptr{Uint8},Int,Ptr{Int}),
-		dbc,query_string,length(query_string),output_string,length(output_string),length_ind) 
+		dbc,query_string,sizeof(query_string),output_string,length(output_string),length_ind) 
 	@unix_only ret = ccall( (:SQLNativeSql, odbc_dm),
 			Int16, (Ptr{Void},Ptr{Uint8},Int,Ptr{Uint8},Int,Ptr{Int}),
-			dbc,query_string,length(query_string),output_string,length(output_string),length_ind) 
+			dbc,query_string,sizeof(query_string),output_string,length(output_string),length_ind) 
 	return ret
 end
 #SQLGetTypeInfo
@@ -470,10 +470,10 @@ end
 function SQLPrepare(stmt::Ptr{Void},query_string::String)
 	@windows_only ret = ccall( (:SQLPrepare, odbc_dm), stdcall,
 		Int16, (Ptr{Void},Ptr{Uint8},Int16),
-		stmt,query_string,length(query_string)) 
+		stmt,query_string,sizeof(query_string)) 
 	@unix_only ret = ccall( (:SQLPrepare, odbc_dm),
 			Int16, (Ptr{Void},Ptr{Uint8},Int16),
-			stmt,query_string,length(query_string)) 
+			stmt,query_string,sizeof(query_string)) 
 	return ret
 end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713584(v=vs.85).aspx
@@ -493,10 +493,10 @@ end
 function SQLExecDirect(stmt::Ptr{Void},query::String)
 	@windows_only ret = ccall( (:SQLExecDirect, odbc_dm), stdcall, 
 		Int16, (Ptr{Void},Ptr{Uint8},Int),
-		stmt,query,length(query)) 
+		stmt,query,sizeof(query)) 
 	@unix_only ret = ccall( (:SQLExecDirect, odbc_dm),
 			Int16, (Ptr{Void},Ptr{Uint8},Int),
-			stmt,query,length(query)) 
+			stmt,query,sizeof(query))
 	return ret
 end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714112(v=vs.85).aspx
