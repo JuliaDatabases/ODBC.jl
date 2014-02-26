@@ -1,3 +1,5 @@
+using DataArrays
+
 function ODBCAllocHandle(handletype,parenthandle)
 	handle = Array(Ptr{Void},1)
 	if @FAILED SQLAllocHandle(handletype,parenthandle,handle)
