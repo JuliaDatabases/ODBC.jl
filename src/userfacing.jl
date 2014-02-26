@@ -54,7 +54,7 @@ function query(querystring::String,conn::Connection=conn; output::Output=DataFra
 			columns, indicator, rowset = ODBCBindCols(conn.stmt_ptr,meta)
 
 			if output == DataFrame
-				resultset = ODBCFetchDataFrame(conn.stmt_ptr,meta,columns,rowset)
+				resultset = ODBCFetchDataFrame(conn.stmt_ptr,meta,columns,rowset,indicator)
 			else
 				resultset = ODBCDirectToFile(conn.stmt_ptr,meta,columns,rowset,output,delim,length(holder))
 			end

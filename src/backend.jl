@@ -113,6 +113,14 @@ ODBCStorage(x::Array{SQLDate,1}) 		= Date{ISOCalendar}[]
 ODBCStorage(x::Array{SQLTime,1}) 		= SQLTime[]
 ODBCStorage(x::Array{SQLTimestamp,1}) 	= DateTime{ISOCalendar,UTC}[]
 
+ODBCEmpty(x::Array{Uint8}) = utf8("")
+ODBCEmpty(x::Array{Uint16}) = utf16("")
+ODBCEmpty(x::Array{Uint32}) = utf8("")
+ODBCEmpty(x::Array{Int32}) = int32(0)
+ODBCEmpty(x::Array{Int64}) = 0
+ODBCEmpty(x::Array{Float32}) = NaN32
+ODBCEmpty(x::Array{Float64}) = NaN
+
 ODBCClean(x,y) = x[y]
 ODBCClean(x::Array{Uint8},y) 			= strip(utf8(filter!(x->x!=0x00,x[:,y])))
 ODBCClean(x::Array{Uint16},y) 			= UTF16String(filter!(x->x!=0x0000,x[:,y]))
@@ -125,17 +133,35 @@ ODBCEscape(x) = string(x)
 ODBCEscape(x::String) = "\"" * x * "\""
 
 #function for fetching a resultset into a DataFrame
-function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int)
+function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,
+                            indicator::Vector{Any})
 	cols = Any[]
+        nas = BitVector[]
 	for i = 1:meta.cols
 		push!(cols, ODBCStorage(columns[i]))
+                push!( nas, BitVector( 0 ) )
 	end
 	while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
 		for col in 1:meta.cols, row in 1:rowset
-			push!(cols[col], ODBCClean(columns[col],row))
+                    if( indicator[col][1] < 0 )
+                        push!(nas[col], true)
+                        push!(cols[col], ODBCEmpty(columns[col]))
+                    else
+                        push!(nas[col], false)
+                        coltype = typeof(columns[col])
+                        # for strings, we need to restrict the length
+                        if( issubtype(coltype,Array) && eltype(coltype) in [Uint8,Uint16,Uint32] )
+                            l = indicator[col][1]
+                            data = reshape( columns[col][1:l,row], (l,1) )
+			    push!(cols[col], ODBCClean(data,1))
+                        else
+			    push!(cols[col], ODBCClean(columns[col],row))
+                        end
+                    end
 		end
 	end
-	resultset = DataFrame(cols, Index(meta.colnames))
+        dataarrays = {DataArray(cols[col],nas[col]) for col in 1:length(cols)}
+	resultset = DataFrame(dataarrays, Index(meta.colnames))
 end
 function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::String,delim::Char,l::Int)
 	out_file = l == 0 ? open(output,"w") : open(output,"a")
