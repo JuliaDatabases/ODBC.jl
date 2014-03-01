@@ -1,6 +1,6 @@
 ODBC.jl
 =======
-
+[![Build Status](https://travis-ci.org/karbarcca/ODBC.jl.png)](https://travis-ci.org/karbarcca/ODBC.jl)
 A low-level ODBC interface for the Julia programming language
 
 Installation through the Julia package manager:
