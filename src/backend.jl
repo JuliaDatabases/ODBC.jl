@@ -183,7 +183,7 @@ function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1}
     nas = Array(BitVector,meta.cols)
     for i = 1:meta.cols
         cols[i] = ODBCAllocate(columns[i],meta.rows)
-        nas[i] = BitVector(meta.rows)
+        nas[i] = falses(meta.rows)
     end
     rowsfetched = zeros(Int,1)
     SQLSetStmtAttr(stmt,SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,SQL_NTS)
