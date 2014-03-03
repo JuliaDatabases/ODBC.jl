@@ -202,8 +202,10 @@ end
 function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
     tic()
     cols = Array(Any,meta.cols)
+    nas = Array(BitVector,meta.cols)
     for i = 1:meta.cols
         cols[i] = ODBCAllocate(columns[i],0)
+        nas[i] = falses(0)
     end
     rowsfetched = zeros(Int,1)
     SQLSetStmtAttr(stmt,SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,SQL_NTS)
@@ -212,13 +214,16 @@ function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{A
         rows = rowsfetched[1] < rowset ? rowsfetched[1] : rowset
         for col in 1:meta.cols
             temp = ODBCAllocate(columns[col],rows)
-            @inbounds ODBCCopy!(temp,r,columns[col],rows,indicator[col])
+            tempna = falses(rows)
+            @inbounds ODBCCopy!(temp,r,columns[col],rows,indicator[col],tempna)
             append!(cols[col],temp)
+            append!(nas[col],tempna)
         end
         r += rows
     end
     toc()
-    resultset = DataFrame(cols, Index(meta.colnames))
+    cols = {DataArray(cols[col],nas[col]) for col in 1:length(cols)}
+    resultset = DataFrame(cols, DataFrames.Index(Symbol[symbol(i) for i in meta.colnames]))
 end
 function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::String,delim::Char,l::Int)
     out_file = l == 0 ? open(output,"w") : open(output,"a")
