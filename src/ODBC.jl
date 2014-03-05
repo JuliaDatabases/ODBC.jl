@@ -1,5 +1,6 @@
 module ODBC
 
+using UTF16
 using DataFrames
 using DataArrays
 using Datetime
