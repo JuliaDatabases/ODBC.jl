@@ -197,7 +197,7 @@ function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1}
     end
     toc()
     cols = {DataArray(cols[col],nas[col]) for col in 1:length(cols)}
-    resultset = DataFrame(cols, DataFrames.Index(Symbol[symbol(i) for i in meta.colnames]))
+    resultset = DataFrame(cols, DataFrames.Index(Symbol[DataFrames.identifier(i) for i in meta.colnames]))
 end
 function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
     tic()
@@ -223,7 +223,7 @@ function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{A
     end
     toc()
     cols = {DataArray(cols[col],nas[col]) for col in 1:length(cols)}
-    resultset = DataFrame(cols, DataFrames.Index(Symbol[symbol(i) for i in meta.colnames]))
+    resultset = DataFrame(cols, DataFrames.Index(Symbol[DataFrames.identifier(i) for i in meta.colnames]))
 end
 function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::String,delim::Char,l::Int)
     out_file = l == 0 ? open(output,"w") : open(output,"a")
