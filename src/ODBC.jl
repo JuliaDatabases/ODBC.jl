@@ -9,7 +9,7 @@ export advancedconnect,
        Connection, Metadata, conn, Connections, 
        disconnect, listdrivers, listdsns
 
-import Base: show, string
+import Base: arrayset, show, string
 
 include("ODBC_Types.jl")
 include("ODBC_API.jl")
