@@ -544,10 +544,10 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716289(v=vs.85).aspx
 function SQLDescribeCol(stmt::Ptr{Void},x::Int,column_name::Array{Uint8,1},name_length::Array{Int16,1},datatype::Array{Int16,1},column_size::Array{Int,1},decimal_digits::Array{Int16,1},nullable::Array{Int16,1})
     @windows_only ret = ccall( (:SQLDescribeCol, odbc_dm), stdcall, 
-        Int16, (Ptr{Void},Uint16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Uint},Ptr{Int16},Ptr{Int16}),
+        Int16, (Ptr{Void},Uint16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
         stmt,x,column_name,length(column_name),name_length,datatype,column_size,decimal_digits,nullable) 
     @unix_only ret = ccall( (:SQLDescribeCol, odbc_dm),
-            Int16, (Ptr{Void},Uint16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Uint},Ptr{Int16},Ptr{Int16}),
+            Int16, (Ptr{Void},Uint16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
             stmt,x,column_name,length(column_name),name_length,datatype,column_size,decimal_digits,nullable) 
     return ret
 end
