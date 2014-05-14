@@ -55,7 +55,7 @@ function ODBCMetadata(stmt::Ptr{Void},querystring::String)
         coldigits = Int16[]
         colnulls = Int16[]
         #Allocate space for and fetch the name, type, size, etc. for each column
-        for x in 1:cols[1]
+        for x = 1:cols[1]
             column_name = zeros(Uint8,256)
             name_length = Array(Int16,1)
             datatype = Array(Int16,1)
@@ -81,7 +81,7 @@ function ODBCBindCols(stmt::Ptr{Void},meta::Metadata)
     #these Any arrays are where the ODBC manager dumps result data
     indicator = Any[]
     columns = Any[]
-    for x in 1:meta.cols
+    for x = 1:meta.cols
         sqltype = meta.coltypes[x][2]
         #we need the C type so the ODBC manager knows how to store the data
         ctype = get(SQL2C,sqltype,SQL_C_CHAR)
@@ -128,44 +128,44 @@ ODBCClean(x::Array{SQLTimestamp,1},y,z)    = datetime(int64(x[y].year),int64(0 <
 
 function ODBCCopy!(dest,dsto,src,n,ind,nas)
     unsafe_copy!(pointer(dest,dsto),pointer(src,1),n)
-    for i=1:n
+    for i = 1:n
         ind[i] < 0 && (nas[i+dsto-1] = true)
     end
 end
 function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint8,2},n,ind,nas)
-    for i=1:n
+    for i = 1:n
         ind[i] < 0 && (nas[i+dsto-1] = true)
         arrayset(dest, utf8(bytestring(src[1:ind[i],i])), i+dsto-1)
     end
 end
 function ODBCCopy!(dest::Array{UTF16String},dsto,src::Array{Uint16,2},n,ind,nas)
-    for i=1:n
+    for i = 1:n
         ind[i] < 0 && (nas[i+dsto-1] = true)
         arrayset(dest, UTF16String(src[1:div(ind[i],2),i]), i+dsto-1)
     end
 end
 function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint32},n,ind,nas)
-    for i=1:n
+    for i = 1:n
         ind[i] < 0 && (nas[i+dsto-1] = true)
         arrayset(dest, utf8(bytestring(convert(Array{Uint8},src[1:div(ind[i],4),i]))), i+dsto-1)
     end
 end
 function ODBCCopy!{D<:Date}(dest::Array{D},dsto,src::Array{SQLDate},n,ind,nas)
-    for i=1:n
+    for i = 1:n
         ind[i] < 0 && (nas[i+dsto-1] = true)
         arrayset(dest, date(int64(src[i].year),
             int64(0 < src[i].month < 13 ? src[i].month : 1),int64(src[i].day)), i+dsto-1)
     end
 end
 function ODBCCopy!{D<:DateTime}(dest::Array{D},dsto,src::Array{SQLTimestamp},n,ind,nas)
-    for i=1:n
+    for i = 1:n
         ind[i] < 0 && (nas[i+dsto-1] = true)
         arrayset(dest, datetime(int64(src[i].year),int64(0 < src[i].month < 13 ? src[i].month : 1),
             int64(src[i].day),int64(src[i].hour),int64(src[i].minute),int64(src[i].second),int64(div(src[i].fraction,1000000))),i+dsto-1)
     end
 end
 function ODBCCopy!(dest::Array{SQLTime},dsto,src::Array{SQLTime},n,ind,nas)
-    for i=1:n
+    for i = 1:n
         ind[i] < 0 && (nas[i+dsto-1] = true)
         arrayset(dest, src[i], i+dsto-1)
     end
@@ -190,13 +190,13 @@ function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1}
     r = 1
     while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
         rows = rowsfetched[1] < rowset ? rowsfetched[1] : rowset
-        for col in 1:meta.cols
+        for col = 1:meta.cols
             ODBCCopy!(cols[col],r,columns[col],rows,indicator[col],nas[col])
         end
         r += rows
     end
     toc()
-    cols = {DataArray(cols[col],nas[col]) for col in 1:length(cols)}
+    cols = {DataArray(cols[col],nas[col]) for col = 1:length(cols)}
     resultset = DataFrame(cols, DataFrames.Index(Symbol[DataFrames.identifier(i) for i in meta.colnames]))
 end
 function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
@@ -212,7 +212,7 @@ function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{A
     r = 1
     while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
         rows = rowsfetched[1] < rowset ? rowsfetched[1] : rowset
-        for col in 1:meta.cols
+        for col = 1:meta.cols
             temp = ODBCAllocate(columns[col],rows)
             tempna = falses(rows)
             ODBCCopy!(temp,r,columns[col],rows,indicator[col],tempna)
@@ -222,14 +222,14 @@ function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{A
         r += rows
     end
     toc()
-    cols = {DataArray(cols[col],nas[col]) for col in 1:length(cols)}
+    cols = {DataArray(cols[col],nas[col]) for col = 1:length(cols)}
     resultset = DataFrame(cols, DataFrames.Index(Symbol[DataFrames.identifier(i) for i in meta.colnames]))
 end
 function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::String,delim::Char,l::Int)
     out_file = l == 0 ? open(output,"w") : open(output,"a")
     write(out_file,join(meta.colnames,delim)*"\n")
     while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-        for row in 1:rowset, col in 1:meta.cols
+        for row = 1:rowset, col = 1:meta.cols
             write(out_file,ODBCEscape(ODBCClean(columns[col],row)))
             write(out_file,delim)
             col == meta.cols && write(out_file,"\n")
