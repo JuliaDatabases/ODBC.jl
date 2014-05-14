@@ -102,28 +102,28 @@ end
 
 #ODBCColumnAllocate is used to allocate the raw underlying C-type buffers
 # to be bound in SQLBindCol
-ODBCColumnAllocate(x,y,z)                 = (Array(x,z),sizeof(x))
-ODBCColumnAllocate(x::Type{Uint8},y,z)     = (zeros(x,(y,z)),y)
+ODBCColumnAllocate(x,y,z)               = (Array(x,z),sizeof(x))
+ODBCColumnAllocate(x::Type{Uint8},y,z)  = (zeros(x,(y,z)),y)
 ODBCColumnAllocate(x::Type{Uint16},y,z) = (zeros(x,(y,z)),y*2)
 ODBCColumnAllocate(x::Type{Uint32},y,z) = (zeros(x,(y,z)),y*4)
 
 #ODBCAllocate is the Julia type array that the raw underlying C-type buffer
 # data is converted to when moved to a DataFrame or written to file
-ODBCAllocate(x,y)                             = zeros(eltype(typeof(x)),y)
-ODBCAllocate(x::Array{Uint8,2},y)             = Array(UTF8String,y)
-ODBCAllocate(x::Array{Uint16,2},y)             = Array(UTF16String,y)
-ODBCAllocate(x::Array{Uint32,2},y)             = Array(UTF8String,y)
-ODBCAllocate(x::Array{SQLDate,1},y)         = Array(Date,y)
-ODBCAllocate(x::Array{SQLTime,1},y)         = Array(SQLTime,y)
-ODBCAllocate(x::Array{SQLTimestamp,1},y)     = Array(DateTime{ISOCalendar,UTC},y)
+ODBCAllocate(x,y)                        = zeros(eltype(typeof(x)),y)
+ODBCAllocate(x::Array{Uint8,2},y)        = Array(UTF8String,y)
+ODBCAllocate(x::Array{Uint16,2},y)       = Array(UTF16String,y)
+ODBCAllocate(x::Array{Uint32,2},y)       = Array(UTF8String,y)
+ODBCAllocate(x::Array{SQLDate,1},y)      = Array(Date,y)
+ODBCAllocate(x::Array{SQLTime,1},y)      = Array(SQLTime,y)
+ODBCAllocate(x::Array{SQLTimestamp,1},y) = Array(DateTime{ISOCalendar,UTC},y)
 
 #ODBCClean does any necessary transformations from raw C-type to Julia type
 ODBCClean(x,y,z) = x[y]
-ODBCClean(x::Array{Uint8},y,z)             = bytestring(x[1:z,y])
+ODBCClean(x::Array{Uint8},y,z)          = bytestring(x[1:z,y])
 ODBCClean(x::Array{Uint16},y,z)         = UTF16String(x[1:z,y])
-ODBCClean(x::Array{Uint32},y,z)            = bytestring(convert(Array{Uint8},x[1:z,y]))
-ODBCClean(x::Array{SQLDate,1},y,z)         = date(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day)
-ODBCClean(x::Array{SQLTimestamp,1},y,z)    = datetime(int64(x[y].year),int64(0 < x[y].month < 13 ? x[y].month : 1),int64(x[y].day),
+ODBCClean(x::Array{Uint32},y,z)         = bytestring(convert(Array{Uint8},x[1:z,y]))
+ODBCClean(x::Array{SQLDate,1},y,z)      = date(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day)
+ODBCClean(x::Array{SQLTimestamp,1},y,z) = datetime(int64(x[y].year),int64(0 < x[y].month < 13 ? x[y].month : 1),int64(x[y].day),
                                                     int64(x[y].hour),int64(x[y].minute),int64(x[y].second),int64(div(x[y].fraction,1000000)))
 
 function ODBCCopy!(dest,dsto,src,n,ind,nas)
