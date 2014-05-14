@@ -211,17 +211,15 @@ function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{A
     end
     rowsfetched = zeros(Int,1)
     SQLSetStmtAttr(stmt,SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,SQL_NTS)
-    r = 1
     while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
         rows = rowsfetched[1] < rowset ? rowsfetched[1] : rowset
         for col = 1:meta.cols
             temp = ODBCAllocate(columns[col],rows)
             tempna = falses(rows)
-            ODBCCopy!(temp,r,columns[col],rows,indicator[col],tempna)
+            ODBCCopy!(temp,1,columns[col],rows,indicator[col],tempna)
             append!(cols[col],temp)
             append!(nas[col],tempna)
         end
-        r += rows
     end
     toc()
     cols = {DataArray(cols[col],nas[col]) for col = 1:length(cols)}
