@@ -12,23 +12,6 @@ export advancedconnect,
 include("ODBC_Types.jl")
 include("ODBC_API.jl")
 
-
-# Global module consts and variables
-typealias Output Union(DataType,String)
-
-const null_resultset = DataFrame()
-const null_conn = Connection("", 0, C_NULL, C_NULL, null_resultset)
-const null_meta = Metadata("", 0, 0, UTF8String[], (String,Int16)[], Int[], Int16[], Int16[])
-
-global env = C_NULL
-
-# For managing references to multiple connections
-global Connections = Connection[] 
-
-#Create default connection = null
-global conn = null_conn
-global ret = ""
-
 # Holds metadata related to an executed query resultset
 type Metadata
     querystring::String
@@ -50,9 +33,11 @@ Base.show(io::IO,meta::Metadata) = begin
         println(io, "Query:   $(meta.querystring)")
         println(io, "Columns: $(meta.cols)")
         println(io, "Rows:    $(meta.rows)")
-        println(io, DataFrame(
-            [meta.colnames, meta.coltypes, meta.colsizes, meta.coldigits, meta.colnulls],
-            ["Column Names", "Types", "Sizes", "Digits", "Nullable"]))
+        println(io, DataFrame(Names=meta.colnames,
+                              Types=meta.coltypes,
+                              Sizes=meta.colsizes,
+                              Digits=meta.coldigits,
+                              Nullable=meta.colnulls))
     end 
 end
 
@@ -70,7 +55,7 @@ type Connection
     resultset::Any
 end
 
-Base show(io::IO,conn::Connection) = begin
+Base.show(io::IO,conn::Connection) = begin
     if conn == null_conn
         print(io, "Null ODBC Connection Object")
     else
@@ -86,8 +71,23 @@ Base show(io::IO,conn::Connection) = begin
     end
 end
 
-#There was a weird bug where Connections was showing each Connection 3 times, this seems to solve it
 Base.show(io::IO, conns::Vector{Connection}) = map(show, conns)
+
+# Global module consts and variables
+typealias Output Union(DataType,String)
+
+const null_resultset = DataFrame()
+const null_conn = Connection("", 0, C_NULL, C_NULL, null_resultset)
+const null_meta = Metadata("", 0, 0, UTF8String[], (String,Int16)[], Int[], Int16[], Int16[])
+
+global env = C_NULL
+
+# For managing references to multiple connections
+global Connections = Connection[] 
+
+#Create default connection = null
+global conn = null_conn
+global ret = ""
 
 include("backend.jl")
 include("userfacing.jl")

@@ -38,8 +38,8 @@ function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::String,driver_prompt::Ui
 end
 
 # Send query to DMBS
-function ODBCQueryExecute(stmt::Ptr{Void},querystring::String)
-    if @FAILED SQLExecDirect(stmt,querystring)
+function ODBCQueryExecute(stmt::Ptr{Void}, querystring::String)
+    if @FAILED SQLExecDirect(stmt, utf16(querystring))
         ODBCError(SQL_HANDLE_STMT,stmt)
         error("[ODBC]: SQLExecDirect failed; Return Code: $ret")
     end
@@ -149,7 +149,9 @@ end
 function ODBCCopy!(dest::Array{UTF16String},dsto,src::Array{Uint16,2},n,ind,nas)
     for i = 1:n
         nas[i+dsto-1] = ind[i] < 0
-        dest[i+dsto-1] = UTF16String(src[1:div(ind[i],2),i])
+        raw = src[1:div(ind[i], 2), i]
+        str = utf16(convert(Ptr{Uint16}, raw), length(raw))
+        dest[i+dsto-1] = str 
     end
 end
 
@@ -264,11 +266,11 @@ function ODBCError(handletype::Int16,handle::Ptr{Void})
     i = int16(1)
     state = zeros(Uint8,6)
     error_msg = zeros(Uint8, 1024)
-    native = Array(Int,1)
+    native = zeros(Int,1)
     msg_length = zeros(Int16,1)
     while @SUCCEEDED SQLGetDiagRec(handletype,handle,i,state,native,error_msg,msg_length)
         st  = ODBCClean(state,1,5)
-        msg = ODBCClean(error_msg,1,msg_length[1])
+        msg = ODBCClean(error_msg, 1, msg_length[1])
         println("[ODBC] $st: $msg")
         i = int16(i+1)
     end

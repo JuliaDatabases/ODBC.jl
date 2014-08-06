@@ -69,13 +69,18 @@ function SQLDrivers(env::Ptr{Void},
                     attr_length::Array{Int16,1})
     @windows_only begin 
         ret = ccall((:SQLDrivers, odbc_dm), stdcall, Int16,
-                    (Ptr{Void}, Int16, Ptr{Uint8}, Int16, Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
-                    env, SQL_FETCH_NEXT, driver_desc, length(driver_desc), desc_length, driver_attr, length(driver_attr), attr_length) 
+                    (Ptr{Void}, Int16, Ptr{Uint8}, 
+                    Int16, Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
+                    env, SQL_FETCH_NEXT, driver_desc, length(driver_desc), 
+                    desc_length, driver_attr, length(driver_attr), attr_length) 
     end
     @unix_only begin
         ret = ccall((:SQLDrivers, odbc_dm), Int16,
-                    (Ptr{Void}, Int16, Ptr{Uint8}, Int16, Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
-                    env, SQL_FETCH_NEXT, driver_desc, length(driver_desc), desc_length, driver_attr, length(driver_attr), attr_length) 
+                    (Ptr{Void}, Int16, Ptr{Uint8}, 
+                     Int16, Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
+                    env, SQL_FETCH_NEXT, driver_desc, length(driver_desc), 
+                    desc_length, driver_attr, length(driver_attr), attr_length) 
+    end
     return ret
 end
 
@@ -87,12 +92,17 @@ function SQLDataSources(env::Ptr{Void},
                         attr_length::Array{Int16,1})
     @windows_only begin
         ret = ccall((:SQLDataSources, odbc_dm), stdcall, Int16, 
-                    (Ptr{Void}, Int16, Ptr{Uint8}, Int16, Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
-                    env, SQL_FETCH_NEXT, dsn_desc, length(dsn_desc), desc_length, dsn_attr, length(dsn_attr), attr_length) 
+                    (Ptr{Void}, Int16, Ptr{Uint8}, Int16, 
+                     Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
+                    env, SQL_FETCH_NEXT, dsn_desc, length(dsn_desc),
+                    desc_length, dsn_attr, length(dsn_attr), attr_length) 
+    end
     @unix_only begin
         ret = ccall((:SQLDataSources, odbc_dm), Int16,
-                    (Ptr{Void}, Int16, Ptr{Uint8}, Int16, Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
-                    env, SQL_FETCH_NEXT, dsn_desc, length(dsn_desc), desc_length, dsn_attr, length(dsn_attr), attr_length) 
+                    (Ptr{Void}, Int16, Ptr{Uint8}, Int16, 
+                     Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
+                    env, SQL_FETCH_NEXT, dsn_desc, length(dsn_desc),
+                    desc_length, dsn_attr, length(dsn_attr), attr_length) 
     end
     return ret
 end

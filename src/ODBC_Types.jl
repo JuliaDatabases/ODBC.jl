@@ -6,6 +6,7 @@ let
         @linux_only   lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
         @windows_only lib_choices = ["odbc32"]
         @osx_only     lib_choices = ["libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
+        local lib
         for lib in lib_choices 
             try
                 dlopen(lib)

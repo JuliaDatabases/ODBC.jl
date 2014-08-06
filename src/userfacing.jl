@@ -39,7 +39,7 @@ end
 # once executed, space is allocated and 
 # results and resultset metadata are returned
 function query(querystring::String, conn::Connection=conn; output::Output=DataFrame, delim::Char=',')
-    if conn == null_connection
+    if conn == null_conn
         error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
     end
     ODBCFreeStmt!(conn.stmt_ptr)
@@ -87,7 +87,7 @@ end
 # it may seem odd to include the other arguments for querymeta, 
 # but it's so switching between query and querymeta doesn't require exluding args (convenience)
 function querymeta(querystring::String,conn::Connection=conn; output::Output=DataFrame,delim::Char=',')
-    if conn == null_connection
+    if conn == null_conn
         error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
     end
     ODBCFreeStmt!(conn.stmt_ptr)
@@ -115,7 +115,7 @@ function disconnect(connection::Connection=conn)
                     conn = Connections[end]
                 else
                     # reset conn to null default connection
-                    conn = null_connection 
+                    conn = null_conn
                 end
             end
         end
