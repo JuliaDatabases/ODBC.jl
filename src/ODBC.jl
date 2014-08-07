@@ -2,7 +2,7 @@ module ODBC
 
 using DataFrames
 using DataArrays
-using Datetime
+using Dates 
 
 export advancedconnect, 
        query, querymeta, @query, @sql_str, 
