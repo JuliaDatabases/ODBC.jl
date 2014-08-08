@@ -174,7 +174,6 @@ end
 function ODBCCopy!{D<:DateTime}(dest::Array{D},dsto,src::Array{SQLTimestamp},n,ind,nas)
     for i = 1:n
         nas[i+dsto-1] = ind[i] < 0
-        try
         dest[i+dsto-1] = 
             DateTime(int64(src[i].year),
                      int64(0 < src[i].month < 13 ? src[i].month : 1),
@@ -183,9 +182,6 @@ function ODBCCopy!{D<:DateTime}(dest::Array{D},dsto,src::Array{SQLTimestamp},n,i
                      int64(src[i].minute),
                      int64(src[i].second),
                      int64(div(src[i].fraction, 1000000)))
-        catch
-            dest[i+dsto-1] = DateTime()
-        end
     end
 end
 
