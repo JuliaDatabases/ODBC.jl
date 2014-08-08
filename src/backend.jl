@@ -1,4 +1,4 @@
-function ODBCAllocHandle(handletype,parenthandle)
+function ODBCAllocHandle(handletype, parenthandle)
     handle = Array(Ptr{Void},1)
     if @FAILED SQLAllocHandle(handletype,parenthandle,handle)
         error("[ODBC]: ODBC Handle Allocation Failed; Return Code: $ret")
@@ -16,17 +16,19 @@ function ODBCAllocHandle(handletype,parenthandle)
     end
     return handle
 end
-#ODBCConnect: Connect to qualified DSN (pre-established through ODBC Admin), with optional username and password inputs
+
+# Connect to qualified DSN (pre-established through ODBC Admin), with optional username and password inputs
 function ODBCConnect!(dbc::Ptr{Void},dsn::String,username::String,password::String)
     if @FAILED SQLConnect(dbc,dsn,username,password)
         ODBCError(SQL_HANDLE_DBC,dbc)
         error("[ODBC]: SQLConnect failed; Return Code: $ret")
     end
 end
-#ODBCDriverConnect: Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin
+
+# Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin
 function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::String,driver_prompt::Uint16)
     window_handle = C_NULL    
-    @windows_only window_handle = ccall( (:GetForegroundWindow, "user32"), Ptr{Void}, () )
+    @windows_only window_handle = ccall((:GetForegroundWindow, :user32), Ptr{Void}, () )
     @windows_only driver_prompt = SQL_DRIVER_PROMPT
     out_buff = Array(Int16,1)
     if @FAILED SQLDriverConnect(dbc,window_handle,conn_string,C_NULL,out_buff,driver_prompt)
@@ -34,14 +36,16 @@ function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::String,driver_prompt::Ui
         error("[ODBC]: SQLDriverConnect failed; Return Code: $ret")
     end
 end
-#ODBCQueryExecute: Send query to DMBS
-function ODBCQueryExecute(stmt::Ptr{Void},querystring::String)
-    if @FAILED SQLExecDirect(stmt,querystring)
+
+# Send query to DMBS
+function ODBCQueryExecute(stmt::Ptr{Void}, querystring::String)
+    if @FAILED SQLExecDirect(stmt, utf16(querystring))
         ODBCError(SQL_HANDLE_STMT,stmt)
         error("[ODBC]: SQLExecDirect failed; Return Code: $ret")
     end
 end
-#ODBCMetadata: Retrieve resultset metadata once query is processed, Metadata type is returned
+
+# Retrieve resultset metadata once query is processed, Metadata type is returned
 function ODBCMetadata(stmt::Ptr{Void},querystring::String)
         #Allocate space for and fetch number of columns and rows in resultset
         cols = Array(Int16,1)
@@ -53,7 +57,7 @@ function ODBCMetadata(stmt::Ptr{Void},querystring::String)
         coltypes = Array((String,Int16),0)
         colsizes = Int[]
         coldigits = Int16[]
-        colnulls = Int16[]
+        colnulls  = Int16[]
         #Allocate space for and fetch the name, type, size, etc. for each column
         for x = 1:cols[1]
             column_name = zeros(Uint8,256)
@@ -71,14 +75,15 @@ function ODBCMetadata(stmt::Ptr{Void},querystring::String)
         end
     return Metadata(querystring,int(cols[1]),rows[1],colnames,coltypes,colsizes,coldigits,colnulls)
 end
-#ODBCFetch: Using resultset metadata, allocate space/arrays for previously generated resultset, retrieve results
+
+# [Using resultset metadata, allocate space/arrays for previously generated resultset, retrieve results
 function ODBCBindCols(stmt::Ptr{Void},meta::Metadata)
     #with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
     meta.rows == 0 && return (Any[],Any[],0)
     rowset = MULTIROWFETCH > meta.rows ? (meta.rows < 0 ? 1 : meta.rows) : MULTIROWFETCH
     SQLSetStmtAttr(stmt,SQL_ATTR_ROW_ARRAY_SIZE,uint(rowset),SQL_IS_UINTEGER)
-
-    #these Any arrays are where the ODBC manager dumps result data
+    
+    # these Any arrays are where the ODBC manager dumps result data
     indicator = Any[]
     columns = Any[]
     for x = 1:meta.cols
@@ -100,14 +105,14 @@ function ODBCBindCols(stmt::Ptr{Void},meta::Metadata)
     return (columns, indicator, rowset)
 end
 
-#ODBCColumnAllocate is used to allocate the raw underlying C-type buffers
-# to be bound in SQLBindCol
+# ODBCColumnAllocate is used to allocate the raw 
+# underlying C-type buffers to be bound in SQLBindCol
 ODBCColumnAllocate(x,y,z)               = (Array(x,z),sizeof(x))
 ODBCColumnAllocate(x::Type{Uint8},y,z)  = (zeros(x,(y,z)),y)
 ODBCColumnAllocate(x::Type{Uint16},y,z) = (zeros(x,(y,z)),y*2)
 ODBCColumnAllocate(x::Type{Uint32},y,z) = (zeros(x,(y,z)),y*4)
 
-#ODBCAllocate is the Julia type array that the raw underlying C-type buffer
+# ODBCAllocate is the Julia type array that the raw underlying C-type buffer
 # data is converted to when moved to a DataFrame or written to file
 ODBCAllocate(x,y)                        = zeros(eltype(typeof(x)),y)
 ODBCAllocate(x::Array{Uint8,2},y)        = Array(UTF8String,y)
@@ -115,16 +120,17 @@ ODBCAllocate(x::Array{Uint16,2},y)       = Array(UTF16String,y)
 ODBCAllocate(x::Array{Uint32,2},y)       = Array(UTF8String,y)
 ODBCAllocate(x::Array{SQLDate,1},y)      = Array(Date,y)
 ODBCAllocate(x::Array{SQLTime,1},y)      = Array(SQLTime,y)
-ODBCAllocate(x::Array{SQLTimestamp,1},y) = Array(DateTime{ISOCalendar,UTC},y)
+ODBCAllocate(x::Array{SQLTimestamp,1},y) = Array(DateTime,y)
 
-#ODBCClean does any necessary transformations from raw C-type to Julia type
+# ODBCClean does any necessary transformations from raw C-type to Julia type
 ODBCClean(x,y,z) = x[y]
 ODBCClean(x::Array{Uint8},y,z)          = bytestring(x[1:z,y])
 ODBCClean(x::Array{Uint16},y,z)         = UTF16String(x[1:z,y])
 ODBCClean(x::Array{Uint32},y,z)         = bytestring(convert(Array{Uint8},x[1:z,y]))
 ODBCClean(x::Array{SQLDate,1},y,z)      = date(x[y].year,0 < x[y].month < 13 ? x[y].month : 1,x[y].day)
-ODBCClean(x::Array{SQLTimestamp,1},y,z) = datetime(int64(x[y].year),int64(0 < x[y].month < 13 ? x[y].month : 1),int64(x[y].day),
-                                                    int64(x[y].hour),int64(x[y].minute),int64(x[y].second),int64(div(x[y].fraction,1000000)))
+ODBCClean(x::Array{SQLTimestamp,1},y,z) = 
+    DateTime(int64(x[y].year),int64(0 < x[y].month < 13 ? x[y].month : 1),int64(x[y].day),
+             int64(x[y].hour),int64(x[y].minute),int64(x[y].second),int64(div(x[y].fraction,1000000)))
 
 function ODBCCopy!(dest,dsto,src,n,ind,nas)
     for i = 1:n
@@ -132,40 +138,53 @@ function ODBCCopy!(dest,dsto,src,n,ind,nas)
         dest[i+dsto-1] = src[i]
     end
 end
+
 function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint8,2},n,ind,nas)
     for i = 1:n
         nas[i+dsto-1] = ind[i] < 0
         dest[i+dsto-1] = utf8(bytestring(src[1:ind[i],i]))
     end
 end
+
 function ODBCCopy!(dest::Array{UTF16String},dsto,src::Array{Uint16,2},n,ind,nas)
     for i = 1:n
         nas[i+dsto-1] = ind[i] < 0
-        dest[i+dsto-1] = UTF16String(src[1:div(ind[i],2),i])
+        raw = src[1:div(ind[i], 2), i]
+        str = utf16(convert(Ptr{Uint16}, raw), length(raw))
+        dest[i+dsto-1] = str 
     end
 end
+
 function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint32},n,ind,nas)
     for i = 1:n
         nas[i+dsto-1] = ind[i] < 0
         dest[i+dsto-1] = utf8(bytestring(convert(Array{Uint8},src[1:div(ind[i],4),i])))
     end
 end
+
 function ODBCCopy!{D<:Date}(dest::Array{D},dsto,src::Array{SQLDate},n,ind,nas)
     for i = 1:n
         nas[i+dsto-1] = ind[i] < 0
-        dest[i+dsto-1] = date(int64(src[i].year),
+        dest[i+dsto-1] = Date(int64(src[i].year),
                               int64(0 < src[i].month < 13 ? src[i].month : 1),
                               int64(src[i].day))
     end
 end
+
 function ODBCCopy!{D<:DateTime}(dest::Array{D},dsto,src::Array{SQLTimestamp},n,ind,nas)
     for i = 1:n
         nas[i+dsto-1] = ind[i] < 0
-        dest[i+dsto-1] = datetime(int64(src[i].year),int64(0 < src[i].month < 13 ? src[i].month : 1),
-                                  int64(src[i].day),int64(src[i].hour),int64(src[i].minute),
-                                  int64(src[i].second),int64(div(src[i].fraction,1000000)))
+        dest[i+dsto-1] = 
+            DateTime(int64(src[i].year),
+                     int64(0 < src[i].month < 13 ? src[i].month : 1),
+                     int64(src[i].day),
+                     int64(src[i].hour),
+                     int64(src[i].minute),
+                     int64(src[i].second),
+                     int64(div(src[i].fraction, 1000000)))
     end
 end
+
 function ODBCCopy!(dest::Array{SQLTime},dsto,src::Array{SQLTime},n,ind,nas)
     for i = 1:n
         nas[i+dsto-1] = ind[i] < 0
@@ -173,8 +192,7 @@ function ODBCCopy!(dest::Array{SQLTime},dsto,src::Array{SQLTime},n,ind,nas)
     end
 end
 
-#ODBCEscape takes a Julia value and gets it ready for writing to a file
-# i.e. converts to string
+# ODBCEscape takes a Julia value and gets it ready for writing to a file i.e. converts to string
 ODBCEscape(x) = string(x)
 ODBCEscape(x::String) = "\"$x\""
 
@@ -201,8 +219,8 @@ function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1}
     cols = {DataArray(cols[col],nas[col]) for col = 1:length(cols)}
     resultset = DataFrame(cols, DataFrames.Index(Symbol[DataFrames.identifier(i) for i in meta.colnames]))
 end
+
 function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
-    tic()
     cols = Array(Any,meta.cols)
     nas = Array(BitVector,meta.cols)
     for i = 1:meta.cols
@@ -221,10 +239,10 @@ function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{A
             append!(nas[col],tempna)
         end
     end
-    toc()
     cols = {DataArray(cols[col],nas[col]) for col = 1:length(cols)}
     resultset = DataFrame(cols, DataFrames.Index(Symbol[DataFrames.identifier(i) for i in meta.colnames]))
 end
+
 function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::String,delim::Char,l::Int)
     out_file = l == 0 ? open(output,"w") : open(output,"a")
     write(out_file,join(meta.colnames,delim)*"\n")
@@ -238,22 +256,26 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},r
     close(out_file)
     return DataFrame()
 end
-#ODBCFreeStmt!: used to 'clear' a statement of bound columns, resultsets, and other bound parameters in preparation for a subsequent query
+
+# used to 'clear' a statement of bound columns, resultsets, 
+# and other bound parameters in preparation for a subsequent query
 function ODBCFreeStmt!(stmt)
     SQLFreeStmt(stmt,SQL_CLOSE)
     SQLFreeStmt(stmt,SQL_UNBIND)
     SQLFreeStmt(stmt,SQL_RESET_PARAMS)
 end
-#Error Reporting: Takes an SQL handle as input and retrieves any error messages associated with that handle; there may be more than one
+
+# Takes an SQL handle as input and retrieves any error messages 
+# associated with that handle; there may be more than one
 function ODBCError(handletype::Int16,handle::Ptr{Void})
     i = int16(1)
     state = zeros(Uint8,6)
     error_msg = zeros(Uint8, 1024)
-    native = Array(Int,1)
+    native = zeros(Int,1)
     msg_length = zeros(Int16,1)
     while @SUCCEEDED SQLGetDiagRec(handletype,handle,i,state,native,error_msg,msg_length)
-        st = ODBCClean(state,1,5)
-        msg = ODBCClean(error_msg,1,msg_length[1])
+        st  = ODBCClean(state,1,5)
+        msg = ODBCClean(error_msg, 1, msg_length[1])
         println("[ODBC] $st: $msg")
         i = int16(i+1)
     end

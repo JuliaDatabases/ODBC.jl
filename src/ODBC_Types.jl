@@ -1,27 +1,27 @@
-#Link to ODBC Driver Manager (system-dependent)
+# Link to ODBC Driver Manager (system-dependent)
 let
     global odbc_dm
-    local lib
-    succeeded=false
+    succeeded = false
     if !isdefined(:odbc_dm)
-        @linux_only lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
+        @linux_only   lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
         @windows_only lib_choices = ["odbc32"]
-        @osx_only lib_choices = ["libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
+        @osx_only     lib_choices = ["libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
+        local lib
         for lib in lib_choices 
             try
                 dlopen(lib)
-                succeeded=true
+                succeeded = true
                 break
             end
         end
-        if !succeeded error("ODBC library not found") end
+        succeeded || error("ODBC library not found")
         @eval const odbc_dm = $lib
     end
 end
 
-#Translation of sqltypes.h; C typealiases for SQL functions
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms716298(v=vs.85).aspx
-#http://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
+# Translation of sqltypes.h; C typealiases for SQL functions
+# http://msdn.microsoft.com/en-us/library/windows/desktop/ms716298(v=vs.85).aspx
+# http://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
 typealias SQLCHAR       Uint8
 typealias SQLSCHAR      Uint8
 typealias SQLVARCHAR    Uint8
@@ -37,11 +37,12 @@ typealias SQLUSMALLINT  Cushort
 typealias SQLTIME       Cuchar
 typealias SQLTIMESTAMP  Cuchar
 
-if contains(odbc_dm,"iodbc")
+if contains(odbc_dm, "iodbc")
     typealias SQLWCHAR Uint32
 else
     typealias SQLWCHAR Uint16
 end
+
 if WORD_SIZE == 64
     typealias SQLLEN        Int64
     typealias SQLULEN       Uint64
@@ -91,6 +92,7 @@ typealias SQLHWND       Ptr{Void}
 
 # provide lowercase conversion functions for all types
 # e.g., sqlchar(x) = convert(SQLCHAR, x)
+
 for t in [:SQLCHAR, :SQLSCHAR, :SQLWCHAR, :SQLDATE, :SQLDECIMAL,
           :SQLDOUBLE, :SQLFLOAT, :SQLINTEGER, :SQLUINTEGER,
           :SQLSMALLINT, :SQLUSMALLINT, :SQLLEN, :SQLULEN,
@@ -152,14 +154,14 @@ end
 # SQL_INTERVAL_MINUTE_TO_SECOND     SQL_C_INTERVAL_MINUTE_TO_SECOND     Uint8
 # SQL_GUID                          SQL_C_GUID                          Uint8
 
-#SQL Data Type Definitions
+# SQL Data Type Definitions
 const SQL_CHAR          = int16(  1) # Character string of fixed string length n.
 const SQL_VARCHAR       = int16( 12) # Variable-length character string with a maximum string length n.
 const SQL_LONGVARCHAR   = int16( -1) # Variable length character data. Maximum length is data source–dependent.
 const SQL_WCHAR         = int16( -8) # Unicode character string of fixed string length n
 const SQL_WVARCHAR      = int16( -9) # Unicode variable-length character string with a maximum string length n
 const SQL_WLONGVARCHAR  = int16(-10) # Unicode variable-length character data. Maximum length is data source–dependent
-const SQL_DECIMAL       = int16(  3) # 
+const SQL_DECIMAL       = int16(  3) 
 const SQL_NUMERIC       = int16(  2)
 const SQL_SMALLINT      = int16(  5) # Exact numeric value with precision 5 and scale 0 (signed: –32,768 <= n <= 32,767, unsigned: 0 <= n <= 65,535)
 const SQL_INTEGER       = int16(  4) # Exact numeric value with precision 10 and scale 0 (signed: –2[31] <= n <= 2[31] – 1, unsigned: 0 <= n <= 2[32] – 1)
@@ -173,8 +175,10 @@ const SQL_BINARY        = int16( -2) # Binary data of fixed length n.
 const SQL_VARBINARY     = int16( -3) # Variable length binary data of maximum length n. The maximum is set by the user.
 const SQL_LONGVARBINARY = int16( -4) # Variable length binary data. Maximum length is data source–dependent.
 const SQL_TYPE_DATE     = int16( 91) # Year, month, and day fields, conforming to the rules of the Gregorian calendar.
-const SQL_TYPE_TIMESTAMP            = int16( 93) # Year, month, day, hour, minute, and second fields, with valid values as defined for the DATE and TIME data types.
-const SQL_TYPE_TIME                 = int16( 92) # Hour, minute, and second fields, with valid values for hours of 00 to 23, valid values for minutes of 00 to 59, and valid values for seconds of 00 to 61. Precision p indicates the seconds precision.
+const SQL_TYPE_TIME     = int16( 92) # Hour, minute, and second fields, with valid values for hours of 00 to 23, 
+                                     # valid values for minutes of 00 to 59, and valid values for seconds of 00 to 61. Precision p indicates the seconds precision.
+const SQL_TYPE_TIMESTAMP = int16( 93) # Year, month, day, hour, minute, and second fields, with valid values as defined for the DATE and TIME data types.
+
 #const SQL_INTERVAL_MONTH            = int16(102)
 #const SQL_INTERVAL_YEAR             = int16(101)
 #const SQL_INTERVAL_YEAR_TO_MONTH    = int16(107)
@@ -190,7 +194,7 @@ const SQL_TYPE_TIME                 = int16( 92) # Hour, minute, and second fiel
 #const SQL_INTERVAL_MINUTE_TO_SECOND = int16(113)
 #const SQL_GUID                      = int16(-11) # Fixed length GUID.
 
-#C Data Types
+# C Data Types
 const SQL_C_CHAR      = int16(  1)
 const SQL_C_WCHAR     = int16( -8)
 const SQL_C_DOUBLE    = int16(  8)
@@ -202,8 +206,9 @@ const SQL_C_TINYINT   = int16( -6)
 const SQL_C_BIGINT    = int16(-27)
 const SQL_C_BINARY    = int16( -2)
 const SQL_C_TYPE_DATE = int16( 91)
-const SQL_C_TYPE_TIMESTAMP            = int16( 93)
-const SQL_C_TYPE_TIME                 = int16( 92)
+const SQL_C_TYPE_TIME = int16( 92)
+const SQL_C_TYPE_TIMESTAMP = int16( 93)
+
 #const SQL_C_INTERVAL_MONTH            = int16(102)
 #const SQL_C_INTERVAL_YEAR             = int16(101)
 #const SQL_C_INTERVAL_YEAR_TO_MONTH    = int16(107)
@@ -219,19 +224,23 @@ const SQL_C_TYPE_TIME                 = int16( 92)
 #const SQL_C_INTERVAL_MINUTE_TO_SECOND = int16(113)
 #const SQL_C_GUID                      = int16(-11)
 
-#Julia structs
+# Julia mapping C structs
 immutable SQLDate
     year::Int16
     month::Int16
     day::Int16
 end
-string(x::SQLDate) = "$(x.year)-$(x.month)-$(x.day)"
+
+Base.string(x::SQLDate) = "$(x.year)-$(x.month)-$(x.day)"
+
 immutable SQLTime
     hour::Int16
     minute::Int16
     second::Int16
 end
-show(io::IO,x::SQLTime) = print(io,"$(x.hour):$(x.minute):$(x.second)")
+
+Base.show(io::IO,x::SQLTime) = print(io,"$(x.hour):$(x.minute):$(x.second)")
+
 immutable SQLTimestamp
     year::Int16
     month::Int16
@@ -241,7 +250,8 @@ immutable SQLTimestamp
     second::Int16
     fraction::Int32 #nanoseconds
 end
-string(x::SQLTimestamp) = "$(x.year)-$(x.month)-$(x.day) $(x.hour):$(x.minute):$(x.second)"
+
+Base.string(x::SQLTimestamp) = "$(x.year)-$(x.month)-$(x.day) $(x.hour):$(x.minute):$(x.second)"
 
 const SQL2C = [
     SQL_CHAR           => SQL_C_CHAR,
