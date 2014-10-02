@@ -126,7 +126,7 @@ ODBCAllocate(x::Array{SQLTimestamp,1},y) = Array(SQLTimestamp,y)
 ODBCClean(x,y,z) = x[y]
 ODBCClean(x::Array{Uint8},y,z)          = utf8(x[1:z,y])
 ODBCClean(x::Array{Uint16},y,z)         = utf16(x[1:z,y])
-ODBCClean(x::Array{Uint32},y,z)         = utf32(x[1:z,y]))
+ODBCClean(x::Array{Uint32},y,z)         = utf32(x[1:z,y])
 
 function ODBCCopy!(dest,dsto,src,n,ind,nas)
     for i = 1:n
