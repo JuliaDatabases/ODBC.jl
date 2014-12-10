@@ -7,7 +7,7 @@ let
         @windows_only lib_choices = ["odbc32"]
         @osx_only     lib_choices = ["libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
         local lib
-        for lib in lib_choices 
+        for lib in lib_choices
             try
                 dlopen(lib)
                 succeeded = true
@@ -123,8 +123,8 @@ end
 # SQL_WCHAR                         SQL_C_WCHAR                         Uint16
 # SQL_WVARCHAR                      SQL_C_WCHAR                         Uint16
 # SQL_WLONGVARCHAR                  SQL_C_WCHAR                         Uint16
-# SQL_DECIMAL                       SQL_C_DOUBLE                        Float64                                    
-# SQL_NUMERIC                       SQL_C_DOUBLE                        Float64                                    
+# SQL_DECIMAL                       SQL_C_DOUBLE                        Float64
+# SQL_NUMERIC                       SQL_C_DOUBLE                        Float64
 # SQL_SMALLINT                      SQL_C_SHORT                         Int16
 # SQL_INTEGER                       SQL_C_LONG                          Int32
 # SQL_REAL                          SQL_C_FLOAT                         Float64
@@ -161,7 +161,7 @@ const SQL_LONGVARCHAR   = int16( -1) # Variable length character data. Maximum l
 const SQL_WCHAR         = int16( -8) # Unicode character string of fixed string length n
 const SQL_WVARCHAR      = int16( -9) # Unicode variable-length character string with a maximum string length n
 const SQL_WLONGVARCHAR  = int16(-10) # Unicode variable-length character data. Maximum length is data source–dependent
-const SQL_DECIMAL       = int16(  3) 
+const SQL_DECIMAL       = int16(  3)
 const SQL_NUMERIC       = int16(  2)
 const SQL_SMALLINT      = int16(  5) # Exact numeric value with precision 5 and scale 0 (signed: –32,768 <= n <= 32,767, unsigned: 0 <= n <= 65,535)
 const SQL_INTEGER       = int16(  4) # Exact numeric value with precision 10 and scale 0 (signed: –2[31] <= n <= 2[31] – 1, unsigned: 0 <= n <= 2[32] – 1)
@@ -175,7 +175,7 @@ const SQL_BINARY        = int16( -2) # Binary data of fixed length n.
 const SQL_VARBINARY     = int16( -3) # Variable length binary data of maximum length n. The maximum is set by the user.
 const SQL_LONGVARBINARY = int16( -4) # Variable length binary data. Maximum length is data source–dependent.
 const SQL_TYPE_DATE     = int16( 91) # Year, month, and day fields, conforming to the rules of the Gregorian calendar.
-const SQL_TYPE_TIME     = int16( 92) # Hour, minute, and second fields, with valid values for hours of 00 to 23, 
+const SQL_TYPE_TIME     = int16( 92) # Hour, minute, and second fields, with valid values for hours of 00 to 23,
                                      # valid values for minutes of 00 to 59, and valid values for seconds of 00 to 61. Precision p indicates the seconds precision.
 const SQL_TYPE_TIMESTAMP = int16( 93) # Year, month, day, hour, minute, and second fields, with valid values as defined for the DATE and TIME data types.
 
@@ -252,6 +252,12 @@ immutable SQLTimestamp
 end
 
 Base.string(x::SQLTimestamp) = "$(x.year)-$(x.month)-$(x.day) $(x.hour):$(x.minute):$(x.second)"
+
+Base.isless(x::SQLDate, y::SQLDate) = (x.year, x.month, x.day) < (y.year, y.month, y.day)
+Base.isless(x::SQLTime, y::SQLTime) = (x.hour, x.minute, x.second) < (y.hour, y.minute, y.second)
+Base.isless(x::SQLTimestamp, y::SQLTimestamp) =
+    (x.year, x.month, x.day, x.hour, x.minute, x.second, x.fraction) <
+    (y.year, y.month, y.day, y.hour, y.minute, y.second, y.fraction)
 
 const SQL2C = [
     SQL_CHAR           => SQL_C_CHAR,
