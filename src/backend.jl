@@ -2,10 +2,10 @@ function ODBCAllocHandle(handletype, parenthandle)
     handle = Array(Ptr{Void},1)
     if @FAILED SQLAllocHandle(handletype,parenthandle,handle)
         error("[ODBC]: ODBC Handle Allocation Failed; Return Code: $ret")
-    else        
+    else
         #If allocation succeeded, retrieve handle pointer stored in handle's array index 1
         handle = handle[1]
-        if handletype == SQL_HANDLE_ENV 
+        if handletype == SQL_HANDLE_ENV
             if @FAILED SQLSetEnvAttr(handle,SQL_ATTR_ODBC_VERSION,SQL_OV_ODBC3)
                 #If version-setting fails, release environment handle and set global env variable to a null pointer
                 SQLFreeHandle(SQL_HANDLE_ENV,handle)
@@ -18,7 +18,7 @@ function ODBCAllocHandle(handletype, parenthandle)
 end
 
 # Connect to qualified DSN (pre-established through ODBC Admin), with optional username and password inputs
-function ODBCConnect!(dbc::Ptr{Void},dsn::String,username::String,password::String)
+function ODBCConnect!(dbc::Ptr{Void},dsn::UTF8String,username::UTF8String,password::UTF8String)
     if @FAILED SQLConnect(dbc,dsn,username,password)
         ODBCError(SQL_HANDLE_DBC,dbc)
         error("[ODBC]: SQLConnect failed; Return Code: $ret")
@@ -26,8 +26,8 @@ function ODBCConnect!(dbc::Ptr{Void},dsn::String,username::String,password::Stri
 end
 
 # Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin
-function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::String,driver_prompt::Uint16)
-    window_handle = C_NULL    
+function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::UTF8String,driver_prompt::Uint16)
+    window_handle = C_NULL
     @windows_only window_handle = ccall((:GetForegroundWindow, :user32), Ptr{Void}, () )
     @windows_only driver_prompt = SQL_DRIVER_PROMPT
     out_buff = Array(Int16,1)
@@ -38,15 +38,15 @@ function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::String,driver_prompt::Ui
 end
 
 # Send query to DMBS
-function ODBCQueryExecute(stmt::Ptr{Void}, querystring::String)
-    if @FAILED SQLExecDirect(stmt, utf16(querystring))
+function ODBCQueryExecute(stmt::Ptr{Void}, querystring::UTF8String)
+    if @FAILED SQLExecDirect(stmt, querystring)
         ODBCError(SQL_HANDLE_STMT,stmt)
         error("[ODBC]: SQLExecDirect failed; Return Code: $ret")
     end
 end
 
 # Retrieve resultset metadata once query is processed, Metadata type is returned
-function ODBCMetadata(stmt::Ptr{Void},querystring::String)
+function ODBCMetadata(stmt::Ptr{Void},querystring::UTF8String)
         #Allocate space for and fetch number of columns and rows in resultset
         cols = Array(Int16,1)
         rows = Array(Int,1)
@@ -54,7 +54,7 @@ function ODBCMetadata(stmt::Ptr{Void},querystring::String)
         SQLRowCount(stmt,rows)
         #Allocate arrays to hold each column's metadata
         colnames = UTF8String[]
-        coltypes = Array((String,Int16),0)
+        coltypes = Array((UTF8String,Int16),0)
         colsizes = Int[]
         coldigits = Int16[]
         colnulls  = Int16[]
@@ -65,7 +65,7 @@ function ODBCMetadata(stmt::Ptr{Void},querystring::String)
             datatype = Array(Int16,1)
             column_size = Array(Int,1)
             decimal_digits = Array(Int16,1)
-            nullable = Array(Int16,1) 
+            nullable = Array(Int16,1)
             SQLDescribeCol(stmt,x,column_name,name_length,datatype,column_size,decimal_digits,nullable)
             push!(colnames,ODBCClean(column_name,1,name_length[1]))
             push!(coltypes,(get(SQL_TYPES,int(datatype[1]),"SQL_CHAR"),datatype[1]))
@@ -82,7 +82,7 @@ function ODBCBindCols(stmt::Ptr{Void},meta::Metadata)
     meta.rows == 0 && return (Any[],Any[],0)
     rowset = MULTIROWFETCH > meta.rows ? (meta.rows < 0 ? 1 : meta.rows) : MULTIROWFETCH
     SQLSetStmtAttr(stmt,SQL_ATTR_ROW_ARRAY_SIZE,uint(rowset),SQL_IS_UINTEGER)
-    
+
     # these Any arrays are where the ODBC manager dumps result data
     indicator = Any[]
     columns = Any[]
@@ -105,7 +105,7 @@ function ODBCBindCols(stmt::Ptr{Void},meta::Metadata)
     return (columns, indicator, rowset)
 end
 
-# ODBCColumnAllocate is used to allocate the raw 
+# ODBCColumnAllocate is used to allocate the raw
 # underlying C-type buffers to be bound in SQLBindCol
 ODBCColumnAllocate(x,y,z)               = (Array(x,z),sizeof(x))
 ODBCColumnAllocate(x::Type{Uint8},y,z)  = (zeros(x,(y,z)),y)
@@ -116,17 +116,13 @@ ODBCColumnAllocate(x::Type{Uint32},y,z) = (zeros(x,(y,z)),y*4)
 # data is converted to when moved to a DataFrame or written to file
 ODBCAllocate(x,y)                        = zeros(eltype(typeof(x)),y)
 ODBCAllocate(x::Array{Uint8,2},y)        = Array(UTF8String,y)
-ODBCAllocate(x::Array{Uint16,2},y)       = Array(UTF16String,y)
-ODBCAllocate(x::Array{Uint32,2},y)       = Array(UTF8String,y)
 ODBCAllocate(x::Array{SQLDate,1},y)      = Array(SQLDate,y)
 ODBCAllocate(x::Array{SQLTime,1},y)      = Array(SQLTime,y)
 ODBCAllocate(x::Array{SQLTimestamp,1},y) = Array(SQLTimestamp,y)
 
 # ODBCClean does any necessary transformations from raw C-type to Julia type
 ODBCClean(x,y,z) = x[y]
-ODBCClean(x::Array{Uint8},y,z)          = utf8(x[1:z,y])
-ODBCClean(x::Array{Uint16},y,z)         = utf16(x[1:z,y])
-ODBCClean(x::Array{Uint32},y,z)         = utf32(x[1:z,y])
+ODBCClean(x::Array{Uint8},y,z) = ascii(x[1:z,y])
 
 function ODBCCopy!(dest,dsto,src,n,ind,nas)
     for i = 1:n
@@ -138,29 +134,20 @@ end
 function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint8,2},n,ind,nas)
     for i = 1:n
         nas[i+dsto-1] = ind[i] < 0
-        dest[i+dsto-1] = utf8(bytestring(src[1:ind[i],i]))
-    end
-end
-
-function ODBCCopy!(dest::Array{UTF16String},dsto,src::Array{Uint16,2},n,ind,nas)
-    for i = 1:n
-        nas[i+dsto-1] = ind[i] < 0
-        raw = src[1:div(ind[i], 2), i]
-        str = utf16(convert(Ptr{Uint16}, raw), length(raw))
-        dest[i+dsto-1] = str 
+        dest[i+dsto-1] = ascii(bytestring(src[1:ind[i],i]))
     end
 end
 
 function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{Uint32},n,ind,nas)
     for i = 1:n
         nas[i+dsto-1] = ind[i] < 0
-        dest[i+dsto-1] = utf8(bytestring(convert(Array{Uint8},src[1:div(ind[i],4),i])))
+        dest[i+dsto-1] = ascii(bytestring(convert(Array{Uint8},src[1:div(ind[i],4),i])))
     end
 end
 
 # ODBCEscape takes a Julia value and gets it ready for writing to a file i.e. converts to string
 ODBCEscape(x) = string(x)
-ODBCEscape(x::String) = "\"$x\""
+ODBCEscape(x::UTF8String) = "\"$x\""
 
 #function for fetching a resultset into a DataFrame
 function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
@@ -209,7 +196,7 @@ function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{A
     resultset = DataFrame(cols, DataFrames.Index(Symbol[DataFrames.identifier(i) for i in meta.colnames]))
 end
 
-function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::String,delim::Char,l::Int)
+function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::UTF8String,delim::Char,l::Int)
     out_file = l == 0 ? open(output,"w") : open(output,"a")
     write(out_file,join(meta.colnames,delim)*"\n")
     while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
@@ -223,7 +210,7 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},r
     return DataFrame()
 end
 
-# used to 'clear' a statement of bound columns, resultsets, 
+# used to 'clear' a statement of bound columns, resultsets,
 # and other bound parameters in preparation for a subsequent query
 function ODBCFreeStmt!(stmt)
     SQLFreeStmt(stmt,SQL_CLOSE)
@@ -231,7 +218,7 @@ function ODBCFreeStmt!(stmt)
     SQLFreeStmt(stmt,SQL_RESET_PARAMS)
 end
 
-# Takes an SQL handle as input and retrieves any error messages 
+# Takes an SQL handle as input and retrieves any error messages
 # associated with that handle; there may be more than one
 function ODBCError(handletype::Int16,handle::Ptr{Void})
     i = int16(1)

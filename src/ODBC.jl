@@ -4,9 +4,9 @@ using DataFrames
 using DataArrays
 using Dates
 
-export advancedconnect, 
-       query, querymeta, @query, @sql_str, 
-       Connection, Metadata, conn, Connections, 
+export advancedconnect,
+       query, querymeta, @query, @sql_str,
+       Connection, Metadata, conn, Connections,
        disconnect, listdrivers, listdsns
 
 include("ODBC_Types.jl")
@@ -14,11 +14,11 @@ include("ODBC_API.jl")
 
 # Holds metadata related to an executed query resultset
 type Metadata
-    querystring::String
+    querystring::UTF8String
     cols::Int
     rows::Int
     colnames::Array{UTF8String}
-    coltypes::Array{(String, Int16)}
+    coltypes::Array{(UTF8String, Int16)}
     colsizes::Array{Int}
     coldigits::Array{Int16}
     colnulls::Array{Int16}
@@ -38,20 +38,20 @@ Base.show(io::IO,meta::Metadata) = begin
                               Sizes=meta.colsizes,
                               Digits=meta.coldigits,
                               Nullable=meta.colnulls))
-    end 
+    end
 end
 
-# Connection object holds information related to each 
+# Connection object holds information related to each
 # established connection and retrieved resultsets
 type Connection
-    dsn::String
+    dsn::UTF8String
     number::Int
     dbc_ptr::Ptr{Void}
     stmt_ptr::Ptr{Void}
-    
-    # Holding a reference to the last resultset is useful if the user 
-    # runs several test queries just using `query()` or `sql"..."` and 
-    # then realizes the last resultset should actually be saved to a variable. 
+
+    # Holding a reference to the last resultset is useful if the user
+    # runs several test queries just using `query()` or `sql"..."` and
+    # then realizes the last resultset should actually be saved to a variable.
     resultset::Any
 end
 
@@ -66,7 +66,7 @@ Base.show(io::IO,conn::Connection) = begin
         if conn.resultset == null_resultset
             print(io, "Contains resultset(s)? No")
         else
-            print(io, "Contains resultset(s)? Yes") 
+            print(io, "Contains resultset(s)? Yes")
         end
     end
 end
@@ -74,16 +74,16 @@ end
 Base.show(io::IO, conns::Vector{Connection}) = map(show, conns)
 
 # Global module consts and variables
-typealias Output Union(DataType,String)
+typealias Output Union(DataType,UTF8String)
 
 const null_resultset = DataFrame()
 const null_conn = Connection("", 0, C_NULL, C_NULL, null_resultset)
-const null_meta = Metadata("", 0, 0, UTF8String[], (String,Int16)[], Int[], Int16[], Int16[])
+const null_meta = Metadata("", 0, 0, UTF8String[], (UTF8String,Int16)[], Int[], Int16[], Int16[])
 
 global env = C_NULL
 
 # For managing references to multiple connections
-global Connections = Connection[] 
+global Connections = Connection[]
 
 #Create default connection = null
 global conn = null_conn
