@@ -19,7 +19,7 @@ function connect(dsn::String; usr::String="", pwd::String="")
 end
 
 function advancedconnect(conn_string::String="", driver_prompt::Uint16=SQL_DRIVER_NOPROMPT)
-    global Connections, conn, evn
+    global Connections, conn, env
     env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE))
     dbc = ODBCAllocHandle(SQL_HANDLE_DBC, env)
     ODBCDriverConnect!(dbc, conn_string, driver_prompt)
