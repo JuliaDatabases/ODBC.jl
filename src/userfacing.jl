@@ -1,4 +1,4 @@
-# Connect to DSN, returns Connection object, 
+# Connect to DSN, returns Connection object,
 # also stores Connection information in global default
 # 'conn' object and global 'Connections' connections array
 function connect(dsn::String; usr::String="", pwd::String="")
@@ -35,8 +35,8 @@ function advancedconnect(conn_string::String="", driver_prompt::Uint16=SQL_DRIVE
     return conn
 end
 
-# query: Sends query string to DBMS, 
-# once executed, space is allocated and 
+# query: Sends query string to DBMS,
+# once executed, space is allocated and
 # results and resultset metadata are returned
 function query(querystring::String, conn::Connection=conn; output::Output=DataFrame, delim::Char=',')
     if conn == null_conn
@@ -58,7 +58,7 @@ function query(querystring::String, conn::Connection=conn; output::Output=DataFr
                     resultset = ODBCFetchDataFramePush!(conn.stmt_ptr, meta,columns, rowset,indicator)
                 end
             else
-                resultset = ODBCDirectToFile(conn.stmt_ptr, meta,columns, 
+                resultset = ODBCDirectToFile(conn.stmt_ptr, meta,columns,
                                              rowset, output, delim, length(holder))
             end
             push!(holder,resultset)
@@ -70,21 +70,21 @@ function query(querystring::String, conn::Connection=conn; output::Output=DataFr
     return conn.resultset
 end
 
-# sql"..." string literal for convenience; 
+# sql"..." string literal for convenience;
 # it doesn't do anything different than query right now,
 # but we could potentially do some interesting things here
 macro sql_str(s)
     query(s)
 end
 
-# Replaces backticks in the query string with escaped quotes 
+# Replaces backticks in the query string with escaped quotes
 # for convenience in using "" in column names, etc.
 macro query(x)
     :(query(replace($x, '`', '\"')))
 end
 
 # querymeta: Sends query string to DBMS, once executed, return resultset metadata
-# it may seem odd to include the other arguments for querymeta, 
+# it may seem odd to include the other arguments for querymeta,
 # but it's so switching between query and querymeta doesn't require exluding args (convenience)
 function querymeta(querystring::String,conn::Connection=conn; output::Output=DataFrame,delim::Char=',')
     if conn == null_conn
@@ -107,7 +107,7 @@ function disconnect(connection::Connection=conn)
     ODBCFreeStmt!(connection.stmt_ptr)
     SQLDisconnect(connection.dbc_ptr)
     for x = 1:length(Connections)
-        if connection.dsn == Connections[x].dsn && 
+        if connection.dsn == Connections[x].dsn &&
            connection.number == Connections[x].number
             splice!(Connections,x)
             if conn === connection
@@ -132,7 +132,7 @@ function listdrivers()
     desc_length = zeros(Int16, 1)
     driver_attr = zeros(Uint8, 256)
     attr_length = zeros(Int16, 1)
-    while @SUCCEEDED SQLDrivers(env, driver_desc, desc_length, driver_attr, attr_length)    
+    while @SUCCEEDED SQLDrivers(env, driver_desc, desc_length, driver_attr, attr_length)
         push!(descriptions, ODBCClean(driver_desc, 1, desc_length[1]))
         push!(attributes,   ODBCClean(driver_attr, 1, attr_length[1]))
     end

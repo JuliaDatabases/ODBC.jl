@@ -7,9 +7,9 @@ let
         @windows_only lib_choices = ["odbc32"]
         @osx_only     lib_choices = ["libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
         local lib
-        for lib in lib_choices 
+        for lib in lib_choices
             try
-                dlopen(lib)
+                @compat Libdl.dlopen(lib)
                 succeeded = true
                 break
             end
@@ -22,9 +22,9 @@ end
 # Translation of sqltypes.h; C typealiases for SQL functions
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms716298(v=vs.85).aspx
 # http://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
-typealias SQLCHAR       Uint8
-typealias SQLSCHAR      Uint8
-typealias SQLVARCHAR    Uint8
+@compat typealias SQLCHAR       UInt8
+@compat typealias SQLSCHAR      UInt8
+@compat typealias SQLVARCHAR    UInt8
 typealias SQLDECIMAL    Cdouble
 typealias SQLNUMERIC    Cdouble
 typealias SQLDOUBLE     Cdouble
@@ -38,15 +38,15 @@ typealias SQLTIME       Cuchar
 typealias SQLTIMESTAMP  Cuchar
 
 if contains(odbc_dm, "iodbc")
-    typealias SQLWCHAR Uint32
+    @compat typealias SQLWCHAR UInt32
 else
-    typealias SQLWCHAR Uint16
+    @compat typealias SQLWCHAR UInt16
 end
 
 if WORD_SIZE == 64
     typealias SQLLEN        Int64
-    typealias SQLULEN       Uint64
-    typealias SQLSETPOSIROW Uint64
+    @compat typealias SQLULEN       UInt64
+    @compat typealias SQLSETPOSIROW UInt64
 else
     typealias SQLLEN        SQLINTEGER
     typealias SQLULEN       SQLUINTEGER
@@ -117,14 +117,14 @@ end
 
 # SQL Data Type                     C Data Type                         Julia Type
 # ---------------------------------------------------------------------------------
-# SQL_CHAR                          SQL_C_CHAR                          Uint8
-# SQL_VARCHAR                       SQL_C_CHAR                          Uint8
-# SQL_LONGVARCHAR                   SQL_C_CHAR                          Uint8
-# SQL_WCHAR                         SQL_C_WCHAR                         Uint16
-# SQL_WVARCHAR                      SQL_C_WCHAR                         Uint16
-# SQL_WLONGVARCHAR                  SQL_C_WCHAR                         Uint16
-# SQL_DECIMAL                       SQL_C_DOUBLE                        Float64                                    
-# SQL_NUMERIC                       SQL_C_DOUBLE                        Float64                                    
+# SQL_CHAR                          SQL_C_CHAR                          UInt8
+# SQL_VARCHAR                       SQL_C_CHAR                          UInt8
+# SQL_LONGVARCHAR                   SQL_C_CHAR                          UInt8
+# SQL_WCHAR                         SQL_C_WCHAR                         UInt16
+# SQL_WVARCHAR                      SQL_C_WCHAR                         UInt16
+# SQL_WLONGVARCHAR                  SQL_C_WCHAR                         UInt16
+# SQL_DECIMAL                       SQL_C_DOUBLE                        Float64
+# SQL_NUMERIC                       SQL_C_DOUBLE                        Float64
 # SQL_SMALLINT                      SQL_C_SHORT                         Int16
 # SQL_INTEGER                       SQL_C_LONG                          Int32
 # SQL_REAL                          SQL_C_FLOAT                         Float64
@@ -133,96 +133,96 @@ end
 # SQL_BIT                           SQL_C_BIT                           Int8
 # SQL_TINYINT                       SQL_C_TINYINT                       Int8
 # SQL_BIGINT                        SQL_C_BIGINT                        Int64
-# SQL_BINARY                        SQL_C_BINARY                        Uint8
-# SQL_VARBINARY                     SQL_C_BINARY                        Uint8
-# SQL_LONGVARBINARY                 SQL_C_BINARY                        Uint8
+# SQL_BINARY                        SQL_C_BINARY                        UInt8
+# SQL_VARBINARY                     SQL_C_BINARY                        UInt8
+# SQL_LONGVARBINARY                 SQL_C_BINARY                        UInt8
 # SQL_TYPE_DATE                     SQL_C_TYPE_DATE                     SQLDate
 # SQL_TYPE_TIME                     SQL_C_TYPE_TIME                     SQLTime
 # SQL_TYPE_TIMESTAMP                SQL_C_TYPE_TIMESTAMP                SQLTimestamp
-# SQL_INTERVAL_MONTH                SQL_C_INTERVAL_MONTH                Uint8
-# SQL_INTERVAL_YEAR                 SQL_C_INTERVAL_YEAR                 Uint8
-# SQL_INTERVAL_YEAR_TO_MONTH        SQL_C_INTERVAL_YEAR_TO_MONTH        Uint8
-# SQL_INTERVAL_DAY                  SQL_C_INTERVAL_DAY                  Uint8
-# SQL_INTERVAL_HOUR                 SQL_C_INTERVAL_HOUR                 Uint8
-# SQL_INTERVAL_MINUTE               SQL_C_INTERVAL_MINUTE               Uint8
-# SQL_INTERVAL_SECOND               SQL_C_INTERVAL_SECOND               Uint8
-# SQL_INTERVAL_DAY_TO_HOUR          SQL_C_INTERVAL_DAY_TO_HOUR          Uint8
-# SQL_INTERVAL_DAY_TO_MINUTE        SQL_C_INTERVAL_DAY_TO_MINUTE        Uint8
-# SQL_INTERVAL_DAY_TO_SECOND        SQL_C_INTERVAL_DAY_TO_SECOND        Uint8
-# SQL_INTERVAL_HOUR_TO_MINUTE       SQL_C_INTERVAL_HOUR_TO_MINUTE       Uint8
-# SQL_INTERVAL_HOUR_TO_SECOND       SQL_C_INTERVAL_HOUR_TO_SECOND       Uint8
-# SQL_INTERVAL_MINUTE_TO_SECOND     SQL_C_INTERVAL_MINUTE_TO_SECOND     Uint8
-# SQL_GUID                          SQL_C_GUID                          Uint8
+# SQL_INTERVAL_MONTH                SQL_C_INTERVAL_MONTH                UInt8
+# SQL_INTERVAL_YEAR                 SQL_C_INTERVAL_YEAR                 UInt8
+# SQL_INTERVAL_YEAR_TO_MONTH        SQL_C_INTERVAL_YEAR_TO_MONTH        UInt8
+# SQL_INTERVAL_DAY                  SQL_C_INTERVAL_DAY                  UInt8
+# SQL_INTERVAL_HOUR                 SQL_C_INTERVAL_HOUR                 UInt8
+# SQL_INTERVAL_MINUTE               SQL_C_INTERVAL_MINUTE               UInt8
+# SQL_INTERVAL_SECOND               SQL_C_INTERVAL_SECOND               UInt8
+# SQL_INTERVAL_DAY_TO_HOUR          SQL_C_INTERVAL_DAY_TO_HOUR          UInt8
+# SQL_INTERVAL_DAY_TO_MINUTE        SQL_C_INTERVAL_DAY_TO_MINUTE        UInt8
+# SQL_INTERVAL_DAY_TO_SECOND        SQL_C_INTERVAL_DAY_TO_SECOND        UInt8
+# SQL_INTERVAL_HOUR_TO_MINUTE       SQL_C_INTERVAL_HOUR_TO_MINUTE       UInt8
+# SQL_INTERVAL_HOUR_TO_SECOND       SQL_C_INTERVAL_HOUR_TO_SECOND       UInt8
+# SQL_INTERVAL_MINUTE_TO_SECOND     SQL_C_INTERVAL_MINUTE_TO_SECOND     UInt8
+# SQL_GUID                          SQL_C_GUID                          UInt8
 
 # SQL Data Type Definitions
-const SQL_CHAR          = int16(  1) # Character string of fixed string length n.
-const SQL_VARCHAR       = int16( 12) # Variable-length character string with a maximum string length n.
-const SQL_LONGVARCHAR   = int16( -1) # Variable length character data. Maximum length is data source–dependent.
-const SQL_WCHAR         = int16( -8) # Unicode character string of fixed string length n
-const SQL_WVARCHAR      = int16( -9) # Unicode variable-length character string with a maximum string length n
-const SQL_WLONGVARCHAR  = int16(-10) # Unicode variable-length character data. Maximum length is data source–dependent
-const SQL_DECIMAL       = int16(  3) 
-const SQL_NUMERIC       = int16(  2)
-const SQL_SMALLINT      = int16(  5) # Exact numeric value with precision 5 and scale 0 (signed: –32,768 <= n <= 32,767, unsigned: 0 <= n <= 65,535)
-const SQL_INTEGER       = int16(  4) # Exact numeric value with precision 10 and scale 0 (signed: –2[31] <= n <= 2[31] – 1, unsigned: 0 <= n <= 2[32] – 1)
-const SQL_REAL          = int16(  7) # Signed, approximate, numeric value with a binary precision 24 (zero or absolute value 10[–38] to 10[38]).
-const SQL_FLOAT         = int16(  6) # Signed, approximate, numeric value with a binary precision of at least p. (The maximum precision is driver-defined.)
-const SQL_DOUBLE        = int16(  8) # Signed, approximate, numeric value with a binary precision 53 (zero or absolute value 10[–308] to 10[308]).
-const SQL_BIT           = int16( -7) # Single bit binary data.
-const SQL_TINYINT       = int16( -6) # Exact numeric value with precision 3 and scale 0 (signed: –128 <= n <= 127, unsigned: 0 <= n <= 255)
-const SQL_BIGINT        = int16( -5) # Exact numeric value with precision 19 (if signed) or 20 (if unsigned) and scale 0 (signed: –2[63] <= n <= 2[63] – 1, unsigned: 0 <= n <= 2[64] – 1)
-const SQL_BINARY        = int16( -2) # Binary data of fixed length n.
-const SQL_VARBINARY     = int16( -3) # Variable length binary data of maximum length n. The maximum is set by the user.
-const SQL_LONGVARBINARY = int16( -4) # Variable length binary data. Maximum length is data source–dependent.
-const SQL_TYPE_DATE     = int16( 91) # Year, month, and day fields, conforming to the rules of the Gregorian calendar.
-const SQL_TYPE_TIME     = int16( 92) # Hour, minute, and second fields, with valid values for hours of 00 to 23, 
+@compat const SQL_CHAR          = Int16(  1) # Character string of fixed string length n.
+@compat const SQL_VARCHAR       = Int16( 12) # Variable-length character string with a maximum string length n.
+@compat const SQL_LONGVARCHAR   = Int16( -1) # Variable length character data. Maximum length is data source–dependent.
+@compat const SQL_WCHAR         = Int16( -8) # Unicode character string of fixed string length n
+@compat const SQL_WVARCHAR      = Int16( -9) # Unicode variable-length character string with a maximum string length n
+@compat const SQL_WLONGVARCHAR  = Int16(-10) # Unicode variable-length character data. Maximum length is data source–dependent
+@compat const SQL_DECIMAL       = Int16(  3)
+@compat const SQL_NUMERIC       = Int16(  2)
+@compat const SQL_SMALLINT      = Int16(  5) # Exact numeric value with precision 5 and scale 0 (signed: –32,768 <= n <= 32,767, unsigned: 0 <= n <= 65,535)
+@compat const SQL_INTEGER       = Int16(  4) # Exact numeric value with precision 10 and scale 0 (signed: –2[31] <= n <= 2[31] – 1, unsigned: 0 <= n <= 2[32] – 1)
+@compat const SQL_REAL          = Int16(  7) # Signed, approximate, numeric value with a binary precision 24 (zero or absolute value 10[–38] to 10[38]).
+@compat const SQL_FLOAT         = Int16(  6) # Signed, approximate, numeric value with a binary precision of at least p. (The maximum precision is driver-defined.)
+@compat const SQL_DOUBLE        = Int16(  8) # Signed, approximate, numeric value with a binary precision 53 (zero or absolute value 10[–308] to 10[308]).
+@compat const SQL_BIT           = Int16( -7) # Single bit binary data.
+@compat const SQL_TINYINT       = Int16( -6) # Exact numeric value with precision 3 and scale 0 (signed: –128 <= n <= 127, unsigned: 0 <= n <= 255)
+@compat const SQL_BIGINT        = Int16( -5) # Exact numeric value with precision 19 (if signed) or 20 (if unsigned) and scale 0 (signed: –2[63] <= n <= 2[63] – 1, unsigned: 0 <= n <= 2[64] – 1)
+@compat const SQL_BINARY        = Int16( -2) # Binary data of fixed length n.
+@compat const SQL_VARBINARY     = Int16( -3) # Variable length binary data of maximum length n. The maximum is set by the user.
+@compat const SQL_LONGVARBINARY = Int16( -4) # Variable length binary data. Maximum length is data source–dependent.
+@compat const SQL_TYPE_DATE     = Int16( 91) # Year, month, and day fields, conforming to the rules of the Gregorian calendar.
+@compat const SQL_TYPE_TIME     = Int16( 92) # Hour, minute, and second fields, with valid values for hours of 00 to 23,
                                      # valid values for minutes of 00 to 59, and valid values for seconds of 00 to 61. Precision p indicates the seconds precision.
-const SQL_TYPE_TIMESTAMP = int16( 93) # Year, month, day, hour, minute, and second fields, with valid values as defined for the DATE and TIME data types.
+@compat const SQL_TYPE_TIMESTAMP = Int16( 93) # Year, month, day, hour, minute, and second fields, with valid values as defined for the DATE and TIME data types.
 
-#const SQL_INTERVAL_MONTH            = int16(102)
-#const SQL_INTERVAL_YEAR             = int16(101)
-#const SQL_INTERVAL_YEAR_TO_MONTH    = int16(107)
-#const SQL_INTERVAL_DAY              = int16(103)
-#const SQL_INTERVAL_HOUR             = int16(104)
-#const SQL_INTERVAL_MINUTE           = int16(105)
-#const SQL_INTERVAL_SECOND           = int16(106)
-#const SQL_INTERVAL_DAY_TO_HOUR      = int16(108)
-#const SQL_INTERVAL_DAY_TO_MINUTE    = int16(109)
-#const SQL_INTERVAL_DAY_TO_SECOND    = int16(110)
-#const SQL_INTERVAL_HOUR_TO_MINUTE   = int16(111)
-#const SQL_INTERVAL_HOUR_TO_SECOND   = int16(112)
-#const SQL_INTERVAL_MINUTE_TO_SECOND = int16(113)
-#const SQL_GUID                      = int16(-11) # Fixed length GUID.
+#@compat const SQL_INTERVAL_MONTH            = Int16(102)
+#@compat const SQL_INTERVAL_YEAR             = Int16(101)
+#@compat const SQL_INTERVAL_YEAR_TO_MONTH    = Int16(107)
+#@compat const SQL_INTERVAL_DAY              = Int16(103)
+#@compat const SQL_INTERVAL_HOUR             = Int16(104)
+#@compat const SQL_INTERVAL_MINUTE           = Int16(105)
+#@compat const SQL_INTERVAL_SECOND           = Int16(106)
+#@compat const SQL_INTERVAL_DAY_TO_HOUR      = Int16(108)
+#@compat const SQL_INTERVAL_DAY_TO_MINUTE    = Int16(109)
+#@compat const SQL_INTERVAL_DAY_TO_SECOND    = Int16(110)
+#@compat const SQL_INTERVAL_HOUR_TO_MINUTE   = Int16(111)
+#@compat const SQL_INTERVAL_HOUR_TO_SECOND   = Int16(112)
+#@compat const SQL_INTERVAL_MINUTE_TO_SECOND = Int16(113)
+#@compat const SQL_GUID                      = Int16(-11) # Fixed length GUID.
 
 # C Data Types
-const SQL_C_CHAR      = int16(  1)
-const SQL_C_WCHAR     = int16( -8)
-const SQL_C_DOUBLE    = int16(  8)
-const SQL_C_SHORT     = int16(  5)
-const SQL_C_LONG      = int16(  4)
-const SQL_C_FLOAT     = int16(  7)
-const SQL_C_BIT       = int16( -7)
-const SQL_C_TINYINT   = int16( -6)
-const SQL_C_BIGINT    = int16(-27)
-const SQL_C_BINARY    = int16( -2)
-const SQL_C_TYPE_DATE = int16( 91)
-const SQL_C_TYPE_TIME = int16( 92)
-const SQL_C_TYPE_TIMESTAMP = int16( 93)
+@compat const SQL_C_CHAR      = Int16(  1)
+@compat const SQL_C_WCHAR     = Int16( -8)
+@compat const SQL_C_DOUBLE    = Int16(  8)
+@compat const SQL_C_SHORT     = Int16(  5)
+@compat const SQL_C_LONG      = Int16(  4)
+@compat const SQL_C_FLOAT     = Int16(  7)
+@compat const SQL_C_BIT       = Int16( -7)
+@compat const SQL_C_TINYINT   = Int16( -6)
+@compat const SQL_C_BIGINT    = Int16(-27)
+@compat const SQL_C_BINARY    = Int16( -2)
+@compat const SQL_C_TYPE_DATE = Int16( 91)
+@compat const SQL_C_TYPE_TIME = Int16( 92)
+@compat const SQL_C_TYPE_TIMESTAMP = Int16( 93)
 
-#const SQL_C_INTERVAL_MONTH            = int16(102)
-#const SQL_C_INTERVAL_YEAR             = int16(101)
-#const SQL_C_INTERVAL_YEAR_TO_MONTH    = int16(107)
-#const SQL_C_INTERVAL_DAY              = int16(103)
-#const SQL_C_INTERVAL_HOUR             = int16(104)
-#const SQL_C_INTERVAL_MINUTE           = int16(105)
-#const SQL_C_INTERVAL_SECOND           = int16(106)
-#const SQL_C_INTERVAL_DAY_TO_HOUR      = int16(108)
-#const SQL_C_INTERVAL_DAY_TO_MINUTE    = int16(109)
-#const SQL_C_INTERVAL_DAY_TO_SECOND    = int16(110)
-#const SQL_C_INTERVAL_HOUR_TO_MINUTE   = int16(111)
-#const SQL_C_INTERVAL_HOUR_TO_SECOND   = int16(112)
-#const SQL_C_INTERVAL_MINUTE_TO_SECOND = int16(113)
-#const SQL_C_GUID                      = int16(-11)
+#@compat const SQL_C_INTERVAL_MONTH            = Int16(102)
+#@compat const SQL_C_INTERVAL_YEAR             = Int16(101)
+#@compat const SQL_C_INTERVAL_YEAR_TO_MONTH    = Int16(107)
+#@compat const SQL_C_INTERVAL_DAY              = Int16(103)
+#@compat const SQL_C_INTERVAL_HOUR             = Int16(104)
+#@compat const SQL_C_INTERVAL_MINUTE           = Int16(105)
+#@compat const SQL_C_INTERVAL_SECOND           = Int16(106)
+#@compat const SQL_C_INTERVAL_DAY_TO_HOUR      = Int16(108)
+#@compat const SQL_C_INTERVAL_DAY_TO_MINUTE    = Int16(109)
+#@compat const SQL_C_INTERVAL_DAY_TO_SECOND    = Int16(110)
+#@compat const SQL_C_INTERVAL_HOUR_TO_MINUTE   = Int16(111)
+#@compat const SQL_C_INTERVAL_HOUR_TO_SECOND   = Int16(112)
+#@compat const SQL_C_INTERVAL_MINUTE_TO_SECOND = Int16(113)
+#@compat const SQL_C_GUID                      = Int16(-11)
 
 # Julia mapping C structs
 immutable SQLDate
@@ -253,7 +253,7 @@ end
 
 Base.string(x::SQLTimestamp) = "$(x.year)-$(x.month)-$(x.day) $(x.hour):$(x.minute):$(x.second)"
 
-const SQL2C = [
+@compat const SQL2C = Dict(
     SQL_CHAR           => SQL_C_CHAR,
     SQL_VARCHAR        => SQL_C_CHAR,
     SQL_LONGVARCHAR    => SQL_C_CHAR,
@@ -275,9 +275,9 @@ const SQL2C = [
     SQL_LONGVARBINARY  => SQL_C_BINARY,
     SQL_TYPE_DATE      => SQL_C_TYPE_DATE,
     SQL_TYPE_TIME      => SQL_C_TYPE_TIME,
-    SQL_TYPE_TIMESTAMP => SQL_C_TYPE_TIMESTAMP]
+    SQL_TYPE_TIMESTAMP => SQL_C_TYPE_TIMESTAMP)
 
-const SQL2Julia = [
+@compat const SQL2Julia = Dict(
     SQL_CHAR           => SQLCHAR,
     SQL_VARCHAR        => SQLVARCHAR,
     SQL_LONGVARCHAR    => SQLVARCHAR,
@@ -294,14 +294,14 @@ const SQL2Julia = [
     SQL_BIT            => Int8,
     SQL_TINYINT        => Int8,
     SQL_BIGINT         => Int64,
-    SQL_BINARY         => Uint8,
-    SQL_VARBINARY      => Uint8,
-    SQL_LONGVARBINARY  => Uint8,
+    SQL_BINARY         => UInt8,
+    SQL_VARBINARY      => UInt8,
+    SQL_LONGVARBINARY  => UInt8,
     SQL_TYPE_DATE      => SQLDate,
     SQL_TYPE_TIME      => SQLTime,
-    SQL_TYPE_TIMESTAMP => SQLTimestamp]
+    SQL_TYPE_TIMESTAMP => SQLTimestamp)
 
-const SQL_TYPES = [
+@compat const SQL_TYPES = Dict(
       1 => "SQL_CHAR",
      12 => "SQL_VARCHAR",
      -1 => "SQL_LONGVARCHAR",
@@ -337,4 +337,4 @@ const SQL_TYPES = [
     111 => "SQL_INTERVAL_HOUR_TO_MINUTE",
     112 => "SQL_INTERVAL_HOUR_TO_SECOND",
     113 => "SQL_INTERVAL_MINUTE_TO_SECOND",
-    -11 => "SQL_GUID"]
+    -11 => "SQL_GUID")
