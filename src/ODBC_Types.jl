@@ -7,7 +7,7 @@ let
         @windows_only lib_choices = ["odbc32"]
         @osx_only     lib_choices = ["libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
         local lib
-        for lib in lib_choices 
+        for lib in lib_choices
             try
                 @compat Libdl.dlopen(lib)
                 succeeded = true
@@ -161,7 +161,7 @@ end
 @compat const SQL_WCHAR         = Int16( -8) # Unicode character string of fixed string length n
 @compat const SQL_WVARCHAR      = Int16( -9) # Unicode variable-length character string with a maximum string length n
 @compat const SQL_WLONGVARCHAR  = Int16(-10) # Unicode variable-length character data. Maximum length is data source–dependent
-@compat const SQL_DECIMAL       = Int16(  3) 
+@compat const SQL_DECIMAL       = Int16(  3)
 @compat const SQL_NUMERIC       = Int16(  2)
 @compat const SQL_SMALLINT      = Int16(  5) # Exact numeric value with precision 5 and scale 0 (signed: –32,768 <= n <= 32,767, unsigned: 0 <= n <= 65,535)
 @compat const SQL_INTEGER       = Int16(  4) # Exact numeric value with precision 10 and scale 0 (signed: –2[31] <= n <= 2[31] – 1, unsigned: 0 <= n <= 2[32] – 1)
@@ -175,7 +175,7 @@ end
 @compat const SQL_VARBINARY     = Int16( -3) # Variable length binary data of maximum length n. The maximum is set by the user.
 @compat const SQL_LONGVARBINARY = Int16( -4) # Variable length binary data. Maximum length is data source–dependent.
 @compat const SQL_TYPE_DATE     = Int16( 91) # Year, month, and day fields, conforming to the rules of the Gregorian calendar.
-@compat const SQL_TYPE_TIME     = Int16( 92) # Hour, minute, and second fields, with valid values for hours of 00 to 23, 
+@compat const SQL_TYPE_TIME     = Int16( 92) # Hour, minute, and second fields, with valid values for hours of 00 to 23,
                                      # valid values for minutes of 00 to 59, and valid values for seconds of 00 to 61. Precision p indicates the seconds precision.
 @compat const SQL_TYPE_TIMESTAMP = Int16( 93) # Year, month, day, hour, minute, and second fields, with valid values as defined for the DATE and TIME data types.
 

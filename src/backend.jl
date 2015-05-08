@@ -2,10 +2,10 @@ function ODBCAllocHandle(handletype, parenthandle)
     handle = Array(Ptr{Void},1)
     if @FAILED SQLAllocHandle(handletype,parenthandle,handle)
         error("[ODBC]: ODBC Handle Allocation Failed; Return Code: $ret")
-    else        
+    else
         #If allocation succeeded, retrieve handle pointer stored in handle's array index 1
         handle = handle[1]
-        if handletype == SQL_HANDLE_ENV 
+        if handletype == SQL_HANDLE_ENV
             if @FAILED SQLSetEnvAttr(handle,SQL_ATTR_ODBC_VERSION,SQL_OV_ODBC3)
                 #If version-setting fails, release environment handle and set global env variable to a null pointer
                 SQLFreeHandle(SQL_HANDLE_ENV,handle)
@@ -27,7 +27,7 @@ end
 
 # Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin
 @compat function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::String,driver_prompt::UInt16)
-    window_handle = C_NULL    
+    window_handle = C_NULL
     @windows_only window_handle = ccall((:GetForegroundWindow, :user32), Ptr{Void}, () )
     @windows_only driver_prompt = SQL_DRIVER_PROMPT
     out_buff = Array(Int16,1)
@@ -65,7 +65,7 @@ end
             datatype = Array(Int16, 1)
             column_size = Array(Int, 1)
             decimal_digits = Array(Int16, 1)
-            nullable = Array(Int16, 1) 
+            nullable = Array(Int16, 1)
             SQLDescribeCol(stmt, x, column_name, name_length, datatype, column_size, decimal_digits, nullable)
             push!(colnames, ODBCClean(column_name, 1, name_length[1]))
             push!(coltypes, (get(SQL_TYPES, Int(datatype[1]), "SQL_CHAR"), datatype[1]))
@@ -82,7 +82,6 @@ end
     meta.rows == 0 && return (Any[],Any[],0)
     rowset = MULTIROWFETCH > meta.rows ? (meta.rows < 0 ? 1 : meta.rows) : MULTIROWFETCH
     SQLSetStmtAttr(stmt, SQL_ATTR_ROW_ARRAY_SIZE, UInt(rowset), SQL_IS_UINTEGER)
-    
     # these Any arrays are where the ODBC manager dumps result data
     indicator = Any[]
     columns = Any[]
@@ -105,7 +104,7 @@ end
     return (columns, indicator, rowset)
 end
 
-# ODBCColumnAllocate is used to allocate the raw 
+# ODBCColumnAllocate is used to allocate the raw
 # underlying C-type buffers to be bound in SQLBindCol
 ODBCColumnAllocate(x,y,z)                       = (Array(x,z),sizeof(x))
 @compat ODBCColumnAllocate(x::Type{UInt8},y,z)  = (zeros(x,(y,z)),y)
@@ -147,7 +146,7 @@ end
         nas[i+dsto-1] = ind[i] < 0
         raw = src[1:div(ind[i], 2), i]
         str = utf16(convert(Ptr{UInt16}, raw), length(raw))
-        dest[i+dsto-1] = str 
+        dest[i+dsto-1] = str
     end
 end
 
@@ -223,7 +222,7 @@ function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},r
     return DataFrame()
 end
 
-# used to 'clear' a statement of bound columns, resultsets, 
+# used to 'clear' a statement of bound columns, resultsets,
 # and other bound parameters in preparation for a subsequent query
 function ODBCFreeStmt!(stmt)
     SQLFreeStmt(stmt,SQL_CLOSE)
@@ -231,7 +230,7 @@ function ODBCFreeStmt!(stmt)
     SQLFreeStmt(stmt,SQL_RESET_PARAMS)
 end
 
-# Takes an SQL handle as input and retrieves any error messages 
+# Takes an SQL handle as input and retrieves any error messages
 # associated with that handle; there may be more than one
 @compat function ODBCError(handletype::Int16,handle::Ptr{Void})
     i = Int16(1)
