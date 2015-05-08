@@ -1,8 +1,11 @@
 module ODBC
 
+using Compat
 using DataFrames
 using DataArrays
-using Dates
+if VERSION < v"0.4-"
+    using Dates
+end
 
 export advancedconnect, 
        query, querymeta, @query, @sql_str, 
@@ -18,7 +21,7 @@ type Metadata
     cols::Int
     rows::Int
     colnames::Array{UTF8String}
-    coltypes::Array{(String, Int16)}
+    @compat coltypes::Array{Tuple{String, Int16}}
     colsizes::Array{Int}
     coldigits::Array{Int16}
     colnulls::Array{Int16}
@@ -78,7 +81,7 @@ typealias Output Union(DataType,String)
 
 const null_resultset = DataFrame()
 const null_conn = Connection("", 0, C_NULL, C_NULL, null_resultset)
-const null_meta = Metadata("", 0, 0, UTF8String[], (String,Int16)[], Int[], Int16[], Int16[])
+@compat const null_meta = Metadata("", 0, 0, UTF8String[], Tuple{String,Int16}[], Int[], Int16[], Int16[])
 
 global env = C_NULL
 

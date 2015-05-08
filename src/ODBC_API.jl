@@ -28,21 +28,21 @@
 const MULTIROWFETCH = 65535 
 
 # success codes
-const SQL_SUCCESS           = int16(0)
-const SQL_SUCCESS_WITH_INFO = int16(1)
+@compat const SQL_SUCCESS           = Int16(0)
+@compat const SQL_SUCCESS_WITH_INFO = Int16(1)
 
 # error codes
-const SQL_ERROR             = int16(-1)
-const SQL_INVALID_HANDLE    = int16(-2)
+@compat const SQL_ERROR             = Int16(-1)
+@compat const SQL_INVALID_HANDLE    = Int16(-2)
 
 # status codes
-const SQL_STILL_EXECUTING   = int16(2)
-const SQL_NO_DATA           = int16(100)
+@compat const SQL_STILL_EXECUTING   = Int16(2)
+@compat const SQL_NO_DATA           = Int16(100)
 
-const RETURN_VALUES = [SQL_ERROR   => "SQL_ERROR",
-                       SQL_NO_DATA => "SQL_NO_DATA",
-                       SQL_INVALID_HANDLE  => "SQL_INVALID_HANDLE",
-                       SQL_STILL_EXECUTING => "SQL_STILL_EXECUTING"]
+@compat const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
+                           SQL_NO_DATA => "SQL_NO_DATA",
+                           SQL_INVALID_HANDLE  => "SQL_INVALID_HANDLE",
+                           SQL_STILL_EXECUTING => "SQL_STILL_EXECUTING")
 
 #Macros to to check if a function returned a success value or not; used with 'if' statements
 #e.g. if @SUCCEEDED SQLDisconnect(dbc) print("Disconnected successfully") end
@@ -113,10 +113,10 @@ end
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms712455(v=vs.85).aspx
 # Description: allocates an environment, connection, statement, or descriptor handle
 # Valid handle types
-const SQL_HANDLE_ENV  = int16(1)  
-const SQL_HANDLE_DBC  = int16(2) 
-const SQL_HANDLE_STMT = int16(3)
-const SQL_HANDLE_DESC = int16(4)
+@compat const SQL_HANDLE_ENV  = Int16(1)
+@compat const SQL_HANDLE_DBC  = Int16(2)
+@compat const SQL_HANDLE_STMT = Int16(3)
+@compat const SQL_HANDLE_DESC = Int16(4)
 const SQL_NULL_HANDLE = C_NULL
 
 #Status: Tested on Windows, Linux, Mac 32/64-bit
@@ -156,13 +156,13 @@ end
 # Description: sets attributes that govern aspects of environments
 # Valid attributes; valid values for attribute are indented
 const SQL_ATTR_CONNECTION_POOLING = 201
-const SQL_CP_OFF = uint(0)
-const SQL_CP_ONE_PER_DRIVER = uint(1)
-const SQL_CP_ONE_PER_HENV = uint(2)
+@compat const SQL_CP_OFF = UInt(0)
+@compat const SQL_CP_ONE_PER_DRIVER = UInt(1)
+@compat const SQL_CP_ONE_PER_HENV = UInt(2)
 const SQL_CP_DEFAULT = SQL_CP_OFF
 const SQL_ATTR_CP_MATCH = 202
-const SQL_CP_RELAXED_MATCH = uint(1)
-const SQL_CP_STRICT_MATCH = uint(0)
+@compat const SQL_CP_RELAXED_MATCH = UInt(1)
+@compat const SQL_CP_STRICT_MATCH = UInt(0)
 const SQL_ATTR_ODBC_VERSION = 200
 const SQL_OV_ODBC2 = 2
 const SQL_OV_ODBC3 = 3 
@@ -207,23 +207,23 @@ end
 # Description: sets attributes that govern aspects of connections.
 # Valid attributes
 const SQL_ATTR_ACCESS_MODE = 101
-const SQL_MODE_READ_ONLY = uint(1)
-const SQL_MODE_READ_WRITE = uint(0)
+@compat const SQL_MODE_READ_ONLY = UInt(1)
+@compat const SQL_MODE_READ_WRITE = UInt(0)
 #const SQL_ATTR_ASYNC_DBC_EVENT 
 #pointer
 #const SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE 
-#const SQL_ASYNC_DBC_ENABLE_ON = uint()
-#const SQL_ASYNC_DBC_ENABLE_OFF = uint()
+#@compat const SQL_ASYNC_DBC_ENABLE_ON = UInt()
+#@compat const SQL_ASYNC_DBC_ENABLE_OFF = UInt()
 #const SQL_ATTR_ASYNC_DBC_PCALLBACK 
 #pointer
 #const SQL_ATTR_ASYNC_DBC_PCONTEXT 
 #pointer
 const SQL_ATTR_ASYNC_ENABLE = 4
-const SQL_ASYNC_ENABLE_OFF = uint(0)
-const SQL_ASYNC_ENABLE_ON = uint(1)
+@compat const SQL_ASYNC_ENABLE_OFF = UInt(0)
+@compat const SQL_ASYNC_ENABLE_ON = UInt(1)
 const SQL_ATTR_AUTOCOMMIT = 102
-const SQL_AUTOCOMMIT_OFF = uint(0)
-const SQL_AUTOCOMMIT_ON = uint(1)
+@compat const SQL_AUTOCOMMIT_OFF = UInt(0)
+@compat const SQL_AUTOCOMMIT_ON = UInt(1)
 const SQL_ATTR_CONNECTION_TIMEOUT = 113
 #uint of how long you want the connection timeout
 const SQL_ATTR_CURRENT_CATALOG = 109
@@ -238,16 +238,16 @@ const SQL_ATTR_LOGIN_TIMEOUT = 103
 const SQL_ATTR_METADATA_ID = 10014
 #SQL_TRUE, SQL_FALSE
 const SQL_ATTR_ODBC_CURSORS = 110
-const SQL_CUR_USE_IF_NEEDED = uint(0)
-const SQL_CUR_USE_ODBC = uint(1)
-const SQL_CUR_USE_DRIVER = uint(2)
+@compat const SQL_CUR_USE_IF_NEEDED = UInt(0)
+@compat const SQL_CUR_USE_ODBC = UInt(1)
+@compat const SQL_CUR_USE_DRIVER = UInt(2)
 const SQL_ATTR_PACKET_SIZE = 112
 #uint for network packet size
 const SQL_ATTR_QUIET_MODE = 111
 #window handle pointer
 const SQL_ATTR_TRACE = 104
-const SQL_OPT_TRACE_OFF = uint(0)
-const SQL_OPT_TRACE_ON = uint(1)
+@compat const SQL_OPT_TRACE_OFF = UInt(0)
+@compat const SQL_OPT_TRACE_ON = UInt(1)
 const SQL_ATTR_TRACEFILE = 105
 #A null-terminated character string containing the name of the trace file.
 const SQL_ATTR_TRANSLATE_LIB = 106
@@ -344,17 +344,17 @@ end
 # discards pending results, or, optionally, 
 # frees all resources associated with the statement handle.
 #Valid param
-const SQL_CLOSE = uint16(0)
-const SQL_RESET_PARAMS = uint16(3)
-const SQL_UNBIND = uint16(2)
+@compat const SQL_CLOSE = UInt16(0)
+@compat const SQL_RESET_PARAMS = UInt16(3)
+@compat const SQL_UNBIND = UInt16(2)
 
 #Status:
-function SQLFreeStmt(stmt::Ptr{Void},param::Uint16)
+@compat function SQLFreeStmt(stmt::Ptr{Void},param::UInt16)
     @windows_only ret = ccall( (:SQLFreeStmt, odbc_dm), stdcall, 
-        Int16, (Ptr{Void},Uint16), 
+        Int16, (Ptr{Void},UInt16), 
         stmt, param) 
     @unix_only ret = ccall( (:SQLFreeStmt, odbc_dm),
-            Int16, (Ptr{Void},Uint16), 
+            Int16, (Ptr{Void},UInt16), 
             stmt, param) 
     return ret
 end
@@ -422,17 +422,17 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715433(v=vs.85).aspx
 #Description:
 #Valid driver_prompt
-const SQL_DRIVER_COMPLETE = uint16(1)
-const SQL_DRIVER_COMPLETE_REQUIRED = uint16(3)
-const SQL_DRIVER_NOPROMPT = uint16(0)
-const SQL_DRIVER_PROMPT = uint16(2)
+@compat const SQL_DRIVER_COMPLETE = UInt16(1)
+@compat const SQL_DRIVER_COMPLETE_REQUIRED = UInt16(3)
+@compat const SQL_DRIVER_NOPROMPT = UInt16(0)
+@compat const SQL_DRIVER_PROMPT = UInt16(2)
 #Status:
-function SQLDriverConnect(dbc::Ptr{Void},window_handle::Ptr{Void},conn_string::String,out_conn::Ptr{Void},out_buff::Array{Int16,1},driver_prompt::Uint16)
+@compat function SQLDriverConnect(dbc::Ptr{Void},window_handle::Ptr{Void},conn_string::String,out_conn::Ptr{Void},out_buff::Array{Int16,1},driver_prompt::UInt16)
     @windows_only ret = ccall( (:SQLDriverConnect, odbc_dm), stdcall, 
-        Int16, (Ptr{Void},Ptr{Void},Ptr{Uint8},Int16,Ptr{Void},Int16,Ptr{Int16},Uint16),
+        Int16, (Ptr{Void},Ptr{Void},Ptr{Uint8},Int16,Ptr{Void},Int16,Ptr{Int16},UInt16),
         dbc,window_handle,conn_string,length(conn_string),out_conn,0,out_buff,driver_prompt) 
     @unix_only ret = ccall( (:SQLDriverConnect, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Void},Ptr{Uint8},Int16,Ptr{Void},Int16,Ptr{Int16},Uint16),
+            Int16, (Ptr{Void},Ptr{Void},Ptr{Uint8},Int16,Ptr{Void},Int16,Ptr{Int16},UInt16),
             dbc,window_handle,conn_string,length(conn_string),out_conn,0,out_buff,driver_prompt) 
     return ret
 end
@@ -469,12 +469,12 @@ end
  
 #supported will be SQL_TRUE or SQL_FALSE
 #Status:
-function SQLGetFunctions(dbc::Ptr{Void},functionid::Uint16,supported::Array{Uint16,1})
+@compat function SQLGetFunctions(dbc::Ptr{Void},functionid::UInt16,supported::Array{UInt16,1})
     @windows_only ret = ccall( (:SQLGetFunctions, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Uint16,Ptr{Uint16}),
+        Int16, (Ptr{Void},UInt16,Ptr{UInt16}),
         dbc,functionid,supported) 
     @unix_only ret = ccall( (:SQLGetFunctions, odbc_dm),
-            Int16, (Ptr{Void},Uint16,Ptr{Uint16}),
+            Int16, (Ptr{Void},UInt16,Ptr{UInt16}),
             dbc,functionid,supported) 
     return ret
 end
@@ -608,10 +608,10 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713558(v=vs.85).aspx
 function SQLColAttribute(stmt::Ptr{Void},x::Int,)
     @windows_only ret = ccall( (:SQLColAttribute, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Uint16,Uint16,Ptr,Int16,Ptr{Int16},Ptr{Int}),
+        Int16, (Ptr{Void},UInt16,UInt16,Ptr,Int16,Ptr{Int16},Ptr{Int}),
         stmt,x,) 
     @unix_only ret = ccall( (:SQLColAttribute, odbc_dm),
-            Int16, (Ptr{Void},Uint16,Uint16,Ptr,Int16,Ptr{Int16},Ptr{Int}),
+            Int16, (Ptr{Void},UInt16,UInt16,Ptr,Int16,Ptr{Int16},Ptr{Int}),
             stmt,x,) 
     return ret
 end
@@ -619,21 +619,21 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716289(v=vs.85).aspx
 function SQLDescribeCol(stmt::Ptr{Void},x::Int,column_name::Array{Uint8,1},name_length::Array{Int16,1},datatype::Array{Int16,1},column_size::Array{Int,1},decimal_digits::Array{Int16,1},nullable::Array{Int16,1})
     @windows_only ret = ccall( (:SQLDescribeCol, odbc_dm), stdcall, 
-        Int16, (Ptr{Void},Uint16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
+        Int16, (Ptr{Void},UInt16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
         stmt,x,column_name,length(column_name),name_length,datatype,column_size,decimal_digits,nullable) 
     @unix_only ret = ccall( (:SQLDescribeCol, odbc_dm),
-            Int16, (Ptr{Void},Uint16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
+            Int16, (Ptr{Void},UInt16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
             stmt,x,column_name,length(column_name),name_length,datatype,column_size,decimal_digits,nullable) 
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms710188(v=vs.85).aspx
-function SQLDescribeParam(stmt::Ptr{Void},x::Int,sqltype::Array{Int16,1},column_size::Array{Int,1},decimal_digits::Array{Int16,1},nullable::Array{Int16,1})
+@compat function SQLDescribeParam(stmt::Ptr{Void},x::Int,sqltype::Array{Int16,1},column_size::Array{Int,1},decimal_digits::Array{Int16,1},nullable::Array{Int16,1})
     @windows_only ret = ccall( (:SQLDescribeParam, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Uint16,Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
+        Int16, (Ptr{Void},UInt16,Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
         stmt,x,sqltype,column_size,decimal_digits,nullable) 
     @unix_only ret = ccall( (:SQLDescribeParam, odbc_dm),
-            Int16, (Ptr{Void},Uint16,Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
+            Int16, (Ptr{Void},UInt16,Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
             stmt,x,sqltype,column_size,decimal_digits,nullable) 
     return ret
 end
@@ -665,40 +665,40 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms710963(v=vs.85).aspx
 #Description:
 #valid iotype
-const SQL_PARAM_INPUT = int16(1) 
-const SQL_PARAM_OUTPUT = int16(4) 
-const SQL_PARAM_INPUT_OUTPUT = int16(2) 
-#const SQL_PARAM_INPUT_OUTPUT_STREAM = int16() 
-#const SQL_PARAM_OUTPUT_STREAM = int16() 
+@compat const SQL_PARAM_INPUT = Int16(1) 
+@compat const SQL_PARAM_OUTPUT = Int16(4) 
+@compat const SQL_PARAM_INPUT_OUTPUT = Int16(2) 
+#@compat const SQL_PARAM_INPUT_OUTPUT_STREAM = Int16() 
+#@compat const SQL_PARAM_OUTPUT_STREAM = Int16() 
 #Status:
-function SQLBindParameter{T}(stmt::Ptr{Void},x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value::Array{T},param_size::Int)
+@compat function SQLBindParameter{T}(stmt::Ptr{Void},x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value::Array{T},param_size::Int)
     @windows_only ret = ccall( (:SQLBindParameter, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Uint16,Int16,Int16,Int16,Uint,Int16,Ptr{T},Int,Ptr{Void}),
+        Int16, (Ptr{Void},UInt16,Int16,Int16,Int16,Uint,Int16,Ptr{T},Int,Ptr{Void}),
         stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,C_NULL) 
     @unix_only ret = ccall( (:SQLBindParameter, odbc_dm),
-            Int16, (Ptr{Void},Uint16,Int16,Int16,Int16,Uint,Int16,Ptr{T},Int,Ptr{Void}),
+            Int16, (Ptr{Void},UInt16,Int16,Int16,Int16,Uint,Int16,Ptr{T},Int,Ptr{Void}),
             stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,C_NULL) 
     return ret
 end
 SQLSetParam = SQLBindParameter
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711010(v=vs.85).aspx
-function SQLBindCols{T,N}(stmt::Ptr{Void},x::Int,ctype::Int16,holder::Array{T,N},jlsize::Int,indicator::Array{Int,1})
+@compat function SQLBindCols{T,N}(stmt::Ptr{Void},x::Int,ctype::Int16,holder::Array{T,N},jlsize::Int,indicator::Array{Int,1})
     @windows_only ret = ccall( (:SQLBindCol, odbc_dm), stdcall, 
-        Int16, (Ptr{Void},Uint16,Int16,Ptr{T},Int,Ptr{Int}),
+        Int16, (Ptr{Void},UInt16,Int16,Ptr{T},Int,Ptr{Int}),
         stmt,x,ctype,holder,jlsize,indicator) 
     @unix_only ret = ccall( (:SQLBindCol, odbc_dm),
-            Int16, (Ptr{Void},Uint16,Int16,Ptr{T},Int,Ptr{Int}),
+            Int16, (Ptr{Void},UInt16,Int16,Ptr{T},Int,Ptr{Int}),
             stmt,x,ctype,holder,jlsize,indicator) 
     return ret
 end
 
-function SQLBindCols(stmt::Ptr{Void},x::Int,ctype::Int16,holder::Array{UTF8String,1},jlsize::Int,indicator::Array{Int,1})
+@compat function SQLBindCols(stmt::Ptr{Void},x::Int,ctype::Int16,holder::Array{UTF8String,1},jlsize::Int,indicator::Array{Int,1})
     @windows_only ret = ccall( (:SQLBindCol, odbc_dm), stdcall, 
-        Int16, (Ptr{Void},Uint16,Int16,Ptr{Uint8},Int,Ptr{Int}),
+        Int16, (Ptr{Void},UInt16,Int16,Ptr{Uint8},Int,Ptr{Int}),
         stmt,x,ctype,holder,jlsize,indicator) 
     @unix_only ret = ccall( (:SQLBindCol, odbc_dm),
-            Int16, (Ptr{Void},Uint16,Int16,Ptr{Uint8},Int,Ptr{Int}),
+            Int16, (Ptr{Void},UInt16,Int16,Ptr{Uint8},Int,Ptr{Int}),
             stmt,x,ctype,holder,jlsize,indicator) 
     return ret
 end
@@ -726,12 +726,12 @@ function SQLGetCursorName(stmt::Ptr{Void},cursor::Array{Uint8,1},cursor_length::
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715441(v=vs.85).aspx
-function SQLGetData{T,N}(stmt::Ptr{Void},i::Int,ctype::Int16,value::Array{T,N},bytes_returned::Array{Int,1})
+@compat function SQLGetData{T,N}(stmt::Ptr{Void},i::Int,ctype::Int16,value::Array{T,N},bytes_returned::Array{Int,1})
     @windows_only ret = ccall( (:SQLGetData, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Uint16,Int16,Ptr{T},Int,Ptr{Int}),
+        Int16, (Ptr{Void},UInt16,Int16,Ptr{T},Int,Ptr{Int}),
         stmt,i,ctype,value,sizeof(T)*N,bytes_returned) 
     @unix_only ret = ccall( (:SQLGetData, odbc_dm),
-            Int16, (Ptr{Void},Uint16,Int16,Ptr{T},Int,Ptr{Int}),
+            Int16, (Ptr{Void},UInt16,Int16,Ptr{T},Int,Ptr{Int}),
             stmt,i,ctype,value,sizeof(T)*N,bytes_returned) 
     return ret
 end
@@ -740,13 +740,13 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714682(v=vs.85).aspx
 #Description:
 #valid fetch_orientation
-const SQL_FETCH_NEXT = int16(1)
-const SQL_FETCH_PRIOR = int16(4)
-const SQL_FETCH_FIRST = int16(2)
-const SQL_FETCH_LAST = int16(3)
-const SQL_FETCH_ABSOLUTE = int16(5)
-const SQL_FETCH_RELATIVE = int16(6)
-const SQL_FETCH_BOOKMARK = int16(8)
+@compat const SQL_FETCH_NEXT = Int16(1)
+@compat const SQL_FETCH_PRIOR = Int16(4)
+@compat const SQL_FETCH_FIRST = Int16(2)
+@compat const SQL_FETCH_LAST = Int16(3)
+@compat const SQL_FETCH_ABSOLUTE = Int16(5)
+@compat const SQL_FETCH_RELATIVE = Int16(6)
+@compat const SQL_FETCH_BOOKMARK = Int16(8)
 #Status:
 function SQLFetchScroll(stmt::Ptr{Void},fetch_orientation::Int16,fetch_offset::Int)
     @windows_only ret = ccall( (:SQLFetchScroll, odbc_dm), stdcall, 
@@ -759,12 +759,12 @@ function SQLFetchScroll(stmt::Ptr{Void},fetch_orientation::Int16,fetch_offset::I
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713591(v=vs.85).aspx
-function SQLExtendedFetch(stmt::Ptr{Void},fetch_orientation::Uint16,fetch_offset::Int,row_count_ptr::Array{Int,1},row_status_array::Array{Int16,1})
+@compat function SQLExtendedFetch(stmt::Ptr{Void},fetch_orientation::UInt16,fetch_offset::Int,row_count_ptr::Array{Int,1},row_status_array::Array{Int16,1})
     @windows_only ret = ccall( (:SQLExtendedFetch, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Uint16,Int,Ptr{Int},Ptr{Int16}),
+        Int16, (Ptr{Void},UInt16,Int,Ptr{Int},Ptr{Int16}),
         stmt,fetch_orientation,fetch_offset,row_count_ptr,row_status_array) 
     @unix_only ret = ccall( (:SQLExtendedFetch, odbc_dm),
-            Int16, (Ptr{Void},Uint16,Int,Ptr{Int},Ptr{Int16}),
+            Int16, (Ptr{Void},UInt16,Int,Ptr{Int},Ptr{Int16}),
             stmt,fetch_orientation,fetch_offset,row_count_ptr,row_status_array) 
     return ret
 end
@@ -773,24 +773,24 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713507(v=vs.85).aspx
 #Description:
 #valid operation
-const SQL_POSITION = uint16(0) #SQLSetPos
-const SQL_REFRESH = uint16(1) #SQLSetPos
-const SQL_UPDATE = uint16(2) #SQLSetPos
-const SQL_DELETE = uint16(3) #SQLSetPos
+@compat const SQL_POSITION = UInt16(0) #SQLSetPos
+@compat const SQL_REFRESH = UInt16(1) #SQLSetPos
+@compat const SQL_UPDATE = UInt16(2) #SQLSetPos
+@compat const SQL_DELETE = UInt16(3) #SQLSetPos
 #valid lock_type
-const SQL_LOCK_NO_CHANGE = uint16(0) #SQLSetPos
-const SQL_LOCK_EXCLUSIVE = uint16(1) #SQLSetPos
-const SQL_LOCK_UNLOCK = uint16(2) #SQLSetPos
+@compat const SQL_LOCK_NO_CHANGE = UInt16(0) #SQLSetPos
+@compat const SQL_LOCK_EXCLUSIVE = UInt16(1) #SQLSetPos
+@compat const SQL_LOCK_UNLOCK = UInt16(2) #SQLSetPos
 #Status
-function SQLSetPos{T}(stmt::Ptr{Void},rownumber::T,operation::Uint16,lock_type::Uint16)
+@compat function SQLSetPos{T}(stmt::Ptr{Void},rownumber::T,operation::UInt16,lock_type::UInt16)
     @windows_only ret = ccall( (:SQLSetPos, odbc_dm), stdcall,
-        Int16, (Ptr{Void},T,Uint16,Uint16),
+        Int16, (Ptr{Void},T,UInt16,UInt16),
         stmt,rownumber,operation,lock_type) 
     @unix_only ret = ccall( (:SQLSetPos, odbc_dm),
-            Int16, (Ptr{Void},T,Uint16,Uint16),
+            Int16, (Ptr{Void},T,UInt16,UInt16),
             stmt,rownumber,operation,lock_type) 
     return ret
-end #T can be Uint64 or Uint16 it seems
+end #T can be Uint64 or UInt16 it seems
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714673(v=vs.85).aspx
 function SQLMoreResults(stmt::Ptr{Void})
@@ -807,8 +807,8 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716544(v=vs.85).aspx
 #Description:
 #valid completion_type
-const SQL_COMMIT = int16(0) #SQLEndTran
-const SQL_ROLLBACK = int16(1) #SQLEndTran
+@compat const SQL_COMMIT = Int16(0) #SQLEndTran
+@compat const SQL_ROLLBACK = Int16(1) #SQLEndTran
 #Status:
 function SQLEndTran(handletype::Int16,handle::Ptr{Void},completion_type::Int16)
     @windows_only ret = ccall( (:SQLEndTran, odbc_dm), stdcall,
@@ -835,17 +835,17 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms712471(v=vs.85).aspx
 #Description:
 #valid operation
-const SQL_ADD = uint16(4) #SQLBulkOperations
-const SQL_UPDATE_BY_BOOKMARK = uint16(5) #SQLBulkOperations
-const SQL_DELETE_BY_BOOKMARK = uint16(6) #SQLBulkOperations
-const SQL_FETCH_BY_BOOKMARK = uint16(7) #SQLBulkOperations
+@compat const SQL_ADD = UInt16(4) #SQLBulkOperations
+@compat const SQL_UPDATE_BY_BOOKMARK = UInt16(5) #SQLBulkOperations
+@compat const SQL_DELETE_BY_BOOKMARK = UInt16(6) #SQLBulkOperations
+@compat const SQL_FETCH_BY_BOOKMARK = UInt16(7) #SQLBulkOperations
 #Status:
-function SQLBulkOperations(stmt::Ptr{Void},operation::Uint16)
+@compat function SQLBulkOperations(stmt::Ptr{Void},operation::UInt16)
     @windows_only ret = ccall( (:SQLBulkOperations, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Uint16),
+        Int16, (Ptr{Void},UInt16),
         stmt,operation) 
     @unix_only ret = ccall( (:SQLBulkOperations, odbc_dm),
-            Int16, (Ptr{Void},Uint16),
+            Int16, (Ptr{Void},UInt16),
             stmt,operation) 
     return ret
 end
@@ -943,21 +943,21 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711022(v=vs.85).aspx
 #Description:
 #valid unique
-const SQL_INDEX_ALL = uint16(1) 
-const SQL_INDEX_CLUSTERED = uint16(1) 
-const SQL_INDEX_HASHED = uint16(2) 
-const SQL_INDEX_OTHER = uint16(3) 
-const SQL_INDEX_UNIQUE = uint16(0)
+@compat const SQL_INDEX_ALL = UInt16(1) 
+@compat const SQL_INDEX_CLUSTERED = UInt16(1) 
+@compat const SQL_INDEX_HASHED = UInt16(2) 
+@compat const SQL_INDEX_OTHER = UInt16(3) 
+@compat const SQL_INDEX_UNIQUE = UInt16(0)
 #valid reserved
-const SQL_ENSURE = uint16(1) 
-const SQL_QUICK = uint16(0) 
+@compat const SQL_ENSURE = UInt16(1) 
+@compat const SQL_QUICK = UInt16(0) 
 #Status:
-function SQLStatistics(stmt::Ptr{Void},catalog::String,schema::String,table::String,unique::Uint16,reserved::Uint16)
+@compat function SQLStatistics(stmt::Ptr{Void},catalog::String,schema::String,table::String,unique::UInt16,reserved::UInt16)
     @windows_only ret = ccall( (:SQLStatistics, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Uint16,Uint16),
+        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,UInt16,UInt16),
         stmt,catalog,length(catalog),schema,length(schema),table,length(table),unique,reserved) 
     @unix_only ret = ccall( (:SQLStatistics, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Uint16,Uint16),
+            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,UInt16,UInt16),
             stmt,catalog,length(catalog),schema,length(schema),table,length(table),unique,reserved) 
     return ret
 end
@@ -966,16 +966,16 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714602(v=vs.85).aspx
 #Description:
 #valid id_type
-const SQL_BEST_ROWID = int16(1) #SQLSpecialColumns
-const SQL_ROWVER = int16(2) #SQLSpecialColumns
+@compat const SQL_BEST_ROWID        = Int16(1) #SQLSpecialColumns
+@compat const SQL_ROWVER            = Int16(2) #SQLSpecialColumns
 #valid scope
-const SQL_SCOPE_CURROW = int16(0) #SQLSpecialColumns
-const SQL_SCOPE_SESSION = int16(2) #SQLSpecialColumns
-const SQL_SCOPE_TRANSACTION = int16(1) #SQLSpecialColumns
+@compat const SQL_SCOPE_CURROW      = Int16(0) #SQLSpecialColumns
+@compat const SQL_SCOPE_SESSION     = Int16(2) #SQLSpecialColumns
+@compat const SQL_SCOPE_TRANSACTION = Int16(1) #SQLSpecialColumns
 #valid nullable
-const SQL_NO_NULLS = int16(0) #SQLSpecialColumns
-const SQL_NULLABLE = int16(1) #SQLSpecialColumns
-#const SQL_NULLABLE_UNKNOWN = int16() #SQLSpecialColumns
+@compat const SQL_NO_NULLS          = Int16(0) #SQLSpecialColumns
+@compat const SQL_NULLABLE          = Int16(1) #SQLSpecialColumns
+#@compat const SQL_NULLABLE_UNKNOWN = Int16() #SQLSpecialColumns
 #Status:
 function SQLSpecialColumns(stmt::Ptr{Void},id_type::Int16,catalog::String,schema::String,table::String,scope::Int16,nullable::Int16)
     @windows_only ret = ccall( (:SQLSpecialColumns, odbc_dm), stdcall,
