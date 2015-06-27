@@ -210,7 +210,7 @@ writefield(io,x::AbstractString) = print(io,'"',x,'"')
 
 function ODBCFetchToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::AbstractString,l::Int)
     out_file = l == 0 ? open(output,"w") : open(output,"a")
-    write(out_file, join(meta.colnames,delim), '\n')
+    write(out_file, join(meta.colnames,','), '\n')
     while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
         for row = 1:rowset, col = 1:meta.cols
             writefield(out_file,ODBCClean(columns[col],row))
