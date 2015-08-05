@@ -163,7 +163,7 @@ ODBCEscape(x::String) = "\"$x\""
 
 #function for fetching a resultset into a DataFrame
 function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
-    tic()
+    ## tic()
     cols = Array(Any,meta.cols)
     nas = Array(BitVector,meta.cols)
     for i = 1:meta.cols
@@ -180,7 +180,7 @@ function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1}
         end
         r += rows
     end
-    toc()
+    ## toc()
     @compat cols = Any[DataArray(cols[col],nas[col]) for col = 1:length(cols)]
     resultset = DataFrame(cols, DataFrames.Index(Symbol[DataFrames.identifier(i) for i in meta.colnames]))
 end
