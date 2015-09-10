@@ -1,3 +1,4 @@
+using Compat
 function ODBCAllocHandle(handletype, parenthandle)
     handle = Array(Ptr{Void},1)
     if @FAILED SQLAllocHandle(handletype,parenthandle,handle)
@@ -54,7 +55,7 @@ end
         SQLRowCount(stmt,rows)
         #Allocate arrays to hold each column's metadata
         colnames = UTF8String[]
-        coltypes = Array((String,Int16),0)
+        coltypes = @compat Array{@compat Tuple{ String,Int16 }}(0)
         colsizes = Int[]
         coldigits = Int16[]
         colnulls  = Int16[]
