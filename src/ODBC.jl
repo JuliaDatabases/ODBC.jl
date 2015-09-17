@@ -17,11 +17,11 @@ include("ODBC_API.jl")
 
 # Holds metadata related to an executed query resultset
 type Metadata
-    querystring::String
+    querystring::AbstractString
     cols::Int
     rows::Int
     colnames::Array{UTF8String}
-    @compat coltypes::Array{Tuple{String, Int16}}
+    @compat coltypes::Array{Tuple{AbstractString, Int16}}
     colsizes::Array{Int}
     coldigits::Array{Int16}
     colnulls::Array{Int16}
@@ -47,7 +47,7 @@ end
 # Connection object holds information related to each
 # established connection and retrieved resultsets
 type Connection
-    dsn::String
+    dsn::AbstractString
     number::Int
     dbc_ptr::Ptr{Void}
     stmt_ptr::Ptr{Void}
@@ -77,11 +77,11 @@ end
 Base.show(io::IO, conns::Vector{Connection}) = map(show, conns)
 
 # Global module consts and variables
-typealias Output Union(DataType,String)
+typealias Output Union(DataType,AbstractString)
 
 const null_resultset = DataFrame()
 const null_conn = Connection("", 0, C_NULL, C_NULL, null_resultset)
-@compat const null_meta = Metadata("", 0, 0, UTF8String[], Tuple{String,Int16}[], Int[], Int16[], Int16[])
+@compat const null_meta = Metadata("", 0, 0, UTF8String[], Tuple{AbstractString,Int16}[], Int[], Int16[], Int16[])
 
 global env = C_NULL
 

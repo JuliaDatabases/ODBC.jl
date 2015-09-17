@@ -1,7 +1,7 @@
 # Connect to DSN, returns Connection object,
 # also stores Connection information in global default
 # 'conn' object and global 'Connections' connections array
-function connect(dsn::String; usr::String="", pwd::String="")
+function connect(dsn::AbstractString; usr::AbstractString="", pwd::AbstractString="")
     global Connections, conn, env
     env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE))
     dbc = ODBCAllocHandle(SQL_HANDLE_DBC, env)
@@ -18,7 +18,7 @@ function connect(dsn::String; usr::String="", pwd::String="")
     return conn
 end
 
-function advancedconnect(conn_string::String="", driver_prompt::Uint16=SQL_DRIVER_NOPROMPT)
+function advancedconnect(conn_string::AbstractString="", driver_prompt::UInt16=SQL_DRIVER_NOPROMPT)
     global Connections, conn, env
     env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE))
     dbc = ODBCAllocHandle(SQL_HANDLE_DBC, env)
@@ -38,7 +38,7 @@ end
 # query: Sends query string to DBMS,
 # once executed, space is allocated and
 # results and resultset metadata are returned
-function query(querystring::String, conn::Connection=conn; output::Output=DataFrame, delim::Char=',')
+function query(querystring::AbstractString, conn::Connection=conn; output::Output=DataFrame, delim::Char=',')
     if conn == null_conn
         error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
     end
@@ -86,7 +86,7 @@ end
 # querymeta: Sends query string to DBMS, once executed, return resultset metadata
 # it may seem odd to include the other arguments for querymeta,
 # but it's so switching between query and querymeta doesn't require exluding args (convenience)
-function querymeta(querystring::String,conn::Connection=conn; output::Output=DataFrame,delim::Char=',')
+function querymeta(querystring::AbstractString,conn::Connection=conn; output::Output=DataFrame,delim::Char=',')
     if conn == null_conn
         error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
     end
@@ -126,11 +126,11 @@ end
 function listdrivers()
     global env
     env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE))
-    descriptions = String[]
-    attributes   = String[]
-    driver_desc = zeros(Uint8, 256)
+    descriptions = AbstractString[]
+    attributes   = AbstractString[]
+    driver_desc = zeros(UInt8, 256)
     desc_length = zeros(Int16, 1)
-    driver_attr = zeros(Uint8, 256)
+    driver_attr = zeros(UInt8, 256)
     attr_length = zeros(Int16, 1)
     while @SUCCEEDED SQLDrivers(env, driver_desc, desc_length, driver_attr, attr_length)
         push!(descriptions, ODBCClean(driver_desc, 1, desc_length[1]))
@@ -143,11 +143,11 @@ end
 function listdsns()
     global env
     env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) )
-    descriptions = String[]
-    attributes   = String[]
-    dsn_desc    = zeros(Uint8, 256)
+    descriptions = AbstractString[]
+    attributes   = AbstractString[]
+    dsn_desc    = zeros(UInt8, 256)
     desc_length = zeros(Int16, 1)
-    dsn_attr    = zeros(Uint8, 256)
+    dsn_attr    = zeros(UInt8, 256)
     attr_length = zeros(Int16, 1)
     while @SUCCEEDED SQLDataSources(env, dsn_desc, desc_length, dsn_attr, attr_length)
         push!(descriptions, ODBCClean(dsn_desc, 1, desc_length[1]))

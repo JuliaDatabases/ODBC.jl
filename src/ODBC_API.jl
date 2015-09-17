@@ -63,21 +63,21 @@ end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms712400(v=vs.85).aspx
 function SQLDrivers(env::Ptr{Void},
-                    driver_desc::Array{Uint8,1},
+                    driver_desc::Array{UInt8,1},
                     desc_length::Array{Int16,1},
-                    driver_attr::Array{Uint8,1},
+                    driver_attr::Array{UInt8,1},
                     attr_length::Array{Int16,1})
     @windows_only begin
         ret = ccall((:SQLDrivers, odbc_dm), stdcall, Int16,
-                    (Ptr{Void}, Int16, Ptr{Uint8},
-                    Int16, Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
+                    (Ptr{Void}, Int16, Ptr{UInt8},
+                    Int16, Ptr{Int16}, Ptr{UInt8}, Int16, Ptr{Int16}),
                     env, SQL_FETCH_NEXT, driver_desc, length(driver_desc),
                     desc_length, driver_attr, length(driver_attr), attr_length)
     end
     @unix_only begin
         ret = ccall((:SQLDrivers, odbc_dm), Int16,
-                    (Ptr{Void}, Int16, Ptr{Uint8},
-                     Int16, Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
+                    (Ptr{Void}, Int16, Ptr{UInt8},
+                     Int16, Ptr{Int16}, Ptr{UInt8}, Int16, Ptr{Int16}),
                     env, SQL_FETCH_NEXT, driver_desc, length(driver_desc),
                     desc_length, driver_attr, length(driver_attr), attr_length)
     end
@@ -86,21 +86,21 @@ end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711004(v=vs.85).aspx
 function SQLDataSources(env::Ptr{Void},
-                        dsn_desc::Vector{Uint8},
+                        dsn_desc::Vector{UInt8},
                         desc_length::Array{Int16,1},
-                        dsn_attr::Array{Uint8,1},
+                        dsn_attr::Array{UInt8,1},
                         attr_length::Array{Int16,1})
     @windows_only begin
         ret = ccall((:SQLDataSources, odbc_dm), stdcall, Int16,
-                    (Ptr{Void}, Int16, Ptr{Uint8}, Int16,
-                     Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
+                    (Ptr{Void}, Int16, Ptr{UInt8}, Int16,
+                     Ptr{Int16}, Ptr{UInt8}, Int16, Ptr{Int16}),
                     env, SQL_FETCH_NEXT, dsn_desc, length(dsn_desc),
                     desc_length, dsn_attr, length(dsn_attr), attr_length)
     end
     @unix_only begin
         ret = ccall((:SQLDataSources, odbc_dm), Int16,
-                    (Ptr{Void}, Int16, Ptr{Uint8}, Int16,
-                     Ptr{Int16}, Ptr{Uint8}, Int16, Ptr{Int16}),
+                    (Ptr{Void}, Int16, Ptr{UInt8}, Int16,
+                     Ptr{Int16}, Ptr{UInt8}, Int16, Ptr{Int16}),
                     env, SQL_FETCH_NEXT, dsn_desc, length(dsn_desc),
                     desc_length, dsn_attr, length(dsn_attr), attr_length)
     end
@@ -171,7 +171,7 @@ const SQL_TRUE = 1
 const SQL_FALSE = 0
 
 #Status: Tested on Windows, Linux, Mac 32/64-bit
-function SQLSetEnvAttr{T<:Union(Int,Uint)}(env_handle::Ptr{Void}, attribute::Int, value::T)
+function SQLSetEnvAttr{T<:Union(Int,UInt64)}(env_handle::Ptr{Void}, attribute::Int, value::T)
     @windows_only begin
         ret = ccall((:SQLSetEnvAttr, odbc_dm), stdcall, Int16,
                     (Ptr{Void}, Int, T, Int), env_handle, attribute, value, 0)
@@ -227,7 +227,7 @@ const SQL_ATTR_AUTOCOMMIT = 102
 const SQL_ATTR_CONNECTION_TIMEOUT = 113
 #uint of how long you want the connection timeout
 const SQL_ATTR_CURRENT_CATALOG = 109
-#string/Ptr{Uint8} of default database to use
+#string/Ptr{UInt8} of default database to use
 #const SQL_ATTR_DBC_INFO_TOKEN
 #pointer
 const SQL_ATTR_ENLIST_IN_DTC = 1207
@@ -266,12 +266,12 @@ const SQL_NTS = -3
 
 #length of string or binary stream
 #Status:
-function SQLSetConnectAttr(dbc::Ptr{Void},attribute::Int,value::Union(String,Uint),value_length::Int)
+function SQLSetConnectAttr(dbc::Ptr{Void},attribute::Int,value::Union(AbstractString,UInt64),value_length::Int)
     @windows_only ret = ccall( (:SQLSetConnectAttr, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Int,typeof(value)==String?Ptr{Uint8}:Ptr{Uint},Int),
+        Int16, (Ptr{Void},Int,typeof(value)==AbstractString?Ptr{UInt8}:Ptr{UInt64},Int),
         dbc,attribute,value,value_length)
     @unix_only ret = ccall( (:SQLSetConnectAttr, odbc_dm),
-            Int16, (Ptr{Void},Int,typeof(value)==String?Ptr{Uint8}:Ptr{Uint},Int),
+            Int16, (Ptr{Void},Int,typeof(value)==AbstractString?Ptr{UInt8}:Ptr{UInt64},Int),
             dbc,attribute,value,value_length)
     return ret
 end
@@ -306,12 +306,12 @@ const SQL_ATTR_ROW_ARRAY_SIZE = 27
 #this sets the rowset size for ExtendedFetch and FetchScroll
 #Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
 #Status:
-function SQLSetStmtAttr(stmt::Ptr{Void},attribute::Int,value::Uint,value_length::Int)
+function SQLSetStmtAttr(stmt::Ptr{Void},attribute::Int,value::UInt64,value_length::Int)
     @windows_only ret = ccall( (:SQLSetStmtAttr, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Int,Uint,Int),
+        Int16, (Ptr{Void},Int,UInt64,Int),
         stmt,attribute,value,value_length)
     @unix_only ret = ccall( (:SQLSetStmtAttr, odbc_dm),
-            Int16, (Ptr{Void},Int,Uint,Int),
+            Int16, (Ptr{Void},Int,UInt64,Int),
             stmt,attribute,value,value_length)
     return ret
 end
@@ -382,12 +382,12 @@ function SQLGetDescField{T,N}(desc::Ptr{Void},i::Int16,attribute::Int16,value::A
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms710921(v=vs.85).aspx
-function SQLGetDescRec(desc::Ptr{Void},i::Int16,name::Array{Uint8,1},name_length::Array{Int16,1},type_ptr::Array{Int16,1},subtype_ptr::Array{Int16,1},length_ptr::Array{Int,1},precision_ptr::Array{Int16,1},scale_ptr::Array{Int16,1},nullable_ptr::Array{Int16,1},)
+function SQLGetDescRec(desc::Ptr{Void},i::Int16,name::Array{UInt8,1},name_length::Array{Int16,1},type_ptr::Array{Int16,1},subtype_ptr::Array{Int16,1},length_ptr::Array{Int,1},precision_ptr::Array{Int16,1},scale_ptr::Array{Int16,1},nullable_ptr::Array{Int16,1},)
     @windows_only ret = ccall( (:SQLGetDescRec, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Int16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16},Ptr{Int16}),
+        Int16, (Ptr{Void},Int16,Ptr{UInt8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16},Ptr{Int16}),
         desc,i,name,length(name),name_length,type_ptr,subtype_ptr,length_ptr,precision_ptr,scale_ptr,nullable_ptr)
     @unix_only ret = ccall( (:SQLGetDescRec, odbc_dm),
-            Int16, (Ptr{Void},Int16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16},Ptr{Int16}),
+            Int16, (Ptr{Void},Int16,Ptr{UInt8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16},Ptr{Int16}),
             desc,i,name,length(name),name_length,type_ptr,subtype_ptr,length_ptr,precision_ptr,scale_ptr,nullable_ptr)
     return ret
 end
@@ -408,12 +408,12 @@ end
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms711810(v=vs.85).aspx
 # Description: establishes connections to a driver and a data source
 # Status:
-function SQLConnect(dbc::Ptr{Void},dsn::String,username::String,password::String)
+function SQLConnect(dbc::Ptr{Void},dsn::AbstractString,username::AbstractString,password::AbstractString)
     @windows_only ret = ccall( (:SQLConnect, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
         dbc,dsn,length(dsn),username,length(username),password,length(password))
     @unix_only ret = ccall( (:SQLConnect, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
             dbc,dsn,length(dsn),username,length(username),password,length(password))
     return ret
 end
@@ -427,12 +427,12 @@ end
 @compat const SQL_DRIVER_NOPROMPT = UInt16(0)
 @compat const SQL_DRIVER_PROMPT = UInt16(2)
 #Status:
-@compat function SQLDriverConnect(dbc::Ptr{Void},window_handle::Ptr{Void},conn_string::String,out_conn::Ptr{Void},out_buff::Array{Int16,1},driver_prompt::UInt16)
+@compat function SQLDriverConnect(dbc::Ptr{Void},window_handle::Ptr{Void},conn_string::AbstractString,out_conn::Ptr{Void},out_buff::Array{Int16,1},driver_prompt::UInt16)
     @windows_only ret = ccall( (:SQLDriverConnect, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Void},Ptr{Uint8},Int16,Ptr{Void},Int16,Ptr{Int16},UInt16),
+        Int16, (Ptr{Void},Ptr{Void},Ptr{UInt8},Int16,Ptr{Void},Int16,Ptr{Int16},UInt16),
         dbc,window_handle,conn_string,length(conn_string),out_conn,0,out_buff,driver_prompt)
     @unix_only ret = ccall( (:SQLDriverConnect, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Void},Ptr{Uint8},Int16,Ptr{Void},Int16,Ptr{Int16},UInt16),
+            Int16, (Ptr{Void},Ptr{Void},Ptr{UInt8},Int16,Ptr{Void},Int16,Ptr{Int16},UInt16),
             dbc,window_handle,conn_string,length(conn_string),out_conn,0,out_buff,driver_prompt)
     return ret
 end
@@ -440,12 +440,12 @@ end
  #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714565(v=vs.85).aspx
  #Description: supports an iterative method of discovering and enumerating the attributes and attribute values required to connect to a data source
  #Status:
-function SQLBrowseConnect(dbc::Ptr{Void},instring::String,outstring::Array{Uint8,1},indicator::Array{Int16,1})
+function SQLBrowseConnect(dbc::Ptr{Void},instring::AbstractString,outstring::Array{UInt8,1},indicator::Array{Int16,1})
     @windows_only ret = ccall( (:SQLBrowseConnect, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Int16}),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{Int16}),
         dbc,instring,length(instring),outstring,length(outstring),indicator)
     @unix_only ret = ccall( (:SQLBrowseConnect, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Int16}),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{Int16}),
             dbc,instring,length(instring),outstring,length(outstring),indicator)
     return ret
 end
@@ -498,12 +498,12 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714575(v=vs.85).aspx
 #Description: returns the SQL string as modified by the driver
 #Status:
-function SQLNativeSql(dbc::Ptr{Void},query_string::String,output_string::Array{Uint8,1},length_ind::Array{Int,1})
+function SQLNativeSql(dbc::Ptr{Void},query_string::AbstractString,output_string::Array{UInt8,1},length_ind::Array{Int,1})
     @windows_only ret = ccall( (:SQLNativeSql, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int,Ptr{Uint8},Int,Ptr{Int}),
+        Int16, (Ptr{Void},Ptr{UInt8},Int,Ptr{UInt8},Int,Ptr{Int}),
         dbc,query_string,sizeof(query_string),output_string,length(output_string),length_ind)
     @unix_only ret = ccall( (:SQLNativeSql, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int,Ptr{Uint8},Int,Ptr{Int}),
+            Int16, (Ptr{Void},Ptr{UInt8},Int,Ptr{UInt8},Int,Ptr{Int}),
             dbc,query_string,sizeof(query_string),output_string,length(output_string),length_ind)
     return ret
 end
@@ -536,12 +536,12 @@ function SQLPutData{T}(stmt::Ptr{Void},data::Array{T},data_length::Int)
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms710926(v=vs.85).aspx
-function SQLPrepare(stmt::Ptr{Void},query_string::String)
+function SQLPrepare(stmt::Ptr{Void},query_string::AbstractString)
     @windows_only ret = ccall( (:SQLPrepare, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16),
         stmt,query_string,sizeof(query_string))
     @unix_only ret = ccall( (:SQLPrepare, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16),
             stmt,query_string,sizeof(query_string))
     return ret
 end
@@ -561,12 +561,12 @@ end
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713611(v=vs.85).aspx
 #Description: executes a preparable statement
 #Status:
-function SQLExecDirect(stmt::Ptr{Void},query::String)
+function SQLExecDirect(stmt::Ptr{Void},query::AbstractString)
     @windows_only ret = ccall( (:SQLExecDirect, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int),
+        Int16, (Ptr{Void},Ptr{UInt8},Int),
         stmt,query,sizeof(query))
     @unix_only ret = ccall( (:SQLExecDirect, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int),
+            Int16, (Ptr{Void},Ptr{UInt8},Int),
             stmt,query,sizeof(query))
     return ret
 end
@@ -617,12 +617,12 @@ function SQLColAttribute(stmt::Ptr{Void},x::Int,)
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716289(v=vs.85).aspx
-function SQLDescribeCol(stmt::Ptr{Void},x::Int,column_name::Array{Uint8,1},name_length::Array{Int16,1},datatype::Array{Int16,1},column_size::Array{Int,1},decimal_digits::Array{Int16,1},nullable::Array{Int16,1})
+function SQLDescribeCol(stmt::Ptr{Void},x::Int,column_name::Array{UInt8,1},name_length::Array{Int16,1},datatype::Array{Int16,1},column_size::Array{Int,1},decimal_digits::Array{Int16,1},nullable::Array{Int16,1})
     @windows_only ret = ccall( (:SQLDescribeCol, odbc_dm), stdcall,
-        Int16, (Ptr{Void},UInt16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
+        Int16, (Ptr{Void},UInt16,Ptr{UInt8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
         stmt,x,column_name,length(column_name),name_length,datatype,column_size,decimal_digits,nullable)
     @unix_only ret = ccall( (:SQLDescribeCol, odbc_dm),
-            Int16, (Ptr{Void},UInt16,Ptr{Uint8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
+            Int16, (Ptr{Void},UInt16,Ptr{UInt8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
             stmt,x,column_name,length(column_name),name_length,datatype,column_size,decimal_digits,nullable)
     return ret
 end
@@ -673,10 +673,10 @@ end
 #Status:
 @compat function SQLBindParameter{T}(stmt::Ptr{Void},x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value::Array{T},param_size::Int)
     @windows_only ret = ccall( (:SQLBindParameter, odbc_dm), stdcall,
-        Int16, (Ptr{Void},UInt16,Int16,Int16,Int16,Uint,Int16,Ptr{T},Int,Ptr{Void}),
+        Int16, (Ptr{Void},UInt16,Int16,Int16,Int16,UInt64,Int16,Ptr{T},Int,Ptr{Void}),
         stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,C_NULL)
     @unix_only ret = ccall( (:SQLBindParameter, odbc_dm),
-            Int16, (Ptr{Void},UInt16,Int16,Int16,Int16,Uint,Int16,Ptr{T},Int,Ptr{Void}),
+            Int16, (Ptr{Void},UInt16,Int16,Int16,Int16,UInt64,Int16,Ptr{T},Int,Ptr{Void}),
             stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,C_NULL)
     return ret
 end
@@ -695,32 +695,32 @@ end
 
 @compat function SQLBindCols(stmt::Ptr{Void},x::Int,ctype::Int16,holder::Array{UTF8String,1},jlsize::Int,indicator::Array{Int,1})
     @windows_only ret = ccall( (:SQLBindCol, odbc_dm), stdcall,
-        Int16, (Ptr{Void},UInt16,Int16,Ptr{Uint8},Int,Ptr{Int}),
+        Int16, (Ptr{Void},UInt16,Int16,Ptr{UInt8},Int,Ptr{Int}),
         stmt,x,ctype,holder,jlsize,indicator)
     @unix_only ret = ccall( (:SQLBindCol, odbc_dm),
-            Int16, (Ptr{Void},UInt16,Int16,Ptr{Uint8},Int,Ptr{Int}),
+            Int16, (Ptr{Void},UInt16,Int16,Ptr{UInt8},Int,Ptr{Int}),
             stmt,x,ctype,holder,jlsize,indicator)
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711707(v=vs.85).aspx
-function SQLSetCursorName(stmt::Ptr{Void},cursor::String)
+function SQLSetCursorName(stmt::Ptr{Void},cursor::AbstractString)
     @windows_only ret = ccall( (:SQLSetCursorName, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16),
         stmt,cursor,length(cursor))
     @unix_only ret = ccall( (:SQLSetCursorName, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16),
             stmt,cursor,length(cursor))
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716209(v=vs.85).aspx
-function SQLGetCursorName(stmt::Ptr{Void},cursor::Array{Uint8,1},cursor_length::Array{Int16,1})
+function SQLGetCursorName(stmt::Ptr{Void},cursor::Array{UInt8,1},cursor_length::Array{Int16,1})
     @windows_only ret = ccall( (:SQLGetCursorName, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Int16}),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{Int16}),
         stmt,cursor,length(cursor),cursor_length)
     @unix_only ret = ccall( (:SQLGetCursorName, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Int16}),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{Int16}),
             stmt,cursor,length(cursor),cursor_length)
     return ret
 end
@@ -790,7 +790,7 @@ end
             Int16, (Ptr{Void},T,UInt16,UInt16),
             stmt,rownumber,operation,lock_type)
     return ret
-end #T can be Uint64 or UInt16 it seems
+end #T can be UInt64 or UInt16 it seems
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714673(v=vs.85).aspx
 function SQLMoreResults(stmt::Ptr{Void})
@@ -852,89 +852,89 @@ end
 
 #### DBMS Meta Functions ####
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711683(v=vs.85).aspx
-function SQLColumns(stmt::Ptr{Void},catalog::String,schema::String,table::String,column::String)
+function SQLColumns(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString,column::AbstractString)
     @windows_only ret = ccall( (:SQLColumnPrivileges, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
         stmt,catalog,length(catalog),schema,length(schema),table,length(table),column,length(column))
     @unix_only ret = ccall( (:SQLColumnPrivileges, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
             stmt,catalog,length(catalog),schema,length(schema),table,length(table),column,length(column))
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716336(v=vs.85).aspx
-function SQLColumnPrivileges(stmt::Ptr{Void},catalog::String,schema::String,table::String,column::String)
+function SQLColumnPrivileges(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString,column::AbstractString)
     @windows_only ret = ccall( (:SQLColumnPrivileges, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
         stmt,catalog,length(catalog),schema,length(schema),table,length(table),column,length(column))
     @unix_only ret = ccall( (:SQLColumnPrivileges, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
             stmt,catalog,length(catalog),schema,length(schema),table,length(table),column,length(column))
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms709315(v=vs.85).aspx
-function SQLForeignKeys(stmt::Ptr{Void},pkcatalog::String,pkschema::String,pktable::String,fkcatalog::String,fkschema::String,fktable::String)
+function SQLForeignKeys(stmt::Ptr{Void},pkcatalog::AbstractString,pkschema::AbstractString,pktable::AbstractString,fkcatalog::AbstractString,fkschema::AbstractString,fktable::AbstractString)
     @windows_only ret = ccall( (:SQLForeignKeys, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
         stmt,pkcatalog,length(pkcatalog),pkschema,length(pkschema),pktable,length(pktable),fkcatalog,length(fkcatalog),fkschema,length(fkschema),fktable,length(fktable))
     @unix_only ret = ccall( (:SQLForeignKeys, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
             stmt,pkcatalog,length(pkcatalog),pkschema,length(pkschema),pktable,length(pktable),fkcatalog,length(fkcatalog),fkschema,length(fkschema),fktable,length(fktable))
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711005(v=vs.85).aspx
-function SQLPrimaryKeys(stmt::Ptr{Void},catalog::String,schema::String,table::String)
+function SQLPrimaryKeys(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString)
     @windows_only ret = ccall( (:SQLPrimaryKeys, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
         stmt,catalog,length(catalog),schema,length(schema),table,length(table))
     @unix_only ret = ccall( (:SQLPrimaryKeys, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
             stmt,catalog,length(catalog),schema,length(schema),table,length(table))
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711701(v=vs.85).aspx
-function SQLProcedureColumns(stmt::Ptr{Void},catalog::String,schema::String,proc::String,column::String)
+function SQLProcedureColumns(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,proc::AbstractString,column::AbstractString)
     @windows_only ret = ccall( (:SQLProcedureColumns, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
         stmt,catalog,length(catalog),schema,length(schema),proc,length(proc),column,length(column))
     @unix_only ret = ccall( (:SQLProcedureColumns, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
             stmt,catalog,length(catalog),schema,length(schema),proc,length(proc),column,length(column))
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715368(v=vs.85).aspx
-function SQLProcedures(stmt::Ptr{Void},catalog::String,schema::String,proc::String)
+function SQLProcedures(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,proc::AbstractString)
     @windows_only ret = ccall( (:SQLProcedures, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
         stmt,catalog,length(catalog),schema,length(schema),proc,length(proc))
     @unix_only ret = ccall( (:SQLProcedures, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
             stmt,catalog,length(catalog),schema,length(schema),proc,length(proc))
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711831(v=vs.85).aspx
-function SQLTables(stmt::Ptr{Void},catalog::String,schema::String,table::String,table_type::String)
+function SQLTables(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString,table_type::AbstractString)
     @windows_only ret = ccall( (:SQLTables, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
         stmt,catalog,length(catalog),schema,length(schema),table,length(table),table_type,length(table_type))
     @unix_only ret = ccall( (:SQLTables, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
             stmt,catalog,length(catalog),schema,length(schema),table,length(table),table_type,length(table_type))
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713565(v=vs.85).aspx
-function SQLTablePrivileges(stmt::Ptr{Void},catalog::String,schema::String,table::String)
+function SQLTablePrivileges(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString)
     @windows_only ret = ccall( (:SQLTablePrivileges, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
         stmt,catalog,length(catalog),schema,length(schema),table,length(table))
     @unix_only ret = ccall( (:SQLTablePrivileges, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16),
             stmt,catalog,length(catalog),schema,length(schema),table,length(table))
     return ret
 end
@@ -952,12 +952,12 @@ end
 @compat const SQL_ENSURE = UInt16(1)
 @compat const SQL_QUICK = UInt16(0)
 #Status:
-@compat function SQLStatistics(stmt::Ptr{Void},catalog::String,schema::String,table::String,unique::UInt16,reserved::UInt16)
+@compat function SQLStatistics(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString,unique::UInt16,reserved::UInt16)
     @windows_only ret = ccall( (:SQLStatistics, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,UInt16,UInt16),
+        Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,UInt16,UInt16),
         stmt,catalog,length(catalog),schema,length(schema),table,length(table),unique,reserved)
     @unix_only ret = ccall( (:SQLStatistics, odbc_dm),
-            Int16, (Ptr{Void},Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,UInt16,UInt16),
+            Int16, (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,UInt16,UInt16),
             stmt,catalog,length(catalog),schema,length(schema),table,length(table),unique,reserved)
     return ret
 end
@@ -977,12 +977,12 @@ end
 @compat const SQL_NULLABLE          = Int16(1) #SQLSpecialColumns
 #@compat const SQL_NULLABLE_UNKNOWN = Int16() #SQLSpecialColumns
 #Status:
-function SQLSpecialColumns(stmt::Ptr{Void},id_type::Int16,catalog::String,schema::String,table::String,scope::Int16,nullable::Int16)
+function SQLSpecialColumns(stmt::Ptr{Void},id_type::Int16,catalog::AbstractString,schema::AbstractString,table::AbstractString,scope::Int16,nullable::Int16)
     @windows_only ret = ccall( (:SQLSpecialColumns, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Int16,Int16),
+        Int16, (Ptr{Void},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Int16,Int16),
         stmt,id_type,catalog,length(catalog),schema,length(schema),table,length(table),scope,nullable)
     @unix_only ret = ccall( (:SQLSpecialColumns, odbc_dm),
-            Int16, (Ptr{Void},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Ptr{Uint8},Int16,Int16,Int16),
+            Int16, (Ptr{Void},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,Int16,Int16),
             stmt,id_type,catalog,length(catalog),schema,length(schema),table,length(table),scope,nullable)
     return ret
 end
@@ -990,23 +990,23 @@ end
 #### Error Handling Functions ####
 #TODO: add consts
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms710181(v=vs.85).aspx
-function SQLGetDiagField(handletype::Int16,handle::Ptr{Void},i::Int16,diag_id::Int16,diag_info::Array{Uint,1},buffer_length::Int16,diag_length::Array{Int16,1})
+function SQLGetDiagField(handletype::Int16,handle::Ptr{Void},i::Int16,diag_id::Int16,diag_info::Array{UInt64,1},buffer_length::Int16,diag_length::Array{Int16,1})
     @windows_only ret = ccall( (:SQLGetDiagField, odbc_dm), stdcall,
-        Int16, (Int16,Ptr{Void},Int16,Int16,Ptr{Uint8},Int16,Ptr{Int16}),
+        Int16, (Int16,Ptr{Void},Int16,Int16,Ptr{UInt8},Int16,Ptr{Int16}),
         handletype,handle,i,diag_id,diag_info,buffer_length,msg_length)
     @unix_only ret = ccall( (:SQLGetDiagField, odbc_dm),
-            Int16, (Int16,Ptr{Void},Int16,Int16,Ptr{Uint8},Int16,Ptr{Int16}),
+            Int16, (Int16,Ptr{Void},Int16,Int16,Ptr{UInt8},Int16,Ptr{Int16}),
             handletype,handle,i,diag_id,diag_info,buffer_length,msg_length)
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716256(v=vs.85).aspx
-function SQLGetDiagRec(handletype::Int16,handle::Ptr{Void},i::Int16,state::Array{Uint8,1},native::Array{Int,1},error_msg::Array{Uint8,1},msg_length::Array{Int16,1})
+function SQLGetDiagRec(handletype::Int16,handle::Ptr{Void},i::Int16,state::Array{UInt8,1},native::Array{Int,1},error_msg::Array{UInt8,1},msg_length::Array{Int16,1})
     @windows_only ret = ccall( (:SQLGetDiagRec, odbc_dm), stdcall,
-        Int16, (Int16,Ptr{Void},Int16,Ptr{Uint8},Ptr{Int},Ptr{Uint8},Int16,Ptr{Int16}),
+        Int16, (Int16,Ptr{Void},Int16,Ptr{UInt8},Ptr{Int},Ptr{UInt8},Int16,Ptr{Int16}),
         handletype,handle,i,state,native,error_msg,length(error_msg),msg_length)
     @unix_only ret = ccall( (:SQLGetDiagRec, odbc_dm),
-            Int16, (Int16,Ptr{Void},Int16,Ptr{Uint8},Ptr{Int},Ptr{Uint8},Int16,Ptr{Int16}),
+            Int16, (Int16,Ptr{Void},Int16,Ptr{UInt8},Ptr{Int},Ptr{UInt8},Int16,Ptr{Int16}),
             handletype,handle,i,state,native,error_msg,length(error_msg),msg_length)
     return ret
 end

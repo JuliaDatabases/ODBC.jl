@@ -1,3 +1,4 @@
+using Compat
 function ODBCAllocHandle(handletype, parenthandle)
     handle = Array(Ptr{Void},1)
     if @FAILED SQLAllocHandle(handletype,parenthandle,handle)
@@ -18,7 +19,7 @@ function ODBCAllocHandle(handletype, parenthandle)
 end
 
 # Connect to qualified DSN (pre-established through ODBC Admin), with optional username and password inputs
-function ODBCConnect!(dbc::Ptr{Void},dsn::String,username::String,password::String)
+function ODBCConnect!(dbc::Ptr{Void},dsn::AbstractString,username::AbstractString,password::AbstractString)
     if @FAILED SQLConnect(dbc,dsn,username,password)
         ODBCError(SQL_HANDLE_DBC,dbc)
         error("[ODBC]: SQLConnect failed; Return Code: $ret")
@@ -26,7 +27,7 @@ function ODBCConnect!(dbc::Ptr{Void},dsn::String,username::String,password::Stri
 end
 
 # Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin
-@compat function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::String,driver_prompt::UInt16)
+@compat function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::AbstractString,driver_prompt::UInt16)
     window_handle = C_NULL
     @windows_only window_handle = ccall((:GetForegroundWindow, :user32), Ptr{Void}, () )
     @windows_only driver_prompt = SQL_DRIVER_PROMPT
@@ -38,7 +39,7 @@ end
 end
 
 # Send query to DMBS
-function ODBCQueryExecute(stmt::Ptr{Void}, querystring::String)
+function ODBCQueryExecute(stmt::Ptr{Void}, querystring::AbstractString)
     if @FAILED SQLExecDirect(stmt, utf16(querystring))
         ODBCError(SQL_HANDLE_STMT,stmt)
         error("[ODBC]: SQLExecDirect failed; Return Code: $ret")
@@ -46,7 +47,7 @@ function ODBCQueryExecute(stmt::Ptr{Void}, querystring::String)
 end
 
 # Retrieve resultset metadata once query is processed, Metadata type is returned
-@compat function ODBCMetadata(stmt::Ptr{Void},querystring::String)
+@compat function ODBCMetadata(stmt::Ptr{Void},querystring::AbstractString)
         #Allocate space for and fetch number of columns and rows in resultset
         cols = Array(Int16,1)
         rows = Array(Int,1)
@@ -54,7 +55,7 @@ end
         SQLRowCount(stmt,rows)
         #Allocate arrays to hold each column's metadata
         colnames = UTF8String[]
-        coltypes = Array((String,Int16),0)
+        coltypes = @compat Array{@compat Tuple{ AbstractString,Int16 }}(0)
         colsizes = Int[]
         coldigits = Int16[]
         colnulls  = Int16[]
@@ -159,7 +160,7 @@ end
 
 # ODBCEscape takes a Julia value and gets it ready for writing to a file i.e. converts to string
 ODBCEscape(x) = string(x)
-ODBCEscape(x::String) = "\"$x\""
+ODBCEscape(x::AbstractString) = "\"$x\""
 
 #function for fetching a resultset into a DataFrame
 function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
@@ -208,7 +209,7 @@ function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{A
     resultset = DataFrame(cols, DataFrames.Index(Symbol[DataFrames.identifier(i) for i in meta.colnames]))
 end
 
-function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::String,delim::Char,l::Int)
+function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::AbstractString,delim::Char,l::Int)
     out_file = l == 0 ? open(output,"w") : open(output,"a")
     write(out_file,join(meta.colnames,delim)*"\n")
     while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
