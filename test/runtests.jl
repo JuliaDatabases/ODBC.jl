@@ -3,7 +3,6 @@ using ODBC
 con = ODBC.connect("Default")
 function check_API_query(q)
   a = ODBC.query(q)
-  #show isdefined(:a)
   if (typeof(a) == DataFrame)
     println("API query passed")
   else
@@ -12,7 +11,6 @@ function check_API_query(q)
 end
 function check_API_querymeta(q)
   a = ODBC.querymeta(q)
-  #show isdefined(:a)
   if (typeof(a) == Metadata)
     println("API querymeta passed")
   else
