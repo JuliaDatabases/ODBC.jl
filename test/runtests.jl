@@ -4,19 +4,29 @@ con = ODBC.connect("Default")
 global Query_passed = 0
 global Query_failed = 0
 global Query_Error = 0
+global query_counter = 0
+global querymeta_counter = 0
 
-function check_API_query(q)
+
+function check_API_query(q,print_file=0)
   global Query_passed
   global Query_failed
   global Query_Error
+  global query_counter
+  global querymeta_counter
   try
-    a = ODBC.query(q)
-    if (typeof(a) == DataFrame)
-      Query_passed = Query_passed + 1
-      println("API query <$q> passed")
+    if print_file == 1
+      query_counter  = query_counter  +1
+      ODBC.query(q,output="query$query_counter.csv",delim=':')
     else
-      println("API query <$q> failed")
-      Query_failed = Query_failed + 1
+      a = ODBC.query(q)
+      if (typeof(a) == DataFrame)
+        Query_passed = Query_passed + 1
+        println("API query <$q> passed")
+      else
+        println("API query <$q> failed")
+        Query_failed = Query_failed + 1
+      end
     end
   catch
     println("\nQuery \n<$q>\n is generating an error, please revise your query\n")
@@ -25,18 +35,25 @@ function check_API_query(q)
   end
 end
 
-function check_API_querymeta(q)
+function check_API_querymeta(q,print_file=0)
   global Query_passed
   global Query_failed
   global Query_Error
+  global query_counter
+  global querymeta_counter
   try
-    a = ODBC.querymeta(q)
-    if (typeof(a) == Metadata)
-      println("API querymeta <$q> passed")
-      Query_passed = Query_passed + 1
+    if print_file == 1
+      querymeta_counter = querymeta_counter +1
+      ODBC.query(q,output="querymeta$querymeta_counter.csv",delim=':')
     else
-      println("API querymeta <$q> failed")
-      Query_failed = Query_failed + 1
+      a = ODBC.querymeta(q)
+      if (typeof(a) == Metadata)
+        println("API querymeta <$q> passed")
+        Query_passed = Query_passed + 1
+      else
+        println("API querymeta <$q> failed")
+        Query_failed = Query_failed + 1
+      end
     end
   catch
     println("\nQuery \n<$q>\n is generating an error, please revise your query\n")
@@ -73,6 +90,29 @@ for i in drop_q
   check_API_querymeta(i)
 end
 
+#Writing output onto a file
+# Testing API Query
+for i in create_q
+  check_API_query(i,1)
+end
+for i in q
+  check_API_query(i,1)
+end
+for i in drop_q
+  check_API_query(i,1)
+end
+# Testing API Meta
+for i in create_q
+  check_API_querymeta(i,1)
+end
+for i in q
+  check_API_querymeta(i,1)
+end
+for i in drop_q
+  check_API_querymeta(i,1)
+end
+
+
 listdsns()
 listdrivers()
 ODBC.disconnect(con)
@@ -81,3 +121,22 @@ println("Number of passed queries  = $Query_passed")
 println("Number of failed queries  = $(Query_failed+Query_Error)")
 println("Queries that generated errors = $Query_Error")
 println("\n******  END OF SUMMARY ******\n\n\n")
+
+#Testing advanced connect
+try
+  con1 = ODBC.advancedconnect("DSN=default;UID=root;PWD=password;")
+  println("Connected successfully")
+  ODBC.disconnect(con1)
+catch
+  println("Error in connecting through advanced connect")
+end
+
+#Testing advanced connect and connect with incorrect credentials
+try
+  con2 = ODBC.connect("Incorrect")
+  con3 = ODBC.advancedconnect("DSN=default;UID=root;PWD=pasword;")
+  con3 = ODBC.advancedconnect("DSN=default;UID=rot;PWD=password;")
+  con3 = ODBC.advancedconnect("DSN=default;UID=rot;PWD=password;",driver_prompt=435)
+catch
+  println("Error in connecting")
+end
