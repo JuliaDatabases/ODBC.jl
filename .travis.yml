@@ -11,4 +11,4 @@ before_install:
 script:
     - julia -e 'Pkg.init(); run(`ln -s $(pwd()) $(Pkg.dir())/ODBC`); Pkg.resolve()'
     - julia -e 'using ODBC; @assert isdefined(:ODBC); @assert typeof(ODBC) === Module'
-    - julia test/test.jl
+    - julia test/runtests.jl
