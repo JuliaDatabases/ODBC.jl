@@ -1,6 +1,13 @@
+#Edit these credentials accordingly
+
+DSN = "Default"
+Username = "root"
+Password = "password"
+
+
 using DataFrames
 using ODBC
-con = ODBC.connect("Default")
+con = ODBC.connect(DSN)
 global Query_passed = 0
 global Query_failed = 0
 global Query_Error = 0
@@ -121,8 +128,8 @@ else
   Query_failed = Query_failed + 1
   println("Macro @sql_str passed failed the test")
 end
-@query("use mysqltest;")
-if typeof(@query("select * from Employee where JobType=\'HR\' and LunchTime=\'12:0:0\';")) == DataFrame
+
+if typeof(@query("show databases;")) == DataFrame
   Query_passed = Query_passed + 1
   println("Macro @query passed the test")
 else
@@ -137,8 +144,8 @@ ODBC.disconnect(con)
 
 #Testing advanced connect
 try
-  con1 = ODBC.advancedconnect("DSN=default;UID=root;PWD=password;")
-  println("Connected successfully")
+  con1 = ODBC.advancedconnect("DSN=$DSN;UID=$Username;PWD=$Password;")
+  println("Connected successfully using Advanced Connect")
   Query_passed = Query_passed + 1
   ODBC.disconnect(con1)
 catch
@@ -155,21 +162,21 @@ catch
   Query_Error = Query_Error + 1
 end
 try
-  con3 = ODBC.advancedconnect("DSN=default;UID=root;PWD=pasword;")
+  con3 = ODBC.advancedconnect("DSN=$DSN;UID=$Username;PWD=pasword;")
   Query_passed = Query_passed + 1
 catch
   println("Connection failed using Advanced Connect function because of incorrect Password")
   Query_Error = Query_Error + 1
 end
 try
-  con3 = ODBC.advancedconnect("DSN=default;UID=rot;PWD=password;")
+  con3 = ODBC.advancedconnect("DSN=$DSN;UID=rot;PWD=$Password;")
   Query_passed = Query_passed + 1
 catch
   println("Connection failed using Advanced Connect function because of incorrect Username")
   Query_Error = Query_Error + 1
 end
 try
-  con3 = ODBC.advancedconnect("DSN=default;UID=rot;PWD=password;",driver_prompt=435)
+  con3 = ODBC.advancedconnect("DSN=$DSN;UID=rot;PWD=$Password;",driver_prompt=435)
   Query_passed = Query_passed + 1
 catch
   println("Connection failed using Advanced Connect function because of incorrect Username and argument")
