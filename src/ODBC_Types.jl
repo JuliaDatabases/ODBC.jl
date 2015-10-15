@@ -233,6 +233,28 @@ end
 
 Base.string(x::SQLDate) = "$(x.year)-$(x.month)-$(x.day)"
 
+function Base.isless(x::SQLDate,y::SQLDate)
+  if x.year > y.year
+    return false
+  elseif x.year < y.year
+    return true
+  elseif x.year == y.year
+    if x.month > y.month
+      return false
+    elseif x.month < y.month
+      return true
+    elseif x.month == y.month
+      if x.day < y.day
+        return true
+      else
+        return false
+      end
+    end
+  end
+end
+
+Base.convert(::Type{Dates.Date},x::ODBC.SQLDate) = Dates.Date(x.year,x.month, x.day)
+
 immutable SQLTime
     hour::Int16
     minute::Int16
