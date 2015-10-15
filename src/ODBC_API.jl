@@ -171,7 +171,7 @@ const SQL_TRUE = 1
 const SQL_FALSE = 0
 
 #Status: Tested on Windows, Linux, Mac 32/64-bit
-function SQLSetEnvAttr{T<:Union(Int,UInt64)}(env_handle::Ptr{Void}, attribute::Int, value::T)
+function SQLSetEnvAttr{T<:Union(Int,UInt)}(env_handle::Ptr{Void}, attribute::Int, value::T)
     @windows_only begin
         ret = ccall((:SQLSetEnvAttr, odbc_dm), stdcall, Int16,
                     (Ptr{Void}, Int, T, Int), env_handle, attribute, value, 0)
@@ -266,12 +266,12 @@ const SQL_NTS = -3
 
 #length of string or binary stream
 #Status:
-function SQLSetConnectAttr(dbc::Ptr{Void},attribute::Int,value::Union(AbstractString,UInt64),value_length::Int)
+function SQLSetConnectAttr(dbc::Ptr{Void},attribute::Int,value::Union(AbstractString,UInt),value_length::Int)
     @windows_only ret = ccall( (:SQLSetConnectAttr, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Int,typeof(value)==AbstractString?Ptr{UInt8}:Ptr{UInt64},Int),
+        Int16, (Ptr{Void},Int,typeof(value)==AbstractString?Ptr{UInt8}:Ptr{UInt},Int),
         dbc,attribute,value,value_length)
     @unix_only ret = ccall( (:SQLSetConnectAttr, odbc_dm),
-            Int16, (Ptr{Void},Int,typeof(value)==AbstractString?Ptr{UInt8}:Ptr{UInt64},Int),
+            Int16, (Ptr{Void},Int,typeof(value)==AbstractString?Ptr{UInt8}:Ptr{UInt},Int),
             dbc,attribute,value,value_length)
     return ret
 end
@@ -306,12 +306,12 @@ const SQL_ATTR_ROW_ARRAY_SIZE = 27
 #this sets the rowset size for ExtendedFetch and FetchScroll
 #Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
 #Status:
-function SQLSetStmtAttr(stmt::Ptr{Void},attribute::Int,value::UInt64,value_length::Int)
+function SQLSetStmtAttr(stmt::Ptr{Void},attribute::Int,value::UInt,value_length::Int)
     @windows_only ret = ccall( (:SQLSetStmtAttr, odbc_dm), stdcall,
-        Int16, (Ptr{Void},Int,UInt64,Int),
+        Int16, (Ptr{Void},Int,UInt,Int),
         stmt,attribute,value,value_length)
     @unix_only ret = ccall( (:SQLSetStmtAttr, odbc_dm),
-            Int16, (Ptr{Void},Int,UInt64,Int),
+            Int16, (Ptr{Void},Int,UInt,Int),
             stmt,attribute,value,value_length)
     return ret
 end
@@ -673,10 +673,10 @@ end
 #Status:
 @compat function SQLBindParameter{T}(stmt::Ptr{Void},x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value::Array{T},param_size::Int)
     @windows_only ret = ccall( (:SQLBindParameter, odbc_dm), stdcall,
-        Int16, (Ptr{Void},UInt16,Int16,Int16,Int16,UInt64,Int16,Ptr{T},Int,Ptr{Void}),
+        Int16, (Ptr{Void},UInt16,Int16,Int16,Int16,UInt,Int16,Ptr{T},Int,Ptr{Void}),
         stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,C_NULL)
     @unix_only ret = ccall( (:SQLBindParameter, odbc_dm),
-            Int16, (Ptr{Void},UInt16,Int16,Int16,Int16,UInt64,Int16,Ptr{T},Int,Ptr{Void}),
+            Int16, (Ptr{Void},UInt16,Int16,Int16,Int16,UInt,Int16,Ptr{T},Int,Ptr{Void}),
             stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,C_NULL)
     return ret
 end
@@ -790,7 +790,7 @@ end
             Int16, (Ptr{Void},T,UInt16,UInt16),
             stmt,rownumber,operation,lock_type)
     return ret
-end #T can be UInt64 or UInt16 it seems
+end #T can be UInt64 (or UInt32 for 32-bit Julia) or UInt16 it seems
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714673(v=vs.85).aspx
 function SQLMoreResults(stmt::Ptr{Void})
@@ -990,7 +990,7 @@ end
 #### Error Handling Functions ####
 #TODO: add consts
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms710181(v=vs.85).aspx
-function SQLGetDiagField(handletype::Int16,handle::Ptr{Void},i::Int16,diag_id::Int16,diag_info::Array{UInt64,1},buffer_length::Int16,diag_length::Array{Int16,1})
+function SQLGetDiagField(handletype::Int16,handle::Ptr{Void},i::Int16,diag_id::Int16,diag_info::Array{UInt,1},buffer_length::Int16,diag_length::Array{Int16,1})
     @windows_only ret = ccall( (:SQLGetDiagField, odbc_dm), stdcall,
         Int16, (Int16,Ptr{Void},Int16,Int16,Ptr{UInt8},Int16,Ptr{Int16}),
         handletype,handle,i,diag_id,diag_info,buffer_length,msg_length)
