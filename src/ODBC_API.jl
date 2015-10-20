@@ -171,7 +171,7 @@ const SQL_TRUE = 1
 const SQL_FALSE = 0
 
 #Status: Tested on Windows, Linux, Mac 32/64-bit
-function SQLSetEnvAttr{T<:Union(Int,UInt)}(env_handle::Ptr{Void}, attribute::Int, value::T)
+function SQLSetEnvAttr{T<:Union{Int,UInt}}(env_handle::Ptr{Void}, attribute::Int, value::T)
     @windows_only begin
         ret = ccall((:SQLSetEnvAttr, odbc_dm), stdcall, Int16,
                     (Ptr{Void}, Int, T, Int), env_handle, attribute, value, 0)
@@ -266,7 +266,7 @@ const SQL_NTS = -3
 
 #length of string or binary stream
 #Status:
-function SQLSetConnectAttr(dbc::Ptr{Void},attribute::Int,value::Union(AbstractString,UInt),value_length::Int)
+function SQLSetConnectAttr(dbc::Ptr{Void},attribute::Int,value::Union{AbstractString,UInt},value_length::Int)
     @windows_only ret = ccall( (:SQLSetConnectAttr, odbc_dm), stdcall,
         Int16, (Ptr{Void},Int,typeof(value)==AbstractString?Ptr{UInt8}:Ptr{UInt},Int),
         dbc,attribute,value,value_length)
