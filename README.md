@@ -1,7 +1,6 @@
 ODBC.jl
 =======
-[![Build Status](https://travis-ci.org/quinnj/ODBC.jl.png)](https://travis-ci.org/quinnj/ODBC.jl)
-
+[![Build Status](https://travis-ci.org/JuliaDB/ODBC.jl.png)](https://travis-ci.org/JuliaDB/ODBC.jl)
 
 A low-level ODBC interface for the Julia programming language
 
