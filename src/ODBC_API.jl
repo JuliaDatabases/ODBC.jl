@@ -39,19 +39,19 @@ const SQL_INVALID_HANDLE    = Int16(-2)
 const SQL_STILL_EXECUTING   = Int16(2)
 const SQL_NO_DATA           = Int16(100)
 
-const RETURN_VALUES = @compat Dict(SQL_ERROR   => "SQL_ERROR",
-                                   SQL_NO_DATA => "SQL_NO_DATA",
-                                   SQL_INVALID_HANDLE  => "SQL_INVALID_HANDLE",
-                                   SQL_STILL_EXECUTING => "SQL_STILL_EXECUTING")
+const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
+                           SQL_NO_DATA => "SQL_NO_DATA",
+                           SQL_INVALID_HANDLE  => "SQL_INVALID_HANDLE",
+                           SQL_STILL_EXECUTING => "SQL_STILL_EXECUTING")
 
-#Macros to to check if a function returned a success value or not; used with 'if' statements
-#e.g. if @SUCCEEDED SQLDisconnect(dbc) print("Disconnected successfully") end
-macro SUCCEEDED(func)
-    :( return_code = $func; (return_code == SQL_SUCCESS || return_code == SQL_SUCCESS_WITH_INFO))
-end
-
-macro FAILED(func)
-    :( return_code = $func; (return_code != SQL_SUCCESS && return_code != SQL_SUCCESS_WITH_INFO))
+#Macros to to check if a function returned a success value or not
+macro CHECK(func)
+    str = string(func)
+    quote
+        ret = $func
+        ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO && throw(ODBCError("$($str) failed; return code: $ret => $(RETURN_VALUES[ret])"))
+        nothing
+    end
 end
 
 macro odbc(func,args,vals...)
@@ -100,7 +100,7 @@ const SQL_HANDLE_DESC = Int16(4)
 const SQL_NULL_HANDLE = C_NULL
 
 #Status: Tested on Windows, Linux, Mac 32/64-bit
-function SQLAllocHandle(handletype::Int16, parenthandle::Ptr{Void}, handle::Array{Ptr{Void},1})
+function SQLAllocHandle(handletype::Int16, parenthandle::Ptr{Void}, handle::Ref{Ptr{Void}})
     ret = @odbc(:SQLAllocHandle,
                 (Int16, Ptr{Void}, Ptr{Void}),
                 handletype, parenthandle, handle)
@@ -138,7 +138,7 @@ const SQL_TRUE = 1
 const SQL_FALSE = 0
 
 #Status: Tested on Windows, Linux, Mac 32/64-bit
-function SQLSetEnvAttr{T<:Union(Int,Uint)}(env_handle::Ptr{Void}, attribute::Int, value::T)
+function SQLSetEnvAttr{T<:Union{Int,UInt}}(env_handle::Ptr{Void}, attribute::Int, value::T)
     ret = @odbc(:SQLSetEnvAttr,
                 (Ptr{Void}, Int, T, Int), env_handle, attribute, value, 0)
     return ret
@@ -220,9 +220,9 @@ const SQL_NTS = -3
 
 #length of string or binary stream
 #Status:
-function SQLSetConnectAttr(dbc::Ptr{Void},attribute::Int,value::Uint,value_length::Int)
+function SQLSetConnectAttr(dbc::Ptr{Void},attribute::Int,value::UInt,value_length::Int)
     ret = @odbc(:SQLSetConnectAttrW,
-                (Ptr{Void},Int,Uint,Int),
+                (Ptr{Void},Int,UInt,Int),
                 dbc,attribute,value,value_length)
     return ret
 end
@@ -261,9 +261,9 @@ const SQL_ATTR_ROW_ARRAY_SIZE = 27
 #this sets the rowset size for ExtendedFetch and FetchScroll
 #Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
 #Status:
-function SQLSetStmtAttr(stmt::Ptr{Void},attribute::Int,value::Uint,value_length::Int)
+function SQLSetStmtAttr(stmt::Ptr{Void},attribute::Int,value::UInt,value_length::Int)
     ret = @odbc(:SQLSetStmtAttrW,
-                (Ptr{Void},Int,Uint,Int),
+                (Ptr{Void},Int,UInt,Int),
                 stmt,attribute,value,value_length)
     return ret
 end
@@ -544,7 +544,7 @@ const SQL_PARAM_INPUT_OUTPUT = Int16(2)
 #Status:
 function SQLBindParameter{T}(stmt::Ptr{Void},x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value::Array{T},param_size::Int)
     ret = @odbc(:SQLBindParameter,
-                (Ptr{Void},UInt16,Int16,Int16,Int16,Uint,Int16,Ptr{T},Int,Ptr{Void}),
+                (Ptr{Void},UInt16,Int16,Int16,Int16,UInt,Int16,Ptr{T},Int,Ptr{Void}),
                 stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,C_NULL)
     return ret
 end

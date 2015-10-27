@@ -1,16 +1,47 @@
+using DataStreams
 module ODBC
 
-using Compat, NullableArrays
+using Compat, NullableArrays, DataStreams, CSV, SQLite
 
-if VERSION < v"0.4-"
-    using Dates
+type ODBCError <: Exception
+    msg::AbstractString
 end
 
 include("ODBC_Types.jl")
 include("ODBC_API.jl")
 
-# Holds metadata related to an executed query resultset
-immutable Metadata
+# List Installed Drivers
+function listdrivers()
+    descriptions = AbstractString[]
+    attributes   = AbstractString[]
+    driver_desc = zeros(SQLWCHAR, 256)
+    desc_length = zeros(Int16, 1)
+    driver_attr = zeros(SQLWCHAR, 256)
+    attr_length = zeros(Int16, 1)
+    while SQLDrivers(ENV, driver_desc, desc_length, driver_attr, attr_length) == SQL_SUCCESS
+        push!(descriptions, ODBCClean(driver_desc, 1, desc_length[1]))
+        push!(attributes,   ODBCClean(driver_attr, 1, attr_length[1]))
+    end
+    return [descriptions attributes]
+end
+
+# List defined DSNs
+function listdsns()
+    descriptions = AbstractString[]
+    attributes   = AbstractString[]
+    dsn_desc    = zeros(SQLWCHAR, 256)
+    desc_length = zeros(Int16, 1)
+    dsn_attr    = zeros(SQLWCHAR, 256)
+    attr_length = zeros(Int16, 1)
+    while SQLDataSources(ENV, dsn_desc, desc_length, dsn_attr, attr_length) == SQL_SUCCESS
+        push!(descriptions, ODBCClean(dsn_desc, 1, desc_length[1]))
+        push!(attributes,   ODBCClean(dsn_attr, 1, attr_length[1]))
+    end
+    return [descriptions attributes]
+end
+
+"Holds metadata related to an executed query resultset"
+type Metadata
     querystring::AbstractString
     cols::Int
     rows::Int
@@ -37,20 +68,45 @@ Base.show(io::IO,meta::Metadata) = begin
                  meta.colnulls])
 end
 
-# Connection object holds information related to each
-# established connection and retrieved resultsets
-type Connection
+"DSN represents an established ODBC connection"
+type DSN
     dsn::AbstractString
     dbc_ptr::Ptr{Void}
     stmt_ptr::Ptr{Void}
-
-    # Holding a reference to the last resultset is useful if the user
-    # runs several test queries just using `query()` or `sql"..."` and
-    # then realizes the last resultset should actually be saved to a variable.
-    resultset::Any
 end
 
-Base.show(io::IO,conn::Connection) = print(io,"ODBC.Connection($(conn.dsn))")
+Base.show(io::IO,conn::DSN) = print(io,"ODBC.DSN($(conn.dsn))")
+
+# Connect to DSN, returns DSN object,
+function DSN(dsn::AbstractString, username::AbstractString="", password::AbstractString="";driver_prompt::Integer=SQL_DRIVER_NOPROMPT)
+    dbc = ODBCAllocHandle(SQL_HANDLE_DBC, ODBC.ENV)
+    dsns = ODBC.listdsns()
+    found = false
+    for d in dsns[:,1]
+        dsn == d && (found = true)
+    end
+    if found
+        ODBCConnect!(dbc, dsn, username, password)
+    else
+        dsn = ODBCDriverConnect!(dbc, dsn, driver_prompt % UInt16)
+    end
+    stmt = ODBCAllocHandle(SQL_HANDLE_STMT, dbc)
+    conn = DSN(dsn, dbc, stmt)
+    return conn
+end
+
+function disconnect!(conn::DSN)
+    ODBCFreeStmt!(conn.stmt_ptr)
+    SQLDisconnect(conn.dbc_ptr)
+    return nothing
+end
+
+type Source <: Data.Source
+    schema::Data.Schema
+    metadata::Metadata
+    query::AbstractString
+    dsn::DSN
+end
 
 include("backend.jl")
 include("userfacing.jl")

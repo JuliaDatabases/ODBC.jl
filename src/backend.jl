@@ -1,28 +1,15 @@
 function ODBCAllocHandle(handletype, parenthandle)
-    handle = Array(Ptr{Void},1)
-    if @FAILED SQLAllocHandle(handletype,parenthandle,handle)
-        error("[ODBC]: ODBC Handle Allocation Failed; Return Code: $ret")
-    else
-        handle = handle[1]
-        if handletype == SQL_HANDLE_ENV
-            if @FAILED SQLSetEnvAttr(handle,SQL_ATTR_ODBC_VERSION,SQL_OV_ODBC3)
-                #If version-setting fails, release environment handle and set global ENV variable to a null pointer
-                SQLFreeHandle(SQL_HANDLE_ENV,handle)
-                global ENV = C_NULL
-                error("[ODBC]: Failed to set ODBC version; please restart Julia and try `using ODBC` again; Return Code: $ret")
-            end
-        end
+    handle = Ref{Ptr{Void}}()
+    @CHECK ODBC.SQLAllocHandle(handletype,parenthandle,handle)
+    handle = handle[]
+    if handletype == SQL_HANDLE_ENV
+        @CHECK SQLSetEnvAttr(handle,SQL_ATTR_ODBC_VERSION,SQL_OV_ODBC3)
     end
     return handle
 end
 
 # Connect to qualified DSN (pre-established through ODBC Admin), with optional username and password inputs
-function ODBCConnect!(dbc::Ptr{Void},dsn::AbstractString,username::AbstractString,password::AbstractString)
-    if @FAILED SQLConnect(dbc,dsn,username,password)
-        ODBCError(SQL_HANDLE_DBC,dbc)
-        error("[ODBC]: SQLConnect failed; Return Code: $ret")
-    end
-end
+ODBCConnect!(dbc::Ptr{Void},dsn,username,password) = @CHECK SQLConnect(dbc,dsn,username,password)
 
 # Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin
 function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::AbstractString,driver_prompt::UInt16)
@@ -31,20 +18,12 @@ function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::AbstractString,driver_pr
     @windows_only driver_prompt = SQL_DRIVER_PROMPT
     out_conn = zeros(SQLWCHAR,1024)
     out_buff = zeros(Int16,1)
-    if @FAILED SQLDriverConnect(dbc,window_handle,conn_string,out_conn,out_buff,driver_prompt)
-        ODBCError(SQL_HANDLE_DBC,dbc)
-        error("[ODBC]: SQLDriverConnect failed; Return Code: $ret")
-    end
+    @CHECK SQLDriverConnect(dbc,window_handle,conn_string,out_conn,out_buff,driver_prompt)
     return ODBCClean(out_conn,1,out_buff[1])
 end
 
 # Send query to DMBS
-function ODBCQueryExecute(stmt::Ptr{Void}, querystring::AbstractString)
-    if @FAILED SQLExecDirect(stmt, querystring)
-        ODBCError(SQL_HANDLE_STMT,stmt)
-        error("[ODBC]: SQLExecDirect failed; Return Code: $ret")
-    end
-end
+ODBCQueryExecute(stmt::Ptr{Void}, querystring::AbstractString) = @CHECK SQLExecDirect(stmt, querystring)
 
 # Retrieve resultset metadata once query is processed, Metadata type is returned
 function ODBCMetadata(stmt::Ptr{Void},querystring::AbstractString)
@@ -96,13 +75,9 @@ function ODBCBindCols(stmt::Ptr{Void},meta::Metadata)
         jtype = get(SQL2Julia,sqltype,UInt8)
         holder, jlsize = ODBCColumnAllocate(jtype,meta.colsizes[x]+1,rowset)
         ind = Array(Int,rowset)
-        if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,Int(jlsize),ind)
-            columns[x] = holder
-            indicator[x] = ind
-        else #SQL_ERROR
-            ODBCError(SQL_HANDLE_STMT,stmt)
-            error("[ODBC]: SQLBindCol $x failed; Return Code: $ret")
-        end
+        @CHECK ODBC.SQLBindCols(stmt,x,ctype,holder,Int(jlsize),ind)
+        columns[x] = holder
+        indicator[x] = ind
     end
     return (columns, indicator, rowset)
 end
@@ -168,7 +143,7 @@ function ODBCFetch(stmt::Ptr{Void},meta::Metadata,columns::Vector{Any},rowset,in
     rowsfetched = zeros(Int,1)
     SQLSetStmtAttr(stmt,SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,SQL_NTS)
     r = 1
-    while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
+    while SQLFetchScroll(stmt,SQL_FETCH_NEXT,0) == SQL_SUCCESS
         rows = rowsfetched[1] < rowset ? rowsfetched[1] : rowset
         for col = 1:meta.cols
             ODBCCopy!(cols[col],r,columns[col],rows,indicator[col],nulls[col])
@@ -190,7 +165,7 @@ function ODBCFetchPush(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rows
     end
     rowsfetched = zeros(Int,1)
     SQLSetStmtAttr(stmt,SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,SQL_NTS)
-    while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
+    while SQLFetchScroll(stmt,SQL_FETCH_NEXT,0) == SQL_SUCCESS
         rows = rowsfetched[1] < rowset ? rowsfetched[1] : rowset
         for col = 1:meta.cols
             temp = ODBCAllocate(columns[col],rows)
@@ -211,7 +186,7 @@ writefield(io,x::AbstractString) = print(io,'"',x,'"')
 function ODBCFetchToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::AbstractString,l::Int)
     out_file = l == 0 ? open(output,"w") : open(output,"a")
     write(out_file, join(meta.colnames,','), '\n')
-    while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
+    while SQLFetchScroll(stmt,SQL_FETCH_NEXT,0) == SQL_SUCCESS
         for row = 1:rowset, col = 1:meta.cols
             writefield(out_file,ODBCClean(columns[col],row))
             write(out_file, col == meta.cols ? '\n' : ',')
@@ -237,7 +212,7 @@ function ODBCError(handletype::Int16,handle::Ptr{Void})
     error_msg = zeros(SQLWCHAR, 1024)
     native = zeros(Int,1)
     msg_length = zeros(Int16,1)
-    while @SUCCEEDED SQLGetDiagRec(handletype,handle,i,state,native,error_msg,msg_length)
+    while SQLGetDiagRec(handletype,handle,i,state,native,error_msg,msg_length) == SQL_SUCCESS
         st  = ODBCClean(state,1,5)
         msg = ODBCClean(error_msg, 1, msg_length[1])
         println("[ODBC] $st: $msg")

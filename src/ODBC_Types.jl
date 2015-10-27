@@ -225,7 +225,7 @@ immutable SQLDate
     day::Int16
 end
 
-Base.string(x::SQLDate) = "$(x.year)-$(x.month)-$(x.day)"
+Base.show(io::IO,x::SQLDate) = print(io,"$(x.year)-$(x.month)-$(x.day)")
 
 immutable SQLTime
     hour::Int16
@@ -245,7 +245,7 @@ immutable SQLTimestamp
     fraction::Int32 #nanoseconds
 end
 
-Base.string(x::SQLTimestamp) = "$(x.year)-$(x.month)-$(x.day)T$(x.hour):$(x.minute):$(x.second)"
+Base.show(io::IO,x::SQLTimestamp) = print(io,"$(x.year)-$(x.month)-$(x.day)T$(x.hour):$(x.minute):$(x.second)")
 
 const SQL_MAX_NUMERIC_LEN = 16
 immutable SQLNumeric
@@ -255,9 +255,9 @@ immutable SQLNumeric
     val::NTuple{SQL_MAX_NUMERIC_LEN,SQLCHAR}
 end
 
-Base.string(x::SQLNumeric) = "SQLNumeric"
+Base.show(io::IO,x::SQLNumeric) = print(io,"SQLNumeric")
 
-const SQL2C = @compat Dict(
+const SQL2C = Dict(
     SQL_CHAR           => SQL_C_CHAR,
     SQL_VARCHAR        => SQL_C_CHAR,
     SQL_LONGVARCHAR    => SQL_C_CHAR,
@@ -281,7 +281,7 @@ const SQL2C = @compat Dict(
     SQL_TYPE_TIME      => SQL_C_TYPE_TIME,
     SQL_TYPE_TIMESTAMP => SQL_C_TYPE_TIMESTAMP)
 
-const SQL2Julia = @compat Dict(
+const SQL2Julia = Dict(
     SQL_CHAR           => SQLCHAR,
     SQL_VARCHAR        => SQLVARCHAR,
     SQL_LONGVARCHAR    => SQLVARCHAR,
@@ -305,7 +305,7 @@ const SQL2Julia = @compat Dict(
     SQL_TYPE_TIME      => SQLTime,
     SQL_TYPE_TIMESTAMP => SQLTimestamp)
 
-const SQL_TYPES = @compat Dict(
+const SQL_TYPES = Dict(
       1 => "SQL_CHAR",
      12 => "SQL_VARCHAR",
      -1 => "SQL_LONGVARCHAR",
@@ -343,7 +343,7 @@ const SQL_TYPES = @compat Dict(
     113 => "SQL_INTERVAL_MINUTE_TO_SECOND",
     -11 => "SQL_GUID")
 
-const C_TYPES = @compat Dict(
+const C_TYPES = Dict(
     SQL_CHAR           => "SQL_C_CHAR",
     SQL_VARCHAR        => "SQL_C_CHAR",
     SQL_LONGVARCHAR    => "SQL_C_CHAR",
