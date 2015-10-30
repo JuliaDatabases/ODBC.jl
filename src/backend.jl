@@ -146,7 +146,7 @@ end
     for i = 1:n
         nas[i+dsto-1] = ind[i] < 0
         raw = src[1:div(ind[i], 2), i]
-        str = utf16(convert(Ptr{UInt16}, raw), length(raw))
+        str = utf16(pointer(raw), length(raw))
         dest[i+dsto-1] = str
     end
 end
