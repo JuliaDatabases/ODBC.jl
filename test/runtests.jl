@@ -5,14 +5,96 @@ Username = "root"
 Password = "root"
 
 
-using DataFrames
-using ODBC
+using DataFrames,ODBC
+using JLD, HDF5
 con = ODBC.connect(DSN)
 global Query_passed = 0
 global Query_failed = 0
 global Query_Error = 0
 global query_counter = 0
 global querymeta_counter = 0
+ #correct_answers =  , "test1" in a[:User] , "GRANT ALL PRIVILEGES ON `mysqltest1`.* TO 'test1'@'%'" in a[:Grants_for_test1_] ,  "Employee" in a[:Tables_in_mysqltest1] ,
+
+
+function check_correctness(q,a)
+  if q == "CREATE DATABASE mysqltest1;"
+    cross_check = ODBC.query("show databases;")
+    try
+      if "mysqltest1" in cross_check[:Database]
+        return true
+      end
+    catch
+      return false
+    end
+  end
+  if q == "CREATE USER test1 IDENTIFIED BY 'test1';"
+    cross_check = ODBC.query("SELECT User FROM mysql.user;")
+    try
+      if "test1" in cross_check[:User]
+        return true
+      end
+    catch
+      return false
+    end
+  end
+  if q == "GRANT ALL ON mysqltest1.* TO test1;"
+    cross_check = ODBC.query("show grants for 'test1';")
+    try
+      if "GRANT ALL PRIVILEGES ON `mysqltest1`.* TO 'test1'@'%'" in cross_check[:Grants_for_test1_]
+        return true
+      end
+    catch
+      return false
+    end
+  end
+
+  if q == "CREATE TABLE Employee(ID INT NOT NULL AUTO_INCREMENT,Name VARCHAR(255),Salary FLOAT,JoinDate DATE,LastLogin DATETIME,LunchTime TIME,OfficeNo TINYINT,JobType ENUM('HR', 'Management', 'Accounts'),Senior BIT(18),empno SMALLINT,PRIMARY KEY (ID));"
+    cross_check = ODBC.query("desc Employee;")
+    correct_answer = load("./dataset/desc.jld")["desc"]
+    try
+      if isequal(cross_check,correct_answer)
+        return true
+      end
+    catch
+      return false
+    end
+  end
+
+  if q == "SET autocommit = 0;"
+    cross_check = ODBC.query("select @@autocommit;")
+    try
+      if cross_check[:_autocommit][1] == 0
+        return true
+      end
+    catch
+      return false
+    end
+  end
+
+  if q == "START TRANSACTION WITH CONSISTENT SNAPSHOT;"
+    cross_check = ODBC.query("select @@autocommit;")
+    try
+      if cross_check[:_autocommit][1] == 1
+        return true
+      end
+    catch
+      return false
+    end
+  end
+
+  if q == "INSERT INTO Employee (Name, Salary, JoinDate, LastLogin, LunchTime, OfficeNo, JobType, Senior, empno) VALUES ('John', 10000.50, '2015-8-3', '2015-9-5 12:31:30', '12:00:00', 1, 'HR', b'1', 1301), ('Tom', 20000.25, '2015-8-4', '2015-10-12 13:12:14', '13:00:00', 12, 'HR', b'1', 1422), ('Jim', 30000.00, '2015-6-2', '2015-9-5 10:05:10', '12:30:00', 45, 'Management', b'0', 1567), ('Tim', 15000.50, '2015-7-25', '2015-10-10 12:12:25', '12:30:00', 56, 'Accounts', b'1', 3200);"
+    cross_check = ODBC.query("select * from Employee")
+    correct_answer = load("./dataset/select_all.jld")["select_all"]
+    try
+      if isequal(cross_check,correct_answer)
+        return true
+      end
+    catch
+      return false
+    end
+  end
+  return true
+end
 
 function check_API_query(q,print_file=0,negative_testing=false)
   global Query_passed
@@ -26,7 +108,7 @@ function check_API_query(q,print_file=0,negative_testing=false)
       ODBC.query(q,output="query$query_counter.csv",delim=':')
     else
       a = ODBC.query(q)
-      if (typeof(a) == DataFrame) && !(negative_testing)
+      if (typeof(a) == DataFrame) && !(negative_testing) && check_correctness(q,a)
         Query_passed = Query_passed + 1
         #println("API query <$q> passed")
       else
@@ -88,6 +170,7 @@ function ODBC_test()
   drop_q = ["DROP TABLE Employee;","DROP DATABASE mysqltest1;","DROP user test1;","FLUSH PRIVILEGES;"]
 
   cross_check_create_q = ["show databases;", "SELECT User FROM mysql.user;", "show grants for 'test1';", "show tables;","desc Employee;","select @@autocommit;","select @@autocommit;","select Salary for Employee where WHERE ID > 2;","select ID from Employee where Salary is null;","select ID from Employee where Salary is null;"]
+
 
   # Testing API Query
   for i in create_q
@@ -200,6 +283,14 @@ function ODBC_test()
     error_q_counter = error_q_counter+1
   end
   ODBC.disconnect(con)
+
+  try
+    ODBC.query("show databases",con)
+    Query_failed = Query_failed + 1
+    println("Test failed because ODBC connection object being used is no longer valid and yet ODBC didn't generate an error")
+  catch
+    Query_passed = Query_passed + 1
+  end
 
 
   #Testing AdvancedConnect and connect with incorrect credentials
