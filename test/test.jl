@@ -1,27 +1,58 @@
 #The MySQL Driver must be previously installed
 
 reload("ODBC")
+using DataStreams, Base.Test
 ODBC.listdsns()
 ODBC.listdrivers()
-co = ODBC.advancedconnect("Driver={MySQL Unicode};Server=ensembldb.ensembl.org;User=anonymous")
+dsn = ODBC.DSN("Driver={MySQL Unicode};Server=ensembldb.ensembl.org;User=anonymous")
+source = ODBC.Source(dsn,"SHOW DATABASES")
+dt = Data.stream!(source, Data.Table)
+@test size(dt) == (5078,1)
+@test eltype(dt.data[1]) == Nullable{Data.PointerString{ODBC.API.SQLWCHAR}}
 
-ODBC.query(co,"use homo_sapiens_vega_69_37")
-ODBC.query(co,"select count(*) from exon")
-ODBC.query(co,"show columns from exon")
-ODBC.query(co,"select phase from exon group by phase")
-ODBC.query(co,"select a.exon_id, b.stable_id 
-	from exon a 
-	left outer join exon b on a.seq_region_id = b.seq_region_id
-	where a.phase = 2 and b.phase = 0")
-ODBC.query(co,"select * from exon where phase = -1")
-ODBC.query(co,"select count(*) from exon where phase = 0")
-ODBC.query(co,"select * from exon where phase = 2 limit 20")
+source = ODBC.Source(dsn,"use homo_sapiens_vega_69_37")
+@test Data.isdone(source)
+dt = Data.stream!(source, Data.Table)
+@test isempty(dt.data)
+@test size(dt) == (0,0)
+
+source = ODBC.Source(dsn,"select count(*) from exon")
+dt = Data.stream!(source, Data.Table)
+@test size(dt) == (1,1)
+@test Data.header(dt) == ["count(*)"]
+@test get(dt.data[1][1]) == 648378
+@test eltype(dt.data[1]) == Nullable{Int}
+
+source = ODBC.Source(dsn,"show columns from exon")
+dt = Data.stream!(source, Data.Table)
+@test Data.header(dt) == ["Field","Type","Null","Key","Default","Extra"]
+
+source = ODBC.Source(dsn,"select phase from exon group by phase")
+dt = Data.stream!(source, Data.Table)
+@test Data.header(dt) == ["phase"]
+@test get(dt.data[1][1]) === Int8(-1)
+@test eltype(dt.data[1]) == Nullable{Int8}
+
+# source = ODBC.Source(dsn,"select a.exon_id, b.stable_id
+# 	from exon a
+# 	left outer join exon b on a.seq_region_id = b.seq_region_id
+# 	where a.phase = 2 and b.phase = 0")
+# dt = Data.stream!(source, Data.Table)
+source = ODBC.Source(dsn,"select * from exon where phase = -1")
+dt = Data.stream!(source, Data.Table)
+source = ODBC.Source(dsn,"select count(*) from exon where phase = 0")
+dt = Data.stream!(source, Data.Table)
+source = ODBC.Source(dsn,"select * from exon where phase = 2 limit 20")
+dt = Data.stream!(source, Data.Table)
 #DBMS may not support batch statements
-ODBC.query(co,"select count(*) from exon; select count(*) from exon;")
+source = ODBC.Source(dsn,"select count(*) from exon; select count(*) from exon;")
+dt = Data.stream!(source, Data.Table)
 #Write results to a file (delimiter can be specified as Char arg after filename; default is ',')
-ODBC.query(co,"select count(*) from exon","test.csv")
-ODBC.query(co,"select * from exon where phase = 2","test.csv")
+source = ODBC.Source(dsn,"select count(*) from exon","test.csv")
+dt = Data.stream!(source, Data.Table)
+source = ODBC.Source(dsn,"select * from exon where phase = 2","test.csv")
+dt = Data.stream!(source, Data.Table)
 
-ODBC.querymeta(co,"select count(*) from exon")
+ODBC.querymeta(dsn,"select count(*) from exon")
 
 disconnect(conn)
