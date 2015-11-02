@@ -1,3 +1,6 @@
+
+
+
 # query: Sends query string to DBMS,
 # once executed, space is allocated and
 # results and resultset metadata are returned

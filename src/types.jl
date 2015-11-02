@@ -31,19 +31,35 @@ typealias SQLTIMESTAMP  Cuchar
 
 @unix_only    typealias SQLWCHAR UInt32
 @unix_only    utf(x) = utf32(x)
+@unix_only    typealias UTFString UTF32String
 @windows_only typealias SQLWCHAR Cushort
 @windows_only utf(x) = utf16(x)
+@windows_only typealias UTFString UTF16String
 
-if WORD_SIZE == 64
-    typealias SQLINTEGER    Cint
-    typealias SQLUINTEGER   Cuint
-else
-    typealias SQLINTEGER    Clong
-    typealias SQLUINTEGER   Culong
-end
+# ODBC API	64-bit platform	32-bit platform
+# SQLINTEGER	32 bits	32 bits
+# SQLUINTEGER	32 bits	32 bits
+# SQLLEN	64 bits	32 bits
+# SQLULEN	64 bits	32 bits
+# SQLSETPOSIROW	64 bits	16 bits
+# SQL_C_BOOKMARK	64 bits	32 bits
+# BOOKMARK	64 bits	32 bits
 
-typealias SQLLEN        SQLINTEGER
-typealias SQLULEN       SQLUINTEGER
+typealias SQLINTEGER  Cint
+typealias SQLUINTEGER Cuint
+typealias SQLLEN Int
+typealias SQLULEN UInt
+
+# if WORD_SIZE == 64
+#     typealias SQLINTEGER    Cint
+#     typealias SQLUINTEGER   Cuint
+# else
+#     typealias SQLINTEGER    Clong
+#     typealias SQLUINTEGER   Culong
+# end
+#
+# typealias SQLLEN        SQLINTEGER
+# typealias SQLULEN       SQLUINTEGER
 typealias SQLSETPOSIROW SQLUSMALLINT
 
 typealias SQLROWCOUNT   SQLULEN
@@ -172,6 +188,8 @@ const SQL_TYPE_TIME     = Int16( 92) # Hour, minute, and second fields, with val
                                      # valid values for minutes of 00 to 59, and valid values for seconds of 00 to 61. Precision p indicates the seconds precision.
 const SQL_TYPE_TIMESTAMP = Int16( 93) # Year, month, day, hour, minute, and second fields, with valid values as defined for the DATE and TIME data types.
 
+const SQL_NULL_DATA = -1
+
 #const SQL_INTERVAL_MONTH            = Int16(102)
 #const SQL_INTERVAL_YEAR             = Int16(101)
 #const SQL_INTERVAL_YEAR_TO_MONTH    = Int16(107)
@@ -281,29 +299,35 @@ const SQL2C = Dict(
     SQL_TYPE_TIME      => SQL_C_TYPE_TIME,
     SQL_TYPE_TIMESTAMP => SQL_C_TYPE_TIMESTAMP)
 
+"""
+maps SQL types from the ODBC manager to Julia types;
+in particular, it returns a Tuple{A,B}, where `A` is the Julia type
+used to allocate and return data from the ODBC manager, while `B`
+represents the final column type of the data
+"""
 const SQL2Julia = Dict(
-    SQL_CHAR           => SQLCHAR,
-    SQL_VARCHAR        => SQLVARCHAR,
-    SQL_LONGVARCHAR    => SQLVARCHAR,
-    SQL_WCHAR          => SQLWCHAR,
-    SQL_WVARCHAR       => SQLWCHAR,
-    SQL_WLONGVARCHAR   => SQLWCHAR,
-    SQL_DECIMAL        => SQLDECIMAL,
-    SQL_NUMERIC        => SQLNumeric,
-    SQL_SMALLINT       => SQLSMALLINT,
-    SQL_INTEGER        => SQLINTEGER,
-    SQL_REAL           => SQLREAL,
-    SQL_FLOAT          => SQLFLOAT,
-    SQL_DOUBLE         => SQLDOUBLE,
-    SQL_BIT            => Int8,
-    SQL_TINYINT        => Int8,
-    SQL_BIGINT         => Int64,
-    SQL_BINARY         => UInt8,
-    SQL_VARBINARY      => UInt8,
-    SQL_LONGVARBINARY  => UInt8,
-    SQL_TYPE_DATE      => SQLDate,
-    SQL_TYPE_TIME      => SQLTime,
-    SQL_TYPE_TIMESTAMP => SQLTimestamp)
+    SQL_CHAR           => (SQLCHAR, Data.PointerString{SQLCHAR}),
+    SQL_VARCHAR        => (SQLCHAR, Data.PointerString{SQLCHAR}),
+    SQL_LONGVARCHAR    => (SQLCHAR, Data.PointerString{SQLCHAR}),
+    SQL_WCHAR          => (SQLWCHAR, Data.PointerString{SQLWCHAR}),
+    SQL_WVARCHAR       => (SQLWCHAR, Data.PointerString{SQLWCHAR}),
+    SQL_WLONGVARCHAR   => (SQLWCHAR, Data.PointerString{SQLWCHAR}),
+    SQL_DECIMAL        => (SQLNumeric, SQLNumeric),
+    SQL_NUMERIC        => (SQLNumeric, SQLNumeric),
+    SQL_SMALLINT       => (SQLSMALLINT, SQLSMALLINT),
+    SQL_INTEGER        => (SQLINTEGER, SQLINTEGER),
+    SQL_REAL           => (SQLREAL, SQLREAL),
+    SQL_FLOAT          => (SQLFLOAT, SQLFLOAT),
+    SQL_DOUBLE         => (SQLDOUBLE, SQLDOUBLE),
+    SQL_BIT            => (Int8, Int8),
+    SQL_TINYINT        => (Int8, Int8),
+    SQL_BIGINT         => (Int64, Int64),
+    SQL_BINARY         => (UInt8, UInt8),
+    SQL_VARBINARY      => (UInt8, UInt8),
+    SQL_LONGVARBINARY  => (UInt8, UInt8),
+    SQL_TYPE_DATE      => (SQLDate, SQLDate),
+    SQL_TYPE_TIME      => (SQLTime, SQLTime),
+    SQL_TYPE_TIMESTAMP => (SQLTimestamp, SQLTimestamp))
 
 const SQL_TYPES = Dict(
       1 => "SQL_CHAR",

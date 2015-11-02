@@ -20,12 +20,17 @@
  #Resultset Retrieval Functions
  #DBMS Meta Functions
  #Error Handling and Diagnostics
+module API
+
+using Compat, DataStreams
+
+include("types.jl")
 
 #### Macros and Utility Functions ####
 
-# MULTIROWFETCH sets the default rowset fetch size
+# MAXFETCHSIZE sets the default rowset fetch size
 # used in retrieving resultset blocks from queries
-const MULTIROWFETCH = 65535
+const MAXFETCHSIZE = 65535
 
 # success codes
 const SQL_SUCCESS           = Int16(0)
@@ -44,22 +49,12 @@ const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
                            SQL_INVALID_HANDLE  => "SQL_INVALID_HANDLE",
                            SQL_STILL_EXECUTING => "SQL_STILL_EXECUTING")
 
-#Macros to to check if a function returned a success value or not
-macro CHECK(func)
-    str = string(func)
-    quote
-        ret = $func
-        ret != SQL_SUCCESS && ret != SQL_SUCCESS_WITH_INFO && throw(ODBCError("$($str) failed; return code: $ret => $(RETURN_VALUES[ret])"))
-        nothing
-    end
-end
-
 macro odbc(func,args,vals...)
     @windows_only quote
-        ccall( ($func, ODBC.odbc_dm), stdcall, ODBC.SQLRETURN, $args, $(vals...))
+        ccall( ($func, odbc_dm), stdcall, SQLRETURN, $args, $(vals...))
     end
     @unix_only quote
-        ccall( ($func, ODBC.odbc_dm), ODBC.SQLRETURN, $args, $(vals...))
+        ccall( ($func, odbc_dm), SQLRETURN, $args, $(vals...))
     end
 end
 
@@ -100,9 +95,9 @@ const SQL_HANDLE_DESC = Int16(4)
 const SQL_NULL_HANDLE = C_NULL
 
 #Status: Tested on Windows, Linux, Mac 32/64-bit
-function SQLAllocHandle(handletype::Int16, parenthandle::Ptr{Void}, handle::Ref{Ptr{Void}})
+function SQLAllocHandle(handletype::SQLSMALLINT, parenthandle::Ptr{Void}, handle::Ref{Ptr{Void}})
     ret = @odbc(:SQLAllocHandle,
-                (Int16, Ptr{Void}, Ptr{Void}),
+                (SQLSMALLINT, Ptr{Void}, Ref{Ptr{Void}}),
                 handletype, parenthandle, handle)
     return ret
 end
@@ -112,9 +107,10 @@ end
 # Description: frees resources associated with a specific environment, connection, statement, or descriptor handle
 # See SQLAllocHandle for valid handle types
 # Status: Tested on Windows, Linux, Mac 32/64-bit
-function SQLFreeHandle(handletype::Int16,handle::Ptr{Void})
+function SQLFreeHandle(handletype::SQLSMALLINT,handle::Ptr{Void})
     ret = @odbc(:SQLFreeHandle,
-                (Int16, Ptr{Void}), handletype, handle)
+                (SQLSMALLINT, Ptr{Void}),
+                handletype, handle)
     return ret
 end
 
@@ -261,19 +257,20 @@ const SQL_ATTR_ROW_ARRAY_SIZE = 27
 #this sets the rowset size for ExtendedFetch and FetchScroll
 #Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
 #Status:
-function SQLSetStmtAttr(stmt::Ptr{Void},attribute::Int,value::UInt,value_length::Int)
+function SQLSetStmtAttr(stmt::Ptr{Void},attribute,value::Ref{SQLLEN},value_length)
     ret = @odbc(:SQLSetStmtAttrW,
-                (Ptr{Void},Int,UInt,Int),
+                (Ptr{Void},SQLINTEGER,Ref{SQLLEN},SQLINTEGER),
                 stmt,attribute,value,value_length)
     return ret
 end
 
-function SQLSetStmtAttr(stmt::Ptr{Void},attribute::Int,value::Array{Int},value_length::Int)
+function SQLSetStmtAttr(stmt::Ptr{Void},attribute,value,value_length)
     ret = @odbc(:SQLSetStmtAttrW,
-                (Ptr{Void},Int,Ptr{Int},Int),
+                (Ptr{Void},SQLINTEGER,SQLULEN,SQLINTEGER),
                 stmt,attribute,value,value_length)
     return ret
 end
+
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715438(v=vs.85).aspx
 function SQLGetStmtAttr{T,N}(stmt::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1})
@@ -476,17 +473,17 @@ end
 
 #### Resultset Metadata Functions ####
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715393(v=vs.85).aspx
-function SQLNumResultCols(stmt::Ptr{Void},cols::Array{Int16,1})
+function SQLNumResultCols(stmt::Ptr{Void},cols::Ref{Int16})
     ret = @odbc(:SQLNumResultCols,
-                (Ptr{Void},Ptr{Int16}),
+                (Ptr{Void},Ref{Int16}),
                 stmt, cols)
     return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711835(v=vs.85).aspx
-function SQLRowCount(stmt::Ptr{Void},rows::Array{Int,1})
+function SQLRowCount(stmt::Ptr{Void},rows::Ref{Int})
     ret = @odbc(:SQLRowCount,
-                (Ptr{Void},Ptr{Int}),
+                (Ptr{Void},Ref{Int}),
                 stmt, rows)
     return ret
 end
@@ -500,10 +497,10 @@ end
 # end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716289(v=vs.85).aspx
-function SQLDescribeCol(stmt::Ptr{Void},x::Int,column_name::Array{SQLWCHAR,1},name_length::Array{Int16,1},datatype::Array{Int16,1},column_size::Array{Int,1},decimal_digits::Array{Int16,1},nullable::Array{Int16,1})
+function SQLDescribeCol(stmt,x,nm::Vector{SQLWCHAR},len::Ref{Int16},dt::Ref{Int16},cs::Ref{SQLULEN},dd::Ref{Int16},nul::Ref{Int16})
     ret = @odbc(:SQLDescribeColW,
-                (Ptr{Void},UInt16,Ptr{SQLWCHAR},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
-                stmt,x,utf(column_name),length(column_name),name_length,datatype,column_size,decimal_digits,nullable)
+                (Ptr{Void},SQLUSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ref{SQLSMALLINT},Ref{SQLSMALLINT},Ref{SQLULEN},Ref{SQLSMALLINT},Ref{SQLSMALLINT}),
+                stmt,x,nm,length(nm),len,dt,cs,dd,nul)
     return ret
 end
 
@@ -551,17 +548,10 @@ end
 SQLSetParam = SQLBindParameter
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711010(v=vs.85).aspx
-function SQLBindCols{T,N}(stmt::Ptr{Void},x::Int,ctype::Int16,holder::Array{T,N},jlsize::Int,indicator::Array{Int,1})
+function SQLBindCols(stmt::Ptr{Void},x,ctype,mem,jlsize,indicator::Vector{SQLLEN})
     ret = @odbc(:SQLBindCol,
-                (Ptr{Void},UInt16,Int16,Ptr{T},Int,Ptr{Int}),
-                stmt,x,ctype,holder,jlsize,indicator)
-    return ret
-end
-
-function SQLBindCols(stmt::Ptr{Void},x::Int,ctype::Int16,holder::Array{UTF8String,1},jlsize::Int,indicator::Array{Int,1})
-    ret = @odbc(:SQLBindCol,
-                (Ptr{Void},UInt16,Int16,Ptr{UInt8},Int,Ptr{Int}),
-                stmt,x,ctype,holder,jlsize,indicator)
+                (Ptr{Void},SQLUSMALLINT,SQLSMALLINT,Ptr{Void},SQLLEN,Ptr{SQLLEN}),
+                stmt,x,ctype,mem,jlsize,indicator)
     return ret
 end
 
@@ -806,3 +796,5 @@ function SQLGetDiagRec(handletype::Int16,handle::Ptr{Void},i::Int16,state::Array
                 handletype,handle,i,utf(state),native,utf(error_msg),length(error_msg),msg_length)
     return ret
 end
+
+end # module
