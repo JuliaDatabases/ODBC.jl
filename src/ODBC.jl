@@ -3,7 +3,6 @@ module ODBC
 
 using Compat, NullableArrays, DataStreams, CSV, SQLite
 
-
 type ODBCError <: Exception
     msg::AbstractString
 end
@@ -119,7 +118,7 @@ include("backend.jl")
 include("userfacing.jl")
 
 function __init__()
-    global const ENV = ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
+    global const ENV = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
 end
 
 end #ODBC module

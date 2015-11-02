@@ -51,10 +51,12 @@ const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
 
 macro odbc(func,args,vals...)
     @windows_only quote
-        ccall( ($func, odbc_dm), stdcall, SQLRETURN, $args, $(vals...))
+        ret = ccall( ($func, odbc_dm), stdcall, SQLRETURN, $args, $(vals...))
+        return ret
     end
     @unix_only quote
-        ccall( ($func, odbc_dm), SQLRETURN, $args, $(vals...))
+        ret = ccall( ($func, odbc_dm), SQLRETURN, $args, $(vals...))
+        return ret
     end
 end
 
@@ -64,10 +66,9 @@ function SQLDrivers(env::Ptr{Void},
                     desc_length::Array{Int16,1},
                     driver_attr::Array{SQLWCHAR,1},
                     attr_length::Array{Int16,1})
-    ret = @odbc(:SQLDriversW,
+@odbc(:SQLDriversW,
                 (Ptr{Void}, Int16, Ptr{SQLWCHAR}, Int16, Ptr{Int16}, Ptr{SQLWCHAR}, Int16, Ptr{Int16}),
                 env, SQL_FETCH_NEXT, driver_desc, length(driver_desc), desc_length, driver_attr, length(driver_attr), attr_length)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711004(v=vs.85).aspx
@@ -76,10 +77,9 @@ function SQLDataSources(env::Ptr{Void},
                         desc_length::Array{Int16,1},
                         dsn_attr::Vector{SQLWCHAR},
                         attr_length::Array{Int16,1})
-    ret = @odbc(:SQLDataSourcesW,
+    @odbc(:SQLDataSourcesW,
                 (Ptr{Void}, Int16, Ptr{SQLWCHAR}, Int16, Ptr{Int16}, Ptr{SQLWCHAR}, Int16, Ptr{Int16}),
                 env, SQL_FETCH_NEXT, dsn_desc, length(dsn_desc), desc_length, dsn_attr, length(dsn_attr), attr_length)
-    return ret
 end
 
 #### Handle Functions ####
@@ -96,10 +96,9 @@ const SQL_NULL_HANDLE = C_NULL
 
 #Status: Tested on Windows, Linux, Mac 32/64-bit
 function SQLAllocHandle(handletype::SQLSMALLINT, parenthandle::Ptr{Void}, handle::Ref{Ptr{Void}})
-    ret = @odbc(:SQLAllocHandle,
+    @odbc(:SQLAllocHandle,
                 (SQLSMALLINT, Ptr{Void}, Ref{Ptr{Void}}),
                 handletype, parenthandle, handle)
-    return ret
 end
 
 # SQLFreeHandle
@@ -108,10 +107,9 @@ end
 # See SQLAllocHandle for valid handle types
 # Status: Tested on Windows, Linux, Mac 32/64-bit
 function SQLFreeHandle(handletype::SQLSMALLINT,handle::Ptr{Void})
-    ret = @odbc(:SQLFreeHandle,
+    @odbc(:SQLFreeHandle,
                 (SQLSMALLINT, Ptr{Void}),
                 handletype, handle)
-    return ret
 end
 
 # SQLSetEnvAttr
@@ -135,9 +133,8 @@ const SQL_FALSE = 0
 
 #Status: Tested on Windows, Linux, Mac 32/64-bit
 function SQLSetEnvAttr{T<:Union{Int,UInt}}(env_handle::Ptr{Void}, attribute::Int, value::T)
-    ret = @odbc(:SQLSetEnvAttr,
+    @odbc(:SQLSetEnvAttr,
                 (Ptr{Void}, Int, T, Int), env_handle, attribute, value, 0)
-    return ret
 end
 
 # SQLGetEnvAttr
@@ -146,10 +143,9 @@ end
 # Valid attributes: See SQLSetEnvAttr
 # Status:
 function SQLGetEnvAttr(env::Ptr{Void},attribute::Int,value::Array{Int,1},bytes_returned::Array{Int,1})
-    ret = @odbc(:SQLGetEnvAttr,
+    @odbc(:SQLGetEnvAttr,
                 (Ptr{Void}, Int, Ptr{Int}, Int, Ptr{Int}),
                 env, attribute, value, 0, bytes_returned)
-    return ret
 end
 
 # SQLSetConnectAttr
@@ -217,17 +213,15 @@ const SQL_NTS = -3
 #length of string or binary stream
 #Status:
 function SQLSetConnectAttr(dbc::Ptr{Void},attribute::Int,value::UInt,value_length::Int)
-    ret = @odbc(:SQLSetConnectAttrW,
+    @odbc(:SQLSetConnectAttrW,
                 (Ptr{Void},Int,UInt,Int),
                 dbc,attribute,value,value_length)
-    return ret
 end
 
 function SQLSetConnectAttr(dbc::Ptr{Void},attribute::Int,value::Array{Int},value_length::Int)
-    ret = @odbc(:SQLSetConnectAttrW,
+    @odbc(:SQLSetConnectAttrW,
                 (Ptr{Void},Int,Ptr{Int},Int),
                 dbc,attribute,value,value_length)
-    return ret
 end
 
 #SQLGetConnectAttr
@@ -241,10 +235,9 @@ const SQL_CD_TRUE = 1
 const SQL_CD_FALSE = 0
 #Status:
 function SQLGetConnectAttr{T,N}(dbc::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1})
-    ret = @odbc(:SQLGetConnectAttrW,
+    @odbc(:SQLGetConnectAttrW,
                 (Ptr{Void},Int,Ptr{T},Int,Ptr{Int}),
                 dbc,attribute,value,sizeof(T)*N,bytes_returned)
-    return ret
 end
 
 #SQLSetStmtAttr
@@ -258,26 +251,23 @@ const SQL_ATTR_ROW_ARRAY_SIZE = 27
 #Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
 #Status:
 function SQLSetStmtAttr(stmt::Ptr{Void},attribute,value::Ref{SQLLEN},value_length)
-    ret = @odbc(:SQLSetStmtAttrW,
+    @odbc(:SQLSetStmtAttrW,
                 (Ptr{Void},SQLINTEGER,Ref{SQLLEN},SQLINTEGER),
                 stmt,attribute,value,value_length)
-    return ret
 end
 
 function SQLSetStmtAttr(stmt::Ptr{Void},attribute,value,value_length)
-    ret = @odbc(:SQLSetStmtAttrW,
+    @odbc(:SQLSetStmtAttrW,
                 (Ptr{Void},SQLINTEGER,SQLULEN,SQLINTEGER),
                 stmt,attribute,value,value_length)
-    return ret
 end
 
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715438(v=vs.85).aspx
 function SQLGetStmtAttr{T,N}(stmt::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1})
-    ret = @odbc(:SQLGetStmtAttrW,
+    @odbc(:SQLGetStmtAttrW,
                 (Ptr{Void},Int,Ptr{T},Int,Ptr{Int}),
                 stmt,attribute,value,sizeof(T)*N,bytes_returned)
-    return ret
 end
 
 #SQLFreeStmt
@@ -293,42 +283,37 @@ const SQL_UNBIND = UInt16(2)
 
 #Status:
 function SQLFreeStmt(stmt::Ptr{Void},param::UInt16)
-    ret = @odbc(:SQLFreeStmt,
+    @odbc(:SQLFreeStmt,
                 (Ptr{Void},UInt16),
                 stmt, param)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713560(v=vs.85).aspx
 function SQLSetDescField{T,N}(desc::Ptr{Void},i::Int16,field_id::Int16,value::Array{T,N},value_length::Array{Int,1})
-    ret = @odbc(:SQLSetDescFieldW,
+    @odbc(:SQLSetDescFieldW,
                 (Ptr{Void},Int16,Int16,Ptr{T},Int),
                 desc,field_id,value,value_length)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716370(v=vs.85).aspx
 function SQLGetDescField{T,N}(desc::Ptr{Void},i::Int16,attribute::Int16,value::Array{T,N},bytes_returned::Array{Int,1})
-    ret = @odbc(:SQLGetDescFieldW,
+    @odbc(:SQLGetDescFieldW,
                 (Ptr{Void},Int16,Int16,Ptr{T},Int,Ptr{Int}),
                 desc,attribute,value,sizeof(T)*N,bytes_returned)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms710921(v=vs.85).aspx
 function SQLGetDescRec(desc::Ptr{Void},i::Int16,name::Array{UInt8,1},name_length::Array{Int16,1},type_ptr::Array{Int16,1},subtype_ptr::Array{Int16,1},length_ptr::Array{Int,1},precision_ptr::Array{Int16,1},scale_ptr::Array{Int16,1},nullable_ptr::Array{Int16,1},)
-    ret = @odbc(:SQLGetDescRecW,
+    @odbc(:SQLGetDescRecW,
                 (Ptr{Void},Int16,Ptr{UInt8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16},Ptr{Int16}),
                 desc,i,name,length(name),name_length,type_ptr,subtype_ptr,length_ptr,precision_ptr,scale_ptr,nullable_ptr)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715378(v=vs.85).aspx
 function SQLCopyDesc(source_desc::Ptr{Void},dest_desc::Ptr{Void})
-    ret = @odbc(:SQLCopyDesc,
+    @odbc(:SQLCopyDesc,
                 (Ptr{Void},Ptr{Void}),
                 source_desc,dest_desc)
-    return ret
 end
 
 ### Connection Functions ###
@@ -337,10 +322,9 @@ end
 # Description: establishes connections to a driver and a data source
 # Status:
 function SQLConnect(dbc::Ptr{Void},dsn::AbstractString,username::AbstractString,password::AbstractString)
-    ret = @odbc(:SQLConnectW,
+    @odbc(:SQLConnectW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 dbc,utf(dsn),length(dsn),utf(username),length(username),utf(password),length(password))
-    return ret
 end
 
 #SQLDriverConnect
@@ -353,30 +337,27 @@ const SQL_DRIVER_NOPROMPT = UInt16(0)
 const SQL_DRIVER_PROMPT = UInt16(2)
 #Status:
 function SQLDriverConnect(dbc::Ptr{Void},window_handle::Ptr{Void},conn_string::AbstractString,out_conn::Vector{SQLWCHAR},out_buff::Vector{Int16},driver_prompt::UInt16)
-    ret = @odbc(:SQLDriverConnectW,
+    @odbc(:SQLDriverConnectW,
                 (Ptr{Void},Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{Int16},UInt16),
                 dbc,window_handle,utf(conn_string),length(conn_string),out_conn,length(out_conn),out_buff,driver_prompt)
-    return ret
 end
 #SQLBrowseConnect
  #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714565(v=vs.85).aspx
  #Description: supports an iterative method of discovering and enumerating the attributes and attribute values required to connect to a data source
  #Status:
 function SQLBrowseConnect(dbc::Ptr{Void},instring::AbstractString,outstring::Array{SQLWCHAR,1},indicator::Array{Int16,1})
-    ret = @odbc(:SQLBrowseConnectW,
+    @odbc(:SQLBrowseConnectW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{Int16}),
                 dbc,utf(instring),length(instring),utf(outstring),length(outstring),indicator)
-    return ret
 end
 #SQLDisconnect
  #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713946(v=vs.85).aspx
  #Description: closes the connection associated with a specific connection handle
  #Status:
 function SQLDisconnect(dbc::Ptr{Void})
-    ret = @odbc(:SQLDisconnect,
+    @odbc(:SQLDisconnect,
                 (Ptr{Void},),
                 dbc)
-    return ret
 end
 #SQLGetFunctions
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms709291(v=vs.85).aspx
@@ -386,10 +367,9 @@ end
 #supported will be SQL_TRUE or SQL_FALSE
 #Status:
 function SQLGetFunctions(dbc::Ptr{Void},functionid::UInt16,supported::Array{UInt16,1})
-    ret = @odbc(:SQLGetFunctions,
+    @odbc(:SQLGetFunctions,
                 (Ptr{Void},UInt16,Ptr{UInt16}),
                 dbc,functionid,supported)
-    return ret
 end
 
 #SQLGetInfo
@@ -397,10 +377,9 @@ end
 #Description:
 #Status:
 function SQLGetInfo{T,N}(dbc::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1})
-    ret = @odbc(:SQLGetInfoW,
+    @odbc(:SQLGetInfoW,
                 (Ptr{Void},Int,Ptr{T},Int,Ptr{Int}),
                 dbc,attribute,value,sizeof(T)*N,bytes_returned)
-    return ret
 end
 
 #### Query Functions ####
@@ -409,10 +388,9 @@ end
 #Description: returns the SQL string as modified by the driver
 #Status:
 function SQLNativeSql(dbc::Ptr{Void},query_string::AbstractString,output_string::Array{SQLWCHAR,1},length_ind::Array{Int,1})
-    ret = @odbc(:SQLNativeSql,
+    @odbc(:SQLNativeSql,
                 (Ptr{Void},Ptr{SQLWCHAR},Int,Ptr{SQLWCHAR},Int,Ptr{Int}),
                 dbc,utf(query_string),length(query_string),output_string,length(output_string),length_ind)
-    return ret
 end
 
 #SQLGetTypeInfo
@@ -422,34 +400,30 @@ end
 #const SQL_ALL_TYPES =
 #Status:
 function SQLGetTypeInfo(stmt::Ptr{Void},sqltype::Int16)
-    ret = @odbc(:SQLGetTypeInfo,
+    @odbc(:SQLGetTypeInfo,
                 (Ptr{Void},Int16),
                 stmt,sqltype)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713824(v=vs.85).aspx
 function SQLPutData{T}(stmt::Ptr{Void},data::Array{T},data_length::Int)
-    ret = @odbc(:SQLPutData,
+    @odbc(:SQLPutData,
                 (Ptr{Void},Ptr{T},Int),
                 stmt,data,data_length)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms710926(v=vs.85).aspx
 function SQLPrepare(stmt::Ptr{Void},query_string::AbstractString)
-    ret = @odbc(:SQLPrepareW,
+    @odbc(:SQLPrepareW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16),
                 stmt,utf(query_string),length(query_string))
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713584(v=vs.85).aspx
 function SQLExecute(stmt::Ptr{Void})
-    ret = @odbc(:SQLExecute,
+    @odbc(:SQLExecute,
                 (Ptr{Void},),
                 stmt)
-    return ret
 end
 
 #SQLExecDirect
@@ -457,75 +431,66 @@ end
 #Description: executes a preparable statement
 #Status:
 function SQLExecDirect(stmt::Ptr{Void},query::AbstractString)
-    ret = @odbc(:SQLExecDirectW,
+    @odbc(:SQLExecDirectW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int),
                 stmt,utf(query),length(query))
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714112(v=vs.85).aspx
 function SQLCancel(stmt::Ptr{Void})
-    ret = @odbc(:SQLCancel,
+    @odbc(:SQLCancel,
                 (Ptr{Void},),
                 stmt)
-    return ret
 end
 
 #### Resultset Metadata Functions ####
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715393(v=vs.85).aspx
 function SQLNumResultCols(stmt::Ptr{Void},cols::Ref{Int16})
-    ret = @odbc(:SQLNumResultCols,
+    @odbc(:SQLNumResultCols,
                 (Ptr{Void},Ref{Int16}),
                 stmt, cols)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711835(v=vs.85).aspx
 function SQLRowCount(stmt::Ptr{Void},rows::Ref{Int})
-    ret = @odbc(:SQLRowCount,
+    @odbc(:SQLRowCount,
                 (Ptr{Void},Ref{Int}),
                 stmt, rows)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713558(v=vs.85).aspx
 # function SQLColAttribute(stmt::Ptr{Void},x::Int,)
-#     ret = @odbc(:SQLColAttributeW,
+# = @odbc(:SQLColAttributeW,
 #                 (Ptr{Void},UInt16,UInt16,Ptr,Int16,Ptr{Int16},Ptr{Int}),
 #                 stmt,x,)
-#     return ret
 # end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716289(v=vs.85).aspx
 function SQLDescribeCol(stmt,x,nm::Vector{SQLWCHAR},len::Ref{Int16},dt::Ref{Int16},cs::Ref{SQLULEN},dd::Ref{Int16},nul::Ref{Int16})
-    ret = @odbc(:SQLDescribeColW,
+    @odbc(:SQLDescribeColW,
                 (Ptr{Void},SQLUSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ref{SQLSMALLINT},Ref{SQLSMALLINT},Ref{SQLULEN},Ref{SQLSMALLINT},Ref{SQLSMALLINT}),
                 stmt,x,nm,length(nm),len,dt,cs,dd,nul)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms710188(v=vs.85).aspx
 function SQLDescribeParam(stmt::Ptr{Void},x::Int,sqltype::Array{Int16,1},column_size::Array{Int,1},decimal_digits::Array{Int16,1},nullable::Array{Int16,1})
-    ret = @odbc(:SQLDescribeParam,
+    @odbc(:SQLDescribeParam,
                 (Ptr{Void},UInt16,Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
                 stmt,x,sqltype,column_size,decimal_digits,nullable)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms712366(v=vs.85).aspx
 function SQLParamData(stmt::Ptr{Void},ptr_buffer::Array{Ptr{Void},1})
-    ret = @odbc(:SQLParamData,
+    @odbc(:SQLParamData,
                 (Ptr{Void},Ptr{Void}),
                 stmt,ptr_buffer)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715409(v=vs.85).aspx
 function SQLNumParams(stmt::Ptr{Void},param_count::Array{Int16,1})
-    ret = @odbc(:SQLNumParams,
+    @odbc(:SQLNumParams,
                 (Ptr{Void},Ptr{Int16}),
                 stmt,param_count)
-    return ret
 end
 
 #### Resultset Retrieval Functions ####
@@ -540,43 +505,38 @@ const SQL_PARAM_INPUT_OUTPUT = Int16(2)
 #const SQL_PARAM_OUTPUT_STREAM = Int16()
 #Status:
 function SQLBindParameter{T}(stmt::Ptr{Void},x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value::Array{T},param_size::Int)
-    ret = @odbc(:SQLBindParameter,
+    @odbc(:SQLBindParameter,
                 (Ptr{Void},UInt16,Int16,Int16,Int16,UInt,Int16,Ptr{T},Int,Ptr{Void}),
                 stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,C_NULL)
-    return ret
 end
 SQLSetParam = SQLBindParameter
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711010(v=vs.85).aspx
 function SQLBindCols(stmt::Ptr{Void},x,ctype,mem,jlsize,indicator::Vector{SQLLEN})
-    ret = @odbc(:SQLBindCol,
+    @odbc(:SQLBindCol,
                 (Ptr{Void},SQLUSMALLINT,SQLSMALLINT,Ptr{Void},SQLLEN,Ptr{SQLLEN}),
                 stmt,x,ctype,mem,jlsize,indicator)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711707(v=vs.85).aspx
 function SQLSetCursorName(stmt::Ptr{Void},cursor::AbstractString)
-    ret = @odbc(:SQLSetCursorNameW,
+    @odbc(:SQLSetCursorNameW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16),
                 stmt,utf(cursor),length(cursor))
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716209(v=vs.85).aspx
 function SQLGetCursorName(stmt::Ptr{Void},cursor::Array{UInt8,1},cursor_length::Array{Int16,1})
-    ret = @odbc(:SQLGetCursorNameW,
+    @odbc(:SQLGetCursorNameW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{Int16}),
                 stmt,utf(cursor),length(cursor),cursor_length)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715441(v=vs.85).aspx
 function SQLGetData{T,N}(stmt::Ptr{Void},i::Int,ctype::Int16,value::Array{T,N},bytes_returned::Array{Int,1})
-    ret = @odbc(:SQLGetData,
+    @odbc(:SQLGetData,
                 (Ptr{Void},UInt16,Int16,Ptr{T},Int,Ptr{Int}),
                 stmt,i,ctype,value,sizeof(T)*N,bytes_returned)
-    return ret
 end
 
 #SQLFetchScroll
@@ -592,18 +552,16 @@ const SQL_FETCH_RELATIVE = Int16(6)
 const SQL_FETCH_BOOKMARK = Int16(8)
 #Status:
 function SQLFetchScroll(stmt::Ptr{Void},fetch_orientation::Int16,fetch_offset::Int)
-    ret = @odbc(:SQLFetchScroll,
+    @odbc(:SQLFetchScroll,
                 (Ptr{Void},Int16,Int),
                 stmt,fetch_orientation,fetch_offset)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713591(v=vs.85).aspx
 function SQLExtendedFetch(stmt::Ptr{Void},fetch_orientation::UInt16,fetch_offset::Int,row_count_ptr::Array{Int,1},row_status_array::Array{Int16,1})
-    ret = @odbc(:SQLExtendedFetch,
+    @odbc(:SQLExtendedFetch,
                 (Ptr{Void},UInt16,Int,Ptr{Int},Ptr{Int16}),
                 stmt,fetch_orientation,fetch_offset,row_count_ptr,row_status_array)
-    return ret
 end
 
 #SQLSetPos
@@ -620,18 +578,16 @@ const SQL_LOCK_EXCLUSIVE = UInt16(1) #SQLSetPos
 const SQL_LOCK_UNLOCK = UInt16(2) #SQLSetPos
 #Status
 function SQLSetPos{T}(stmt::Ptr{Void},rownumber::T,operation::UInt16,lock_type::UInt16)
-    ret = @odbc(:SQLSetPos,
+    @odbc(:SQLSetPos,
                 (Ptr{Void},T,UInt16,UInt16),
                 stmt,rownumber,operation,lock_type)
-    return ret
 end #T can be Uint64 or UInt16 it seems
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714673(v=vs.85).aspx
 function SQLMoreResults(stmt::Ptr{Void})
-    ret = @odbc(:SQLMoreResults,
+    @odbc(:SQLMoreResults,
                 (Ptr{Void},),
                 stmt)
-    return ret
 end
 
 #SQLEndTran
@@ -642,18 +598,16 @@ const SQL_COMMIT = Int16(0) #SQLEndTran
 const SQL_ROLLBACK = Int16(1) #SQLEndTran
 #Status:
 function SQLEndTran(handletype::Int16,handle::Ptr{Void},completion_type::Int16)
-    ret = @odbc(:SQLEndTran,
+    @odbc(:SQLEndTran,
                 (Int16,Ptr{Void},Int16),
                 handletype,handle,completion_type)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms709301(v=vs.85).aspx
 function SQLCloseCursor(stmt::Ptr{Void})
-    ret = @odbc(:SQLCloseCursor,
+    @odbc(:SQLCloseCursor,
                 (Ptr{Void},),
                 stmt)
-    return ret
 end
 
 #SQLBulkOperations
@@ -666,75 +620,66 @@ const SQL_DELETE_BY_BOOKMARK = UInt16(6) #SQLBulkOperations
 const SQL_FETCH_BY_BOOKMARK = UInt16(7) #SQLBulkOperations
 #Status:
 function SQLBulkOperations(stmt::Ptr{Void},operation::UInt16)
-    ret = @odbc(:SQLBulkOperations,
+    @odbc(:SQLBulkOperations,
                 (Ptr{Void},UInt16),
                 stmt,operation)
-    return ret
 end
 
 #### DBMS Meta Functions ####
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711683(v=vs.85).aspx
 function SQLColumns(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString,column::AbstractString)
-    ret = @odbc(:SQLColumnsW,
+    @odbc(:SQLColumnsW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),utf(table),length(table),utf(column),length(column))
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716336(v=vs.85).aspx
 function SQLColumnPrivileges(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString,column::AbstractString)
-    ret = @odbc(:SQLColumnPrivilegesW,
+    @odbc(:SQLColumnPrivilegesW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),utf(table),length(table),utf(column),length(column))
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms709315(v=vs.85).aspx
 function SQLForeignKeys(stmt::Ptr{Void},pkcatalog::AbstractString,pkschema::AbstractString,pktable::AbstractString,fkcatalog::AbstractString,fkschema::AbstractString,fktable::AbstractString)
-    ret = @odbc(:SQLForeignKeysW,
+    @odbc(:SQLForeignKeysW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(pkcatalog),utf(schema),length(pkschema),utf(table),length(pktable),utf(catalog),length(fkcatalog),utf(schema),length(fkschema),utf(table),length(fktable))
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711005(v=vs.85).aspx
 function SQLPrimaryKeys(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString)
-    ret = @odbc(:SQLPrimaryKeysW,
+    @odbc(:SQLPrimaryKeysW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),utf(table),length(table))
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711701(v=vs.85).aspx
 function SQLProcedureColumns(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,proc::AbstractString,column::AbstractString)
-    ret = @odbc(:SQLProcedureColumnsW,
+    @odbc(:SQLProcedureColumnsW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),proc,length(proc),utf(column),length(column))
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms715368(v=vs.85).aspx
 function SQLProcedures(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,proc::AbstractString)
-    ret = @odbc(:SQLProceduresW,
+    @odbc(:SQLProceduresW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),proc,length(proc))
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711831(v=vs.85).aspx
 function SQLTables(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString,table_type::AbstractString)
-    ret = @odbc(:SQLTablesW,
+    @odbc(:SQLTablesW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),utf(table),length(table),table_type,length(table_type))
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713565(v=vs.85).aspx
 function SQLTablePrivileges(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString)
-    ret = @odbc(:SQLTablePrivilegesW,
+    @odbc(:SQLTablePrivilegesW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),utf(table),length(table))
-    return ret
 end
 
 #SQLStatistics
@@ -751,10 +696,9 @@ const SQL_ENSURE = UInt16(1)
 const SQL_QUICK = UInt16(0)
 #Status:
 function SQLStatistics(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString,unique::UInt16,reserved::UInt16)
-    ret = @odbc(:SQLStatisticsW,
+    @odbc(:SQLStatisticsW,
                 (Ptr{Void},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,UInt16,UInt16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),utf(table),length(table),unique,reserved)
-    return ret
 end
 
 #SQLSpecialColumns
@@ -773,28 +717,25 @@ const SQL_NULLABLE          = Int16(1) #SQLSpecialColumns
 #const SQL_NULLABLE_UNKNOWN = Int16() #SQLSpecialColumns
 #Status:
 function SQLSpecialColumns(stmt::Ptr{Void},id_type::Int16,catalog::AbstractString,schema::AbstractString,table::AbstractString,scope::Int16,nullable::Int16)
-    ret = @odbc(:SQLSpecialColumnsW,
+    @odbc(:SQLSpecialColumnsW,
                 (Ptr{Void},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Int16,Int16),
                 stmt,id_type,utf(catalog),length(catalog),utf(schema),length(schema),utf(table),length(table),scope,nullable)
-    return ret
 end
 
 #### Error Handling Functions ####
 #TODO: add consts
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms710181(v=vs.85).aspx
 function SQLGetDiagField(handletype::Int16,handle::Ptr{Void},i::Int16,diag_id::Int16,diag_info::Array{SQLWCHAR,1},buffer_length::Int16,diag_length::Array{Int16,1})
-    ret = @odbc(:SQLGetDiagFieldW,
+    @odbc(:SQLGetDiagFieldW,
                 (Int16,Ptr{Void},Int16,Int16,Ptr{SQLWCHAR},Int16,Ptr{Int16}),
                 handletype,handle,i,diag_id,utf(diag_info),buffer_length,msg_length)
-    return ret
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716256(v=vs.85).aspx
 function SQLGetDiagRec(handletype::Int16,handle::Ptr{Void},i::Int16,state::Array{SQLWCHAR,1},native::Array{Int,1},error_msg::Array{SQLWCHAR,1},msg_length::Array{Int16,1})
-    ret = @odbc(:SQLGetDiagRecW,
+    @odbc(:SQLGetDiagRecW,
                 (Int16,Ptr{Void},Int16,Ptr{SQLWCHAR},Ptr{Int},Ptr{SQLWCHAR},Int16,Ptr{Int16}),
                 handletype,handle,i,utf(state),native,utf(error_msg),length(error_msg),msg_length)
-    return ret
 end
 
 end # module

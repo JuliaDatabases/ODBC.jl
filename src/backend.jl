@@ -1,9 +1,9 @@
 function ODBCAllocHandle(handletype, parenthandle)
     handle = Ref{Ptr{Void}}()
-    @CHECK ODBC.ENV ODBC.API.SQL_HANDLE_ENV ODBC.API.SQLAllocHandle(handletype,parenthandle,handle)
+    ODBC.API.SQLAllocHandle(handletype,parenthandle,handle)
     handle = handle[]
     if handletype == ODBC.API.SQL_HANDLE_ENV
-        @CHECK ODBC.ENV ODBC.API.SQL_HANDLE_ENV ODBC.API.SQLSetEnvAttr(handle,ODBC.API.SQL_ATTR_ODBC_VERSION,ODBC.API.SQL_OV_ODBC3)
+        ODBC.API.SQLSetEnvAttr(handle,ODBC.API.SQL_ATTR_ODBC_VERSION,ODBC.API.SQL_OV_ODBC3)
     end
     return handle
 end
