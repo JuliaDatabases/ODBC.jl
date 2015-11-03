@@ -30,7 +30,7 @@ function Source(dsn::DSN, query::AbstractString)
     rows, cols = rows[], cols[]
     rows = max(0,rows) # in cases where the ODBC driver returns a negative # for rows
     rowset = rows == 0 ? ODBC.API.MAXFETCHSIZE : min(ODBC.API.MAXFETCHSIZE,rows)
-    bigquery = rows > ODBC.API.MAXFETCHSIZE
+    bigquery = rows > ODBC.API.MAXFETCHSIZE || rows == 0
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rowset, ODBC.API.SQL_IS_UINTEGER)
     #Allocate arrays to hold each column's metadata
     cnames = Array(UTF8String,cols)
@@ -88,6 +88,7 @@ function Data.stream!(source::ODBC.Source, dt::Data.Table)
     rb = source.rb
     data = dt.data
     other = []
+    dt.other = other
     rows, cols = size(source)
     if rows == 0
         # DBMS didn't return # of rows, so we just need to keep appending
