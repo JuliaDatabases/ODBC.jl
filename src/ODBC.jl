@@ -77,7 +77,7 @@ Base.show(io::IO,conn::DSN) = print(io,"ODBC.DSN($(conn.dsn))")
 
 # Connect to DSN, returns DSN object,
 function DSN(dsn::AbstractString, username::AbstractString="", password::AbstractString="";driver_prompt::Integer=ODBC.API.SQL_DRIVER_NOPROMPT)
-    dbc = ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV)
+    dbc = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV)
     dsns = ODBC.listdsns()
     found = false
     for d in dsns[:,1]
@@ -120,5 +120,19 @@ include("userfacing.jl")
 function __init__()
     global const ENV = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
 end
+
+# used to 'clear' a statement of bound columns, resultsets,
+# and other bound parameters in preparation for a subsequent query
+function ODBCFreeStmt!(stmt)
+    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_CLOSE)
+    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_UNBIND)
+    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_RESET_PARAMS)
+end
+
+# ODBCClean does any necessary transformations from raw C-type to Julia type
+ODBCClean(x,y,z) = x[y]
+ODBCClean(x::Array{UInt8},y,z)  = utf8(x[1:z,y])
+ODBCClean(x::Array{UInt16},y,z) = utf16(x[1:z,y])
+ODBCClean(x::Array{UInt32},y,z) = utf32(x[1:z,y])
 
 end #ODBC module

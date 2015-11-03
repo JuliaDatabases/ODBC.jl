@@ -66,7 +66,7 @@ function SQLDrivers(env::Ptr{Void},
                     desc_length::Array{Int16,1},
                     driver_attr::Array{SQLWCHAR,1},
                     attr_length::Array{Int16,1})
-@odbc(:SQLDriversW,
+    @odbc(:SQLDriversW,
                 (Ptr{Void}, Int16, Ptr{SQLWCHAR}, Int16, Ptr{Int16}, Ptr{SQLWCHAR}, Int16, Ptr{Int16}),
                 env, SQL_FETCH_NEXT, driver_desc, length(driver_desc), desc_length, driver_attr, length(driver_attr), attr_length)
 end

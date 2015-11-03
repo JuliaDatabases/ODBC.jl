@@ -99,11 +99,48 @@ function Data.stream!(source::ODBC.Source, dt::Data.Table)
     return dt
 end
 
-# ODBCClean does any necessary transformations from raw C-type to Julia type
-ODBCClean(x,y,z) = x[y]
-ODBCClean(x::Array{UInt8},y,z)  = utf8(x[1:z,y])
-ODBCClean(x::Array{UInt16},y,z) = utf16(x[1:z,y])
-ODBCClean(x::Array{UInt32},y,z) = utf32(x[1:z,y])
+function getfield{T}(source::ODBC.Source, ::Type{T}, row, col)
+
+end
+
+function getfield{T<:CHARS}(source::ODBC.Source, ::Type{T}, row, col)
+
+end
+
+function Data.stream!(source::ODBC.Source, sink::CSV.Sink;header::Bool=true)
+    header && CSV.writeheaders(source,sink)
+    rb = source.rb
+    if rb.fetchsize == ODBC.API.MAXFETCHSIZE
+        # big query where we'll need to fetch multiple times
+        dt = Data.Table(Data.schema(source))
+        return Data.stream!(source, dt)
+    else
+        # small query where we only needed to fetch once
+        rows, cols = size(source)
+        other = []
+        for row = 1:rows, col = 1:cols
+            val = 
+            CSV.writefield(sink, rb.indcols[col][row] == ODBC.API.SQL_NULL_DATA ? sink.null : val, col, cols)
+        end
+        return Data.Table(Data.schema(source),data,other)
+    end
+
+    rb = source.rb
+    data = dt.data
+    other = []
+    rows, cols = size(source)
+    r = 0
+    while !Data.isdone(source)
+        rows = source.rowsfetched[]
+        for col = 1:cols
+            ODBC.copy!(rb.columns[col],rb.indcols[col],data[col],r,rows,other)
+        end
+        r += rows
+        source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
+    end
+    return dt
+end
+
 
 # writefield takes a Julia value and gets it ready for writing to a file i.e. converts to string
 writefield(io,x) = print(io,x)
@@ -120,12 +157,4 @@ function ODBCFetchToFile(stmt::Ptr{Void},meta,columns::Array{Any,1},rowset::Int,
     end
     close(out_file)
     return Any[]
-end
-
-# used to 'clear' a statement of bound columns, resultsets,
-# and other bound parameters in preparation for a subsequent query
-function ODBCFreeStmt!(stmt)
-    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_CLOSE)
-    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_UNBIND)
-    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_RESET_PARAMS)
 end
