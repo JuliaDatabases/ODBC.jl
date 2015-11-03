@@ -9,17 +9,16 @@ function ODBCAllocHandle(handletype, parenthandle)
 end
 
 # Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin
-function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::AbstractString,driver_prompt::UInt16)
+function ODBCDriverConnect!(dbc::Ptr{Void},conn_string,driver_prompt::UInt16)
     window_handle = C_NULL
     @windows_only window_handle = ccall((:GetForegroundWindow, :user32), Ptr{Void}, () )
     @windows_only driver_prompt = ODBC.API.SQL_DRIVER_PROMPT
-    out_conn = zeros(ODBC.API.SQLWCHAR,1024)
-    out_buff = zeros(Int16,1)
-    @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLDriverConnect(dbc,window_handle,conn_string,out_conn,out_buff,driver_prompt)
-    return ODBCClean(out_conn,1,out_buff[1])
+    out_conn = Block(ODBC.API.SQLWCHAR,BUFLEN)
+    out_buff = Ref{Int16}()
+    @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLDriverConnect(dbc,window_handle,conn_string,out_conn.ptr,BUFLEN,out_buff,driver_prompt)
+    return string(out_conn,out_buff[])
 end
 
-const COLUMN_NAME_BUFFER = zeros(ODBC.API.SQLWCHAR, 1024)
 # independent Source constructor
 function Source(dsn::DSN, query::AbstractString)
     stmt = dsn.stmt_ptr
@@ -43,13 +42,14 @@ function Source(dsn::DSN, query::AbstractString)
     #Allocate space for and fetch the name, type, size, etc. for each column
     len, dt, csize = Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLULEN}()
     digits, null = Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLSMALLINT}()
+    cname = ODBC.Block(ODBC.API.SQLWCHAR, BUFLEN)
     for x = 1:cols
-        ODBC.API.SQLDescribeCol(stmt, x, ODBC.COLUMN_NAME_BUFFER, len, dt, csize, digits, null)
-        cnames[x]  = ODBC.ODBCClean(ODBC.COLUMN_NAME_BUFFER, 1, len[])
+        ODBC.API.SQLDescribeCol(stmt, x, cname.ptr, BUFLEN, len, dt, csize, digits, null)
+        cnames[x]  = string(cname, len[])
         t = dt[]
         ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], null[]
         atype, juliatypes[x] = ODBC.API.SQL2Julia[t]
-        block = ODBC.Block(atype, csizes[x]+1, rowset, false) # bigquery || atype <: ODBC.CHARS
+        block = ODBC.Block(atype, csizes[x]+1, rowset, bigquery || atype <: ODBC.CHARS)
         ind = Array(ODBC.API.SQLLEN,rowset)
         ODBC.API.SQLBindCols(stmt,x,ODBC.API.SQL2C[t],block.ptr,block.elsize,ind)
         columns[x], indcols[x] = block, ind
@@ -119,7 +119,7 @@ function Data.stream!(source::ODBC.Source, sink::CSV.Sink;header::Bool=true)
         rows, cols = size(source)
         other = []
         for row = 1:rows, col = 1:cols
-            val = 
+            val =
             CSV.writefield(sink, rb.indcols[col][row] == ODBC.API.SQL_NULL_DATA ? sink.null : val, col, cols)
         end
         return Data.Table(Data.schema(source),data,other)

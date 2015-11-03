@@ -3,21 +3,26 @@ module ODBC
 
 using Compat, NullableArrays, DataStreams, CSV, SQLite
 
+include("API.jl")
+include("utils.jl")
+
 type ODBCError <: Exception
     msg::AbstractString
 end
 
+const BUFLEN = 1024
+
 function ODBCError(handle::Ptr{Void},handletype::Int16)
     i = Int16(1)
-    state = zeros(ODBC.API.SQLWCHAR,6)
-    error_msg = zeros(ODBC.API.SQLWCHAR, 1024)
-    native = zeros(Int,1)
-    msg_length = zeros(Int16,1)
-    while ODBC.API.SQLGetDiagRec(handletype,handle,i,state,native,error_msg,msg_length) == ODBC.API.SQL_SUCCESS
-        st  = ODBCClean(state,1,5)
-        msg = ODBCClean(error_msg, 1, msg_length[1])
+    state = ODBC.Block(ODBC.API.SQLWCHAR,6)
+    native = Ref{ODBC.API.SQLINTEGER}()
+    error_msg = ODBC.Block(ODBC.API.SQLWCHAR, BUFLEN)
+    msg_length = Ref{ODBC.API.SQLSMALLINT}()
+    while ODBC.API.SQLGetDiagRec(handletype,handle,i,state.ptr,native,error_msg.ptr,BUFLEN,msg_length) == ODBC.API.SQL_SUCCESS
+        st  = string(state,5)
+        msg = string(error_msg, msg_length[])
         println("[ODBC] $st: $msg")
-        i = Int16(i+1)
+        i += 1
     end
     return true
 end
@@ -33,20 +38,17 @@ macro CHECK(handle,handletype,func)
     end
 end
 
-include("API.jl")
-include("utils.jl")
-
 # List Installed Drivers
 function listdrivers()
     descriptions = AbstractString[]
     attributes   = AbstractString[]
-    driver_desc = zeros(ODBC.API.SQLWCHAR, 256)
-    desc_length = zeros(Int16, 1)
-    driver_attr = zeros(ODBC.API.SQLWCHAR, 256)
-    attr_length = zeros(Int16, 1)
-    while ODBC.API.SQLDrivers(ENV, driver_desc, desc_length, driver_attr, attr_length) == ODBC.API.SQL_SUCCESS
-        push!(descriptions, ODBCClean(driver_desc, 1, desc_length[1]))
-        push!(attributes,   ODBCClean(driver_attr, 1, attr_length[1]))
+    driver_desc = Block(ODBC.API.SQLWCHAR, BUFLEN)
+    desc_length = Ref{ODBC.API.SQLSMALLINT}()
+    driver_attr = Block(ODBC.API.SQLWCHAR, BUFLEN)
+    attr_length = Ref{ODBC.API.SQLSMALLINT}()
+    while ODBC.API.SQLDrivers(ENV, driver_desc.ptr, BUFLEN, desc_length, driver_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
+        push!(descriptions, string(driver_desc, desc_length[]))
+        push!(attributes,   string(driver_attr, attr_length[]))
     end
     return [descriptions attributes]
 end
@@ -55,13 +57,13 @@ end
 function listdsns()
     descriptions = AbstractString[]
     attributes   = AbstractString[]
-    dsn_desc    = zeros(ODBC.API.SQLWCHAR, 256)
-    desc_length = zeros(Int16, 1)
-    dsn_attr    = zeros(ODBC.API.SQLWCHAR, 256)
-    attr_length = zeros(Int16, 1)
-    while ODBC.API.SQLDataSources(ENV, dsn_desc, desc_length, dsn_attr, attr_length) == ODBC.API.SQL_SUCCESS
-        push!(descriptions, ODBCClean(dsn_desc, 1, desc_length[1]))
-        push!(attributes,   ODBCClean(dsn_attr, 1, attr_length[1]))
+    dsn_desc    = Block(ODBC.API.SQLWCHAR, BUFLEN)
+    desc_length = Ref{ODBC.API.SQLSMALLINT}()
+    dsn_attr    = Block(ODBC.API.SQLWCHAR, BUFLEN)
+    attr_length = Ref{ODBC.API.SQLSMALLINT}()
+    while ODBC.API.SQLDataSources(ENV, dsn_desc.ptr, BUFLEN, desc_length, dsn_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
+        push!(descriptions, string(dsn_desc, desc_length[]))
+        push!(attributes,   string(dsn_attr, attr_length[]))
     end
     return [descriptions attributes]
 end
@@ -128,11 +130,5 @@ function ODBCFreeStmt!(stmt)
     ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_UNBIND)
     ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_RESET_PARAMS)
 end
-
-# ODBCClean does any necessary transformations from raw C-type to Julia type
-ODBCClean(x,y,z) = x[y]
-ODBCClean(x::Array{UInt8},y,z)  = utf8(x[1:z,y])
-ODBCClean(x::Array{UInt16},y,z) = utf16(x[1:z,y])
-ODBCClean(x::Array{UInt32},y,z) = utf32(x[1:z,y])
 
 end #ODBC module

@@ -50,36 +50,37 @@ const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
                            SQL_STILL_EXECUTING => "SQL_STILL_EXECUTING")
 
 macro odbc(func,args,vals...)
-    @windows_only quote
-        ret = ccall( ($func, odbc_dm), stdcall, SQLRETURN, $args, $(vals...))
-        return ret
-    end
-    @unix_only quote
-        ret = ccall( ($func, odbc_dm), SQLRETURN, $args, $(vals...))
+    quote
+        @windows_only ret = ccall( ($func, odbc_dm), stdcall, SQLRETURN, $args, $(vals...))
+        @unix_only    ret = ccall( ($func, odbc_dm),          SQLRETURN, $args, $(vals...))
         return ret
     end
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms712400(v=vs.85).aspx
 function SQLDrivers(env::Ptr{Void},
-                    driver_desc::Array{SQLWCHAR,1},
-                    desc_length::Array{Int16,1},
-                    driver_attr::Array{SQLWCHAR,1},
-                    attr_length::Array{Int16,1})
+                    driver_desc::Ptr{SQLWCHAR},
+                    desclen,
+                    desc_length::Ref{SQLSMALLINT},
+                    driver_attr::Ptr{SQLWCHAR},
+                    attrlen,
+                    attr_length::Ref{SQLSMALLINT})
     @odbc(:SQLDriversW,
-                (Ptr{Void}, Int16, Ptr{SQLWCHAR}, Int16, Ptr{Int16}, Ptr{SQLWCHAR}, Int16, Ptr{Int16}),
-                env, SQL_FETCH_NEXT, driver_desc, length(driver_desc), desc_length, driver_attr, length(driver_attr), attr_length)
+                (Ptr{Void}, SQLUSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}),
+                env, SQL_FETCH_NEXT, driver_desc, desclen, desc_length, driver_attr, attrlen, attr_length)
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711004(v=vs.85).aspx
 function SQLDataSources(env::Ptr{Void},
-                        dsn_desc::Vector{SQLWCHAR},
-                        desc_length::Array{Int16,1},
-                        dsn_attr::Vector{SQLWCHAR},
-                        attr_length::Array{Int16,1})
+                        dsn_desc::Ptr{SQLWCHAR},
+                        desclen,
+                        desc_length::Ref{SQLSMALLINT},
+                        dsn_attr::Ptr{SQLWCHAR},
+                        attrlen,
+                        attr_length::Ref{SQLSMALLINT})
     @odbc(:SQLDataSourcesW,
-                (Ptr{Void}, Int16, Ptr{SQLWCHAR}, Int16, Ptr{Int16}, Ptr{SQLWCHAR}, Int16, Ptr{Int16}),
-                env, SQL_FETCH_NEXT, dsn_desc, length(dsn_desc), desc_length, dsn_attr, length(dsn_attr), attr_length)
+                (Ptr{Void}, SQLUSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}),
+                env, SQL_FETCH_NEXT, dsn_desc, desclen, desc_length, dsn_attr, attrlen, attr_length)
 end
 
 #### Handle Functions ####
@@ -321,7 +322,7 @@ end
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms711810(v=vs.85).aspx
 # Description: establishes connections to a driver and a data source
 # Status:
-function SQLConnect(dbc::Ptr{Void},dsn::AbstractString,username::AbstractString,password::AbstractString)
+function SQLConnect(dbc::Ptr{Void},dsn,username,password)
     @odbc(:SQLConnectW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 dbc,utf(dsn),length(dsn),utf(username),length(username),utf(password),length(password))
@@ -336,10 +337,10 @@ const SQL_DRIVER_COMPLETE_REQUIRED = UInt16(3)
 const SQL_DRIVER_NOPROMPT = UInt16(0)
 const SQL_DRIVER_PROMPT = UInt16(2)
 #Status:
-function SQLDriverConnect(dbc::Ptr{Void},window_handle::Ptr{Void},conn_string::AbstractString,out_conn::Vector{SQLWCHAR},out_buff::Vector{Int16},driver_prompt::UInt16)
+function SQLDriverConnect(dbc::Ptr{Void},window_handle::Ptr{Void},conn_string,out_conn::Ptr{SQLWCHAR},out_len,out_buff::Ref{Int16},driver_prompt)
     @odbc(:SQLDriverConnectW,
-                (Ptr{Void},Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{Int16},UInt16),
-                dbc,window_handle,utf(conn_string),length(conn_string),out_conn,length(out_conn),out_buff,driver_prompt)
+                (Ptr{Void},Ptr{Void},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
+                dbc,window_handle,utf(conn_string),sizeof(conn_string),out_conn,out_len,out_buff,driver_prompt)
 end
 #SQLBrowseConnect
  #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714565(v=vs.85).aspx
@@ -466,10 +467,10 @@ end
 # end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716289(v=vs.85).aspx
-function SQLDescribeCol(stmt,x,nm::Vector{SQLWCHAR},len::Ref{Int16},dt::Ref{Int16},cs::Ref{SQLULEN},dd::Ref{Int16},nul::Ref{Int16})
+function SQLDescribeCol(stmt,x,nm::Ptr{SQLWCHAR},nmlen,len::Ref{Int16},dt::Ref{Int16},cs::Ref{SQLULEN},dd::Ref{Int16},nul::Ref{Int16})
     @odbc(:SQLDescribeColW,
                 (Ptr{Void},SQLUSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ref{SQLSMALLINT},Ref{SQLSMALLINT},Ref{SQLULEN},Ref{SQLSMALLINT},Ref{SQLSMALLINT}),
-                stmt,x,nm,length(nm),len,dt,cs,dd,nul)
+                stmt,x,nm,nmlen,len,dt,cs,dd,nul)
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms710188(v=vs.85).aspx
@@ -732,10 +733,10 @@ function SQLGetDiagField(handletype::Int16,handle::Ptr{Void},i::Int16,diag_id::I
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms716256(v=vs.85).aspx
-function SQLGetDiagRec(handletype::Int16,handle::Ptr{Void},i::Int16,state::Array{SQLWCHAR,1},native::Array{Int,1},error_msg::Array{SQLWCHAR,1},msg_length::Array{Int16,1})
+function SQLGetDiagRec(handletype,handle,i,state::Ptr{SQLWCHAR},native::Ref{SQLINTEGER},error_msg,errlen,msg_length)
     @odbc(:SQLGetDiagRecW,
-                (Int16,Ptr{Void},Int16,Ptr{SQLWCHAR},Ptr{Int},Ptr{SQLWCHAR},Int16,Ptr{Int16}),
-                handletype,handle,i,utf(state),native,utf(error_msg),length(error_msg),msg_length)
+                (SQLSMALLINT,Ptr{Void},SQLSMALLINT,Ptr{SQLWCHAR},Ref{SQLINTEGER},Ptr{SQLWCHAR},SQLSMALLINT,Ref{SQLSMALLINT}),
+                handletype,handle,i,state,native,error_msg,errlen,msg_length)
 end
 
 end # module

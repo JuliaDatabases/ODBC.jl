@@ -5,6 +5,7 @@ using DataStreams, Base.Test
 ODBC.listdsns()
 ODBC.listdrivers()
 dsn = ODBC.DSN("Driver={MySQL Unicode};Server=ensembldb.ensembl.org;User=anonymous")
+# dsn = ODBC.DSN("Driver={MySQL ODBC 5.3 Unicode Driver};Server=ensembldb.ensembl.org;User=anonymous")
 source = ODBC.Source(dsn,"SHOW DATABASES")
 dt = Data.stream!(source, Data.Table)
 @test size(dt) == (5078,1)
@@ -33,17 +34,28 @@ dt = Data.stream!(source, Data.Table)
 @test get(dt.data[1][1]) === Int8(-1)
 @test eltype(dt.data[1]) == Nullable{Int8}
 
-# source = ODBC.Source(dsn,"select a.exon_id, b.stable_id
-# 	from exon a
-# 	left outer join exon b on a.seq_region_id = b.seq_region_id
-# 	where a.phase = 2 and b.phase = 0")
-# dt = Data.stream!(source, Data.Table)
+# test "multi-fetch" query
 source = ODBC.Source(dsn,"select * from exon where phase = -1")
 dt = Data.stream!(source, Data.Table)
+@test size(dt) == (385100,13)
+
 source = ODBC.Source(dsn,"select count(*) from exon where phase = 0")
 dt = Data.stream!(source, Data.Table)
 source = ODBC.Source(dsn,"select * from exon where phase = 2 limit 20")
 dt = Data.stream!(source, Data.Table)
+
+source = ODBC.Source(dsn,"select CONVERT(stable_id USING ascii) as stable_id from exon where phase = 2 limit 20")
+dt = Data.stream!(source, Data.Table)
+
+source = ODBC.Source(dsn,"select CONVERT(stable_id USING ucs2) as stable_id from exon where phase = 2 limit 20")
+dt = Data.stream!(source, Data.Table)
+
+source = ODBC.Source(dsn,"select CONVERT(stable_id USING binary) as stable_id from exon where phase = 2 limit 20")
+dt = Data.stream!(source, Data.Table)
+
+source = ODBC.Source(dsn,"select CONVERT(stable_id USING latin1) as stable_id from exon where phase = 2 limit 20")
+dt = Data.stream!(source, Data.Table)
+
 #DBMS may not support batch statements
 source = ODBC.Source(dsn,"select count(*) from exon; select count(*) from exon;")
 dt = Data.stream!(source, Data.Table)
@@ -52,7 +64,5 @@ source = ODBC.Source(dsn,"select count(*) from exon","test.csv")
 dt = Data.stream!(source, Data.Table)
 source = ODBC.Source(dsn,"select * from exon where phase = 2","test.csv")
 dt = Data.stream!(source, Data.Table)
-
-ODBC.querymeta(dsn,"select count(*) from exon")
 
 disconnect(conn)

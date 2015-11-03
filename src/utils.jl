@@ -7,27 +7,39 @@ end
 
 typealias CHARS Union{ODBC.API.SQLCHAR,ODBC.API.SQLWCHAR}
 
+function Block{T}(::Type{T}, elements::Int, finalize::Bool=true)
+    len = sizeof(T) * elements
+    block = Block{T}(convert(Ptr{T},Libc.malloc(len)),len,sizeof(T))
+    finalize && finalizer(block,x->Libc.free(x.ptr))
+    return block
+end
+
+# column allocators
 # bitstype/immutables
-function Block{T}(::Type{T}, sz, rows, finalize)
+function Block{T}(::Type{T}, sz::Integer, rows::Int, finalize::Bool=true)
     len = sizeof(T) * rows
     block = Block{T}(convert(Ptr{T},Libc.malloc(len)),len,sizeof(T))
-    # finalize && finalizer(block,x->Libc.free(x.ptr))
+    finalize && finalizer(block,x->Libc.free(x.ptr))
     return block
- end
+end
 # container types; i.e. strings
-function Block{T<:CHARS}(::Type{T}, sz, rows, finalize)
+function Block{T<:CHARS}(::Type{T}, sz::Integer, rows::Int, finalize::Bool=true)
     len = sizeof(T) * sz * rows
     block = Block{T}(convert(Ptr{T},Libc.malloc(len)),len,sizeof(T) * sz)
-    # finalize && finalizer(block,x->Libc.free(x.ptr))
+    finalize && finalizer(block,x->Libc.free(x.ptr))
     return block
 end
 # copy a block
-function Block{T}(block::Block{T}, finalize)
+function Block{T}(block::Block{T}, finalize::Bool=true)
     block2 = Block{T}(convert(Ptr{T},Libc.malloc(block.len)),block.len,block.elsize)
-    # finalize && finalizer(block2,x->Libc.free(x.ptr))
+    finalize && finalizer(block2,x->Libc.free(x.ptr))
     ccall(:memcpy, Void, (Ptr{T}, Ptr{T}, Csize_t), block2.ptr, block.ptr, block.len)
     return block2
 end
+
+Base.string(block::Block{UInt8},  len::Integer) = utf8(block.ptr,len)
+Base.string(block::Block{UInt16}, len::Integer) = utf16(block.ptr,len)
+Base.string(block::Block{UInt32}, len::Integer) = utf32(block.ptr,len)
 
 booleanize!(ind::Vector{ODBC.API.SQLLEN}) = Bool[x == ODBC.API.SQL_NULL_DATA for x in ind]
 
