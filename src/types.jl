@@ -161,7 +161,7 @@ end
 # SQL_INTERVAL_HOUR_TO_MINUTE       SQL_C_INTERVAL_HOUR_TO_MINUTE       UInt8
 # SQL_INTERVAL_HOUR_TO_SECOND       SQL_C_INTERVAL_HOUR_TO_SECOND       UInt8
 # SQL_INTERVAL_MINUTE_TO_SECOND     SQL_C_INTERVAL_MINUTE_TO_SECOND     UInt8
-# SQL_GUID                          SQL_C_GUID                          UInt8
+# SQL_GUID                          SQL_C_GUID                          SQLGUID
 
 # SQL Data Type Definitions
 const SQL_CHAR          = Int16(  1) # Character string of fixed string length n.
@@ -203,7 +203,7 @@ const SQL_NULL_DATA = -1
 #const SQL_INTERVAL_HOUR_TO_MINUTE   = Int16(111)
 #const SQL_INTERVAL_HOUR_TO_SECOND   = Int16(112)
 #const SQL_INTERVAL_MINUTE_TO_SECOND = Int16(113)
-#const SQL_GUID                      = Int16(-11) # Fixed length GUID.
+const SQL_GUID                      = Int16(-11) # Fixed length GUID.
 
 # C Data Types
 const SQL_C_CHAR      = Int16(  1)
@@ -234,7 +234,7 @@ const SQL_C_TYPE_TIMESTAMP = Int16( 93)
 #const SQL_C_INTERVAL_HOUR_TO_MINUTE   = Int16(111)
 #const SQL_C_INTERVAL_HOUR_TO_SECOND   = Int16(112)
 #const SQL_C_INTERVAL_MINUTE_TO_SECOND = Int16(113)
-#const SQL_C_GUID                      = Int16(-11)
+const SQL_C_GUID                      = Int16(-11)
 
 # Julia mapping C structs
 immutable SQLDate
@@ -275,6 +275,20 @@ end
 
 Base.show(io::IO,x::SQLNumeric) = print(io,"SQLNumeric")
 
+# typedef struct  tagSQLGUID
+# {
+#     DWORD Data1;
+#     WORD Data2;
+#     WORD Data3;
+#     BYTE Data4[ 8 ];
+# } SQLGUID;
+immutable SQLGUID
+    Data1::Cuint
+    Data2::Cushort
+    Data3::Cushort
+    Data4::NTuple{8,Cuchar}
+end
+
 const SQL2C = Dict(
     SQL_CHAR           => SQL_C_CHAR,
     SQL_VARCHAR        => SQL_C_CHAR,
@@ -297,7 +311,8 @@ const SQL2C = Dict(
     SQL_LONGVARBINARY  => SQL_C_BINARY,
     SQL_TYPE_DATE      => SQL_C_TYPE_DATE,
     SQL_TYPE_TIME      => SQL_C_TYPE_TIME,
-    SQL_TYPE_TIMESTAMP => SQL_C_TYPE_TIMESTAMP)
+    SQL_TYPE_TIMESTAMP => SQL_C_TYPE_TIMESTAMP,
+    SQL_GUID           => SQL_C_GUID)
 
 """
 maps SQL types from the ODBC manager to Julia types;
@@ -327,7 +342,8 @@ const SQL2Julia = Dict(
     SQL_LONGVARBINARY  => (UInt8, UInt8),
     SQL_TYPE_DATE      => (SQLDate, SQLDate),
     SQL_TYPE_TIME      => (SQLTime, SQLTime),
-    SQL_TYPE_TIMESTAMP => (SQLTimestamp, SQLTimestamp))
+    SQL_TYPE_TIMESTAMP => (SQLTimestamp, SQLTimestamp),
+    SQL_GUID           => (SQLGUID, SQLGUID))
 
 const SQL_TYPES = Dict(
       1 => "SQL_CHAR",
@@ -389,4 +405,5 @@ const C_TYPES = Dict(
     SQL_LONGVARBINARY  => "SQL_C_BINARY",
     SQL_TYPE_DATE      => "SQL_C_TYPE_DATE",
     SQL_TYPE_TIME      => "SQL_C_TYPE_TIME",
-    SQL_TYPE_TIMESTAMP => "SQL_C_TYPE_TIMESTAMP")
+    SQL_TYPE_TIMESTAMP => "SQL_C_TYPE_TIMESTAMP",
+    SQL_C_GUID         => "SQL_C_GUID")
