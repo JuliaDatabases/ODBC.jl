@@ -80,7 +80,7 @@ end
 # copy!(rb.columns[col],rb.indcols[col],data[col],r,rows,other)
 function Base.copy!{T}(block::Block{T}, ind, dest::NullableVector, row, rows, other)
     ccall(:memcpy, Void, (Ptr{T}, Ptr{T}, Csize_t), pointer(dest.values) + row * sizeof(T), block.ptr, rows * sizeof(T))
-    booleanize!(ind,dest.isnull)
+    booleanize!(ind,dest.isnull,row)
     return nothing
 end
 "append to a NullableVector by copying the data from a Block that has bitstype/immutable data"
