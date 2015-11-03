@@ -28,7 +28,7 @@ source = ODBC.Source(dsn,"show columns from exon")
 dt = Data.stream!(source, Data.Table)
 @test Data.header(dt) == ["Field","Type","Null","Key","Default","Extra"]
 
-source = ODBC.Source(dsn,"select phase from exon group by phase")
+source = ODBC.Source(dsn,"select phase from exon group by phase order by phase")
 dt = Data.stream!(source, Data.Table)
 @test Data.header(dt) == ["phase"]
 @test get(dt.data[1][1]) === Int8(-1)

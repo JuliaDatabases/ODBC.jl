@@ -29,7 +29,7 @@ function Source(dsn::DSN, query::AbstractString)
     ODBC.API.SQLRowCount(stmt,rows)
     rows, cols = rows[], cols[]
     rows = max(0,rows) # in cases where the ODBC driver returns a negative # for rows
-    rowset = min(ODBC.API.MAXFETCHSIZE,max(rows,1))
+    rowset = rows == 0 ? ODBC.API.MAXFETCHSIZE : min(ODBC.API.MAXFETCHSIZE,rows)
     bigquery = rows > ODBC.API.MAXFETCHSIZE
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rowset, ODBC.API.SQL_IS_UINTEGER)
     #Allocate arrays to hold each column's metadata
@@ -64,10 +64,12 @@ end
 
 Data.isdone(source::ODBC.Source) = source.status != ODBC.API.SQL_SUCCESS
 
-function Data.stream!(source::ODBC.Source, ::Type{Data.Table})
+function Data.stream!(source::ODBC.Source, ::Type{Data.Table};force_append::Bool=false)
     rb = source.rb
-    if rb.fetchsize == ODBC.API.MAXFETCHSIZE
+    if rb.fetchsize == ODBC.API.MAXFETCHSIZE || size(source,1) == 0 || force_append
+        force_append && (source.schema.rows = 0)
         # big query where we'll need to fetch multiple times
+        # or when the DBMS didn't return the # of rows, so we need to `append!``
         dt = Data.Table(Data.schema(source))
         return Data.stream!(source, dt)
     else
@@ -87,14 +89,29 @@ function Data.stream!(source::ODBC.Source, dt::Data.Table)
     data = dt.data
     other = []
     rows, cols = size(source)
-    r = 0
-    while !Data.isdone(source)
-        rows = source.rowsfetched[]
-        for col = 1:cols
-            ODBC.copy!(rb.columns[col],rb.indcols[col],data[col],r,rows,other)
+    if rows == 0
+        # DBMS didn't return # of rows, so we just need to keep appending
+        r = 0
+        while !Data.isdone(source)
+            rows = source.rowsfetched[]
+            for col = 1:cols
+                ODBC.append!(rb.columns[col],rb.indcols[col],data[col],rows,other)
+            end
+            source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
+            r += rows
         end
-        r += rows
-        source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
+        source.schema.rows = dt.schema.rows = r
+    else
+        # number of rows known and `dt` is pre-allocated, just need to fill it in
+        r = 0
+        while !Data.isdone(source)
+            rows = source.rowsfetched[]
+            for col = 1:cols
+                ODBC.copy!(rb.columns[col],rb.indcols[col],data[col],r,rows,other)
+            end
+            r += rows
+            source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
+        end
     end
     return dt
 end
