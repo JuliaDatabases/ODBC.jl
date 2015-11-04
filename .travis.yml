@@ -15,6 +15,7 @@ before_install:
     - echo -e "\n[Default] \n Description = DSN for MySQL \n Driver = myodbc_mysql \n Server = localhost \n Port = 3306 \n Socket = /var/run/mysqld/mysqld.sock \n Option = 3 \n ReadOnly = No \n USER = root \n PASSWORD =  \"\"" | sudo tee /etc/odbc.ini
 
 
-script:
+before_script:
     - julia -e 'Pkg.add("HDF5"); Pkg.add("JLD")'
-    - julia Pkg.test("ODBC")
+    - julia cd(Pkg.dir("ODBC/test"))
+    - julia include("runtests.jl")
