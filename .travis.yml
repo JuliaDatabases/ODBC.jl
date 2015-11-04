@@ -16,6 +16,7 @@ before_install:
     - sudo odbcinst -i -s -l -f /etc/odbc.ini
     - export ODBCSYSINI=/etc
     - export ODBCINI=/etc/odbc.ini
+    - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`mysql_config --libs | cut -d ' ' -f1 | sed 's/-L//'`
     - sudo odbcinst -s -q
 
 
