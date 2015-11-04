@@ -14,6 +14,8 @@ before_install:
     - echo -e "[Default] \n Description = DSN for MySQL \n Driver = myodbc_mysql \n Server = localhost \n Port = 3306 \n Socket = /var/run/mysqld/mysqld.sock \n Option = 3 \n ReadOnly = No \n USER = root \n PASSWORD =  \"\"" | sudo tee /etc/odbc.ini
     - sudo odbcinst -i -d -f /etc/odbcinst.ini
     - sudo odbcinst -i -s -l -f /etc/odbc.ini
+    - export ODBCSYSINI=/etc
+    - export ODBCINI=/etc/odbc.ini
     - sudo odbcinst -s -q
 
 
