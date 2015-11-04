@@ -17,10 +17,10 @@ before_install:
     - export ODBCSYSINI=/etc
     - export ODBCINI=/etc/odbc.ini
     - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`mysql_config --libs | cut -d ' ' -f1 | sed 's/-L//'`
-    - sudo locate odbcinst.ini
-    - sudo locate odbc.ini
-    - sudo locate libmyodbc.so
-    - sudo locate libodbcmyS.so
+    - sudo find / -name 'odbcinst.ini'
+    - sudo find / -name 'odbc.ini'
+    - sudo find / -name 'libmyodbc.so'
+    - sudo find / -name 'libodbcmyS.so'
     - sudo ls /var/run/mysqld/
     - sudo find / -name 'mysqld.sock'
 
