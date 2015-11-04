@@ -93,13 +93,14 @@ function Data.stream!(source::ODBC.Source, dt::Data.Table)
     if rows == 0
         # DBMS didn't return # of rows, so we just need to keep appending
         r = 0
-        while !Data.isdone(source)
+        while true
             rows = source.rowsfetched[]
             for col = 1:cols
                 ODBC.append!(rb.columns[col],rb.indcols[col],data[col],rows,other)
             end
-            source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
             r += rows
+            Data.isdone(source) && break
+            source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
         end
         source.schema.rows = dt.schema.rows = r
     else
