@@ -16,7 +16,7 @@ function ODBCDriverConnect!(dbc::Ptr{Void},conn_string,driver_prompt::UInt16)
     out_conn = Block(ODBC.API.SQLWCHAR,BUFLEN)
     out_buff = Ref{Int16}()
     @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLDriverConnect(dbc,window_handle,conn_string,out_conn.ptr,BUFLEN,out_buff,driver_prompt)
-    return string(out_conn,out_buff[])
+    return string(out_conn)
 end
 
 # independent Source constructor

@@ -40,6 +40,9 @@ end
 Base.string(block::Block{UInt8},  len::Integer) = utf8(block.ptr,len)
 Base.string(block::Block{UInt16}, len::Integer) = utf16(block.ptr,len)
 Base.string(block::Block{UInt32}, len::Integer) = utf32(block.ptr,len)
+Base.string(block::Block{UInt8}) = utf8(block.ptr)
+Base.string(block::Block{UInt16}) = utf16(block.ptr)
+Base.string(block::Block{UInt32}) = utf32(block.ptr)
 
 function booleanize!(ind::Vector{ODBC.API.SQLLEN})
     len = length(ind)
