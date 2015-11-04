@@ -42,9 +42,9 @@ function Source(dsn::DSN, query::AbstractString)
     #Allocate space for and fetch the name, type, size, etc. for each column
     len, dt, csize = Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLULEN}()
     digits, null = Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLSMALLINT}()
-    cname = ODBC.Block(ODBC.API.SQLWCHAR, BUFLEN)
+    cname = ODBC.Block(ODBC.API.SQLWCHAR, ODBC.BUFLEN)
     for x = 1:cols
-        ODBC.API.SQLDescribeCol(stmt, x, cname.ptr, BUFLEN, len, dt, csize, digits, null)
+        ODBC.API.SQLDescribeCol(stmt, x, cname.ptr, ODBC.BUFLEN, len, dt, csize, digits, null)
         cnames[x]  = string(cname, len[])
         t = dt[]
         ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], null[]

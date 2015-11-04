@@ -53,7 +53,7 @@ function booleanize!(ind::Vector{ODBC.API.SQLLEN})
     return new
 end
 function booleanize!(ind::Vector{ODBC.API.SQLLEN},new::Vector{Bool},off=1)
-    @simd for i = 1:length(ind)
+    @simd for i = 1:length(new)
         @inbounds new[i+off] = ind[i] == ODBC.API.SQL_NULL_DATA
     end
     return new
