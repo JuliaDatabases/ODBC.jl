@@ -10,6 +10,8 @@ before_install:
     - sudo apt-get install mysql-server mysql-client
     - sudo apt-get install libmyodbc unixodbc-bin
     - cat /etc/odbc.ini
+    - find / -name 'lib*odbc*.so'
+    - mysqladmin -u root -p version
 
 script:
     - julia -e 'Pkg.add("HDF5"); Pkg.add("JLD")'
