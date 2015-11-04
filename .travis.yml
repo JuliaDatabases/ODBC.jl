@@ -17,5 +17,3 @@ before_install:
 
 before_script:
     - julia -e 'Pkg.add("HDF5"); Pkg.add("JLD")'
-    - julia cd(Pkg.dir("ODBC/test"))
-    - julia include("runtests.jl")
