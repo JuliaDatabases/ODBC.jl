@@ -1,13 +1,15 @@
 #Edit these credentials accordingly
 
-DSN = "Default"
+# Travis config
+DSN = "MySQL-test"
 Username = "root"
-Password = "root"
+Password = ""
+
 
 
 using DataFrames,ODBC
 using JLD, HDF5
-con = ODBC.connect(DSN)
+con = ODBC.connect(DSN,usr=Username,pwd=Password)
 global Query_passed = 0
 global Query_failed = 0
 global Query_Error = 0
@@ -294,7 +296,7 @@ function ODBC_test()
   println("\n\n\t\t\t******  NEGATIVE TESTING ******\n\n");
   error_q = ["select count(*) from Employee; select count(*) from Employee;","select * from Employee where Coloumn_Not_Present > 2 limit 2;","select * from Table_not_present where Office > 2 limit 2;","use Inexistent_DataBase;", "CREATE DATABASE mysqltest1;", "CREATE DATABASE mysqltest1;", "CREATE USER test1 IDENTIFIED BY 'test1';", "CREATE USER test1 IDENTIFIED BY 'test1';", "DROP user test1;","FLUSH PRIVILEGES;", "use mysqltest1", "CREATE TABLE Employee(ID INT NOT NULL AUTO_INCREMENT,Name VARCHAR(255),Salary FLOAT,JoinDate DATE,LastLogin DATETIME,LunchTime TIME,OfficeNo TINYINT,JobType ENUM('HR', 'Management', 'Accounts'),Senior BIT(18),empno SMALLINT,PRIMARY KEY (ID));","CREATE TABLE Employee(ID INT NOT NULL AUTO_INCREMENT,Name VARCHAR(255))","CREATE TABLE ERROR(ID I,Name VARCHAR)","INSERT INTO Employee (Name, Salary, JoinDate, LastLogin, LunchTime, OfficeNo, JobType, Senior, empno) VALUES ('John','John' , 2015-99-99, 2015-99-5 , 92:00:00, 1.23, 'HRD', b'101001', 1301.56)","DROP TABLE inexistent;","DROP TABLE Employee;","DROP TABLE Employee;","DROP DATABASE mysqltest1;","DROP DATABASE mysqltest1;", "delete from Employee where Nam='Whatever';","UPDATE Employee SET Salary = 25000.00 WHERE ID > 1;","CREATE TABLE Employee(ID INT NOT NULL AUTO_INCREMENT,Name VARCHAR(255))","create database mysqltest1","use mysqltest1","CREATE TABLE Employee(ID INT NOT NULL AUTO_INCREMENT,Name VARCHAR(255),PRIMARY KEY (ID));","insert into Employee(Name) values('Whatever')","delete from Employee where Nam='Whatever';","UPDATE Employee SET Salary = 25000.00 WHERE ID > 1;","DROP TABLE Employee;","DROP DATABASE mysqltest1;"]
   skip_error_q = [5,7,9,10,11,12,17,19,24,25,26,27,30,31]
-  con = ODBC.connect(DSN)
+  con = ODBC.connect(DSN,usr=Username,pwd=Password)
   error_q_counter=1
   # Testing API Query
   for i in error_q
