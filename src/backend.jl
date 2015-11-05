@@ -106,74 +106,74 @@ function Data.stream!(source::ODBC.Source, dt::Data.Table)
     else
         # number of rows known and `dt` is pre-allocated, just need to fill it in
         r = 0
-        while !Data.isdone(source)
+        while true
             rows = source.rowsfetched[]
             for col = 1:cols
                 ODBC.copy!(rb.columns[col],rb.indcols[col],data[col],r,rows,other)
             end
             r += rows
+            Data.isdone(source) && break
             source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
         end
     end
     return dt
 end
 
-function getfield{T}(source::ODBC.Source, ::Type{T}, row, col)
-
-end
-
-function getfield{T<:CHARS}(source::ODBC.Source, ::Type{T}, row, col)
-
-end
-
+# rows might = 0, keep fetching until Data.isdone
+# rows might be < MAXFETCHSIZE
+# rows might by > MAXFETCHSIZE
 function Data.stream!(source::ODBC.Source, sink::CSV.Sink;header::Bool=true)
     header && CSV.writeheaders(source,sink)
     rb = source.rb
-    if rb.fetchsize == ODBC.API.MAXFETCHSIZE
-        # big query where we'll need to fetch multiple times
-        dt = Data.Table(Data.schema(source))
-        return Data.stream!(source, dt)
-    else
-        # small query where we only needed to fetch once
-        rows, cols = size(source)
-        other = []
-        for row = 1:rows, col = 1:cols
-            val =
-            CSV.writefield(sink, rb.indcols[col][row] == ODBC.API.SQL_NULL_DATA ? sink.null : val, col, cols)
-        end
-        return Data.Table(Data.schema(source),data,other)
-    end
-
-    rb = source.rb
-    data = dt.data
-    other = []
     rows, cols = size(source)
     r = 0
-    while !Data.isdone(source)
+    while true
         rows = source.rowsfetched[]
-        for col = 1:cols
-            ODBC.copy!(rb.columns[col],rb.indcols[col],data[col],r,rows,other)
+        for row = 1:rows, col = 1:cols
+            ind = rb.indcols[col][row]
+            val = getfield(rb.columns[col], row, ind)
+            CSV.writefield(sink, ind == ODBC.API.SQL_NULL_DATA ? sink.null : val, col, cols)
         end
         r += rows
+        Data.isdone(source) && break
         source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
     end
-    return dt
+    source.schema.rows = r
+    sink.schema = source.schema
+    close(sink)
+    return sink
 end
 
+function getbind!{T}(block::Block{T},ind,row,col,stmt)
+    val = getfield(block, row, ind)
+    if ind == ODBC.API.SQL_NULL_DATA
+        SQLite.bind!(stmt,col,SQLite.NULL)
+    else
+        SQLite.bind!(stmt,col,val)
+    end
+end
 
-# writefield takes a Julia value and gets it ready for writing to a file i.e. converts to string
-writefield(io,x) = print(io,x)
-writefield(io,x::AbstractString) = print(io,'"',x,'"')
-
-function ODBCFetchToFile(stmt::Ptr{Void},meta,columns::Array{Any,1},rowset::Int,output::AbstractString,l::Int)
-    out_file = l == 0 ? open(output,"w") : open(output,"a")
-    write(out_file, join(meta.colnames,','), '\n')
-    while SQLFetchScroll(stmt,SQL_FETCH_NEXT,0) == SQL_SUCCESS
-        for row = 1:rowset, col = 1:meta.cols
-            writefield(out_file,ODBCClean(columns[col],row))
-            write(out_file, col == meta.cols ? '\n' : ',')
+function Data.stream!(source::ODBC.Source, sink::SQLite.Sink)
+    rows, cols = size(source)
+    rb = source.rb
+    stmt = sink.stmt
+    handle = stmt.handle
+    SQLite.transaction(sink.db) do
+        r = 0
+        while true
+            rows = source.rowsfetched[]
+            for row = 1:rows
+                for col = 1:cols
+                    getbind!(rb.columns[col],rb.indcols[col][row],row,col,stmt)
+                end
+                SQLite.sqlite3_step(handle)
+                SQLite.sqlite3_reset(handle)
+            end
+            r += rows
+            Data.isdone(source) && break
+            source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
         end
     end
-    close(out_file)
-    return Any[]
+    SQLite.execute!(sink.db,"analyze $(sink.tablename)")
+    return sink
 end

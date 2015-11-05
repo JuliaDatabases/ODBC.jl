@@ -44,6 +44,12 @@ Base.string(block::Block{UInt8}) = utf8(block.ptr)
 Base.string(block::Block{UInt16}) = utf16(block.ptr)
 Base.string(block::Block{UInt32}) = utf32(block.ptr)
 
+getfield{T}(block::Block{T}, row, ind) = unsafe_load(block.ptr, row)
+
+function getfield{T<:CHARS}(block::Block{T}, row, ind)
+    return Data.PointerString(block.ptr + block.elsize * (row-1), ODBC.bytes2codeunits(T,ind))
+end
+
 function booleanize!(ind::Vector{ODBC.API.SQLLEN})
     len = length(ind)
     new = Array(Bool, len)
