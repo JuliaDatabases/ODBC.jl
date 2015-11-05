@@ -10,21 +10,15 @@ services:
   - mysql
 
 before_install:
-    - sudo apt-get update
-    - sudo apt-get install unixodbc-dev
-    - sudo apt-get install libmyodbc unixodbc-bin
-    - echo -e "[myodbc_mysql] \n Description = ODBC for MySQL \n Driver = /usr/lib/x86_64-linux-gnu/odbc/libmyodbc.so \n Setup = /usr/lib/x86_64-linux-gnu/odbc/libodbcmyS.so \n UsageCount = 1" | sudo tee /etc/odbcinst.ini
-    - echo -e "[Default] \n Description = DSN for MySQL \n Driver = myodbc_mysql \n Server = 127.0.0.1 \n Port = 3306 \n Socket = /var/run/mysqld/mysqld.sock \n ReadOnly = No \n USER = root " | sudo tee /etc/odbc.ini
-    - echo -e "[Default] \n Description = DSN for MySQL \n Driver = myodbc_mysql \n Server = 127.0.0.1 \n Port = 3306 \n Socket = /var/run/mysqld/mysqld.sock \n Option = 3 \n ReadOnly = No \n USER = root " | sudo tee ~/odbc.ini
-    - sudo odbcinst -i -d -f /etc/odbcinst.ini
-    - sudo odbcinst -i -s -l -f /etc/odbc.ini
-    - sudo odbcinst -j
-    - env | grep 'ODBC'
-    - odbcinst -q -d
+  - mysql --version
+  - mysql -e "create database IF NOT EXISTS test;" -uroot
+  - sudo apt-get install libmyodbc libsqliteodbc unixodbc unixodbc-dev
+  - sudo odbcinst -i -d -f /usr/share/libmyodbc/odbcinst.ini
+  - sudo odbcinst -i -s -l -f ./test/mytest.odbc.ini
 
 before_script:
     - julia -e 'Pkg.add("HDF5"); Pkg.add("JLD")'
 
 after_failure:
-    - julia -e using ODBC
-    - julia -e ODBC.connect("Default")
+    - julia -e 'using ODBC'
+    - julia -e 'ODBC.connect("Default")'
