@@ -1,7 +1,7 @@
 #Edit these credentials accordingly
 
 # Travis config
-DSN = "MySQL-test"
+DSN = "ODBC-MySQL"
 Username = "root"
 Password = ""
 

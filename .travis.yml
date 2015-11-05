@@ -1,8 +1,7 @@
 language: julia
 julia:
   - release
-  - 0.3
-  - 0.4
+
 notifications:
     email: false
 
@@ -11,14 +10,9 @@ services:
 
 before_install:
   - mysql --version
-  - mysql -e "create database IF NOT EXISTS test;" -uroot
   - sudo apt-get install libmyodbc libsqliteodbc unixodbc unixodbc-dev
   - sudo odbcinst -i -d -f /usr/share/libmyodbc/odbcinst.ini
-  - sudo odbcinst -i -s -l -f ./test/mytest.odbc.ini
+  - sudo odbcinst -i -s -l -f ./test/odbc.ini
 
 before_script:
     - julia -e 'Pkg.add("HDF5"); Pkg.add("JLD")'
-
-after_failure:
-    - julia -e 'using ODBC'
-    - julia -e 'ODBC.connect("Default")'
