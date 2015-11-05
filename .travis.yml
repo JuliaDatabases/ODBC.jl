@@ -1,14 +1,18 @@
-language: cpp
-compiler: 
-    - clang
+language: julia
+julia:
+  - release
+
 notifications:
     email: false
+
+services:
+  - mysql
+
 before_install:
-    - sudo add-apt-repository ppa:staticfloat/julia-deps -y
-    - sudo add-apt-repository ppa:staticfloat/julianightlies -y
-    - sudo apt-get update -qq -y
-    - sudo apt-get install libpcre3-dev julia -y
-script:
-    - julia -e 'Pkg.init(); run(`ln -s $(pwd()) $(Pkg.dir())/ODBC`); Pkg.resolve()'
-    - julia -e 'using ODBC; @assert isdefined(:ODBC); @assert typeof(ODBC) === Module'
-    - julia test/test.jl
+  - mysql --version
+  - sudo apt-get install libmyodbc libsqliteodbc unixodbc unixodbc-dev
+  - sudo odbcinst -i -d -f /usr/share/libmyodbc/odbcinst.ini
+  - sudo odbcinst -i -s -l -f ./test/odbc.ini
+
+before_script:
+    - julia -e 'Pkg.add("HDF5"); Pkg.add("JLD")'
