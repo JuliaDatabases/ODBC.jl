@@ -6,24 +6,21 @@ julia:
 notifications:
     email: false
 
+services:
+  - mysql
+
 before_install:
     - sudo apt-get update
-    - sudo apt-get install mysql-server mysql-client
+    - sudo apt-get install unixodbc-dev
     - sudo apt-get install libmyodbc unixodbc-bin
     - sudo apt-get install nmap
     - sudo netstat -ntlp | grep LISTEN
     - sudo nmap localhost
-    - sudo iptables -P INPUT ACCEPT
-    - sudo iptables -P FORWARD ACCEPT
-    - sudo iptables -P OUTPUT ACCEPT
-    - sudo iptables -F
     - echo -e "[myodbc_mysql] \n Description = ODBC for MySQL \n Driver = /usr/lib/x86_64-linux-gnu/odbc/libmyodbc.so \n Setup = /usr/lib/x86_64-linux-gnu/odbc/libodbcmyS.so \n UsageCount = 1" | sudo tee /etc/odbcinst.ini
     - echo -e "[Default] \n Description = DSN for MySQL \n Driver = myodbc_mysql \n Server = 127.0.0.1 \n Port = 3306 \n Socket = /var/run/mysqld/mysqld.sock \n Option = 3 \n ReadOnly = No \n USER = root \n PASSWORD =  \"\"" | sudo tee /etc/odbc.ini
-    - export ODBCSYSINI=/etc
-    - export ODBCINI=/etc/odbc.ini
+    - echo -e "[Default] \n Description = DSN for MySQL \n Driver = myodbc_mysql \n Server = 127.0.0.1 \n Port = 3306 \n Socket = /var/run/mysqld/mysqld.sock \n Option = 3 \n ReadOnly = No \n USER = root \n PASSWORD =  \"\"" | sudo tee ~/odbc.ini
     - sudo odbcinst -i -d -f /etc/odbcinst.ini
     - sudo odbcinst -i -s -l -f /etc/odbc.ini
-    - export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`mysql_config --libs | cut -d ' ' -f1 | sed 's/-L//'`
     - sudo find / -name 'odbcinst.ini'
     - sudo find / -name 'odbc.ini'
     - sudo find / -name 'libmyodbc.so'
