@@ -10,6 +10,18 @@ before_install:
     - sudo apt-get update
     - sudo apt-get install mysql-server mysql-client
     - sudo apt-get install libmyodbc unixodbc-bin
+    - sudo apt-get install nmap
+    - sudo netstat -ntlp | grep LISTEN
+    - sudo nmap localhost
+    - sudo iptables -F
+    - sudo iptables -X
+    - sudo iptables -t nat -F
+    - sudo iptables -t nat -X
+    - sudo iptables -t mangle -F
+    - sudo iptables -t mangle -X
+    - sudo iptables -P INPUT ACCEPT
+    - sudo iptables -P FORWARD ACCEPT
+    - sudo iptables -P OUTPUT ACCEPT
     - echo -e "[myodbc_mysql] \n Description = ODBC for MySQL \n Driver = /usr/lib/x86_64-linux-gnu/odbc/libmyodbc.so \n Setup = /usr/lib/x86_64-linux-gnu/odbc/libodbcmyS.so \n UsageCount = 1" | sudo tee /etc/odbcinst.ini
     - echo -e "[Default] \n Description = DSN for MySQL \n Driver = myodbc_mysql \n Server = localhost \n Port = 3306 \n Socket = /var/run/mysqld/mysqld.sock \n Option = 3 \n ReadOnly = No \n USER = root \n PASSWORD =  \"\"" | sudo tee /etc/odbc.ini
     - sudo odbcinst -i -d -f /etc/odbcinst.ini
@@ -23,6 +35,8 @@ before_install:
     - sudo find / -name 'libodbcmyS.so'
     - sudo ls /var/run/mysqld/
     - sudo find / -name 'mysqld.sock'
+    - sudo netstat -ntlp | grep LISTEN
+    - sudo nmap localhost
 
 
 before_script:
