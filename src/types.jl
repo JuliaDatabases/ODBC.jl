@@ -29,12 +29,16 @@ typealias SQLREAL       Cfloat
 typealias SQLTIME       Cuchar
 typealias SQLTIMESTAMP  Cuchar
 
-@unix_only    typealias SQLWCHAR UInt32
-@unix_only    utf(x) = utf32(x)
-@unix_only    typealias UTFString UTF32String
-@windows_only typealias SQLWCHAR Cushort
-@windows_only utf(x) = utf16(x)
-@windows_only typealias UTFString UTF16String
+if contains(odbc_dm,"iodbc")
+    typealias SQLWCHAR UInt32
+    utf(x) = utf32(x)
+    typealias UTFString UTF32String
+else
+    # correct for windows + unixODBC
+    typealias SQLWCHAR Cushort
+    utf(x) = utf16(x)
+    typealias UTFString UTF16String
+end
 
 # ODBC API	64-bit platform	32-bit platform
 # SQLINTEGER	32 bits	32 bits
