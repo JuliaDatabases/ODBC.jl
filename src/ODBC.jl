@@ -77,7 +77,7 @@ end
 Base.show(io::IO, conns::Vector{Connection}) = map(show, conns)
 
 # Global module consts and variables
-typealias Output Union{DataType,AbstractString}
+typealias Output @compat(Union{DataType,AbstractString})
 
 const null_resultset = DataFrame()
 const null_conn = Connection("", 0, C_NULL, C_NULL, null_resultset)

@@ -1,6 +1,7 @@
 language: julia
 julia:
-  - release
+  - 0.3
+  - 0.4
 
 notifications:
     email: false
@@ -13,6 +14,3 @@ before_install:
   - sudo apt-get install libmyodbc libsqliteodbc unixodbc unixodbc-dev
   - sudo odbcinst -i -d -f /usr/share/libmyodbc/odbcinst.ini
   - sudo odbcinst -i -s -l -f ./test/odbc.ini
-
-before_script:
-    - julia -e 'Pkg.add("HDF5"); Pkg.add("JLD")'
