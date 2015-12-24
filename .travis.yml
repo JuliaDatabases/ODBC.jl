@@ -10,7 +10,7 @@ services:
   - mysql
 
 before_install:
-  - mysql --version
+  - sudo apt-get update
   - sudo apt-get install libmyodbc libsqliteodbc unixodbc unixodbc-dev
   - sudo odbcinst -i -d -f /usr/share/libmyodbc/odbcinst.ini
   - sudo odbcinst -i -s -l -f ./test/odbc.ini
