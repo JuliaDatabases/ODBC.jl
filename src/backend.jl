@@ -40,7 +40,7 @@ end
 
 # Send query to DMBS
 function ODBCQueryExecute(stmt::Ptr{Void}, querystring::AbstractString)
-    if @FAILED SQLExecDirect(stmt, utf16(querystring))
+    if @FAILED SQLExecDirect(stmt, querystring)
         ODBCError(SQL_HANDLE_STMT,stmt)
         error("[ODBC]: SQLExecDirect failed; Return Code: $ret")
     end
