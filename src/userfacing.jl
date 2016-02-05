@@ -156,7 +156,6 @@ function listdrivers()
     return descriptions, attributes
 end
 
-# List defined DSNs
 "List all the DSNs."
 function listdsns()
     global env
