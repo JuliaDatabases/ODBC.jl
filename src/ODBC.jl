@@ -15,7 +15,6 @@ export advancedconnect,
 include("ODBC_Types.jl")
 include("ODBC_API.jl")
 
-# Holds metadata related to an executed query resultset
 "Holds metadata related to an executed query resultset."
 type Metadata
     querystring::AbstractString
