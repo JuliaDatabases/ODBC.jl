@@ -43,9 +43,11 @@ function advancedconnect(conn_string::AbstractString="", driver_prompt::UInt16=S
     return conn
 end
 
-# query: Sends query string to DBMS,
-# once executed, space is allocated and
-# results and resultset metadata are returned
+"""
+`query` sends query string to DBMS, once executed, space is allocated and results and resultset metadata are returned.
+Required parameters are the query string and connection object. Optional parameters are `Output` type and delimiter, 
+by default it is `DatFrame`. Another option is to speficify a name of a file and delimiter.
+"""
 function query(querystring::AbstractString, conn::Connection=conn; output::Output=DataFrame, delim::Char=',')
     if conn == null_conn
         error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
