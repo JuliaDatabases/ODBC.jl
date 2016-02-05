@@ -45,8 +45,6 @@ Base.show(io::IO,meta::Metadata) = begin
     end
 end
 
-# Connection object holds information related to each
-# established connection and retrieved resultsets
 "Connection object holds information related to each established connection and retrieved resultsets."
 type Connection
     dsn::AbstractString
@@ -87,8 +85,7 @@ const null_conn = Connection("", 0, C_NULL, C_NULL, null_resultset)
 
 global env = C_NULL
 
-# For managing references to multiple connections
-"Global variable consisting of all the objects of type Connection."
+"Global variable consisting of all the objects of type Connection, for managing references to multiple connections"
 global Connections = Connection[]
 
 #Create default connection = null
