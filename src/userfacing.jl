@@ -139,7 +139,6 @@ function disconnect(connection::Connection=conn)
     end
 end
 
-# List Installed Drivers
 "List all the installed database drivers."
 function listdrivers()
     global env
