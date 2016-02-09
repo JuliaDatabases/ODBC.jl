@@ -24,7 +24,7 @@ end
 
 """
 Native implementation of ODBC `SQLDriverConnect` function.
-The input parameter is a connection string, like, "DSN=userdsn;UID=johnjacob;PWD=jingle;"
+The input parameter is a connection string, like, `"DSN=userdsn;UID=johnjacob;PWD=jingle;"`
 """
 function advancedconnect(conn_string::AbstractString="", driver_prompt::UInt16=SQL_DRIVER_NOPROMPT)
     global Connections, conn, env
@@ -46,7 +46,7 @@ end
 """
 `query` sends query string to DBMS, once executed, space is allocated and results and resultset metadata are returned.
 Required parameters are the query string and connection object. Optional parameters are `Output` type and delimiter, 
-by default it is `DatFrame`. Another option is to speficify a name of a file and delimiter.
+by default it is `DataFrame`. Another option is to speficify a name of a file and delimiter.
 """
 function query(querystring::AbstractString, conn::Connection=conn; output::Output=DataFrame, delim::Char=',')
     if conn == null_conn
