@@ -1,6 +1,12 @@
 # Connect to DSN, returns Connection object,
 # also stores Connection information in global default
 # 'conn' object and global 'Connections' connections array
+"""
+    connect(dsn::AbstractString; usr::AbstractString="", pwd::AbstractString="")
+
+Function to connect to a data source by specifying a data source name.
+Optional parameters are user and password.
+"""
 function connect(dsn::AbstractString; usr::AbstractString="", pwd::AbstractString="")
     global Connections, conn, env
     env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE))
@@ -18,6 +24,12 @@ function connect(dsn::AbstractString; usr::AbstractString="", pwd::AbstractStrin
     return conn
 end
 
+"""
+    advancedconnect(conn_string::AbstractString="", driver_prompt::UInt16=SQL_DRIVER_NOPROMPT)
+
+Native implementation of ODBC `SQLDriverConnect` function.
+The input parameter is a connection string, like, `"DSN=userdsn;UID=johnjacob;PWD=jingle;"`
+"""
 function advancedconnect(conn_string::AbstractString="", driver_prompt::UInt16=SQL_DRIVER_NOPROMPT)
     global Connections, conn, env
     env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE))
@@ -35,9 +47,13 @@ function advancedconnect(conn_string::AbstractString="", driver_prompt::UInt16=S
     return conn
 end
 
-# query: Sends query string to DBMS,
-# once executed, space is allocated and
-# results and resultset metadata are returned
+"""
+    query(querystring::AbstractString, conn::Connection=conn; output::Output=DataFrame, delim::Char=',')
+
+`query` sends query string to DBMS, once executed, space is allocated and results and resultset metadata are returned.
+Required parameters are the query string and connection object. Optional parameters are `Output` type and delimiter, 
+by default it is `DataFrame`. Another option is to speficify a name of a file and delimiter.
+"""
 function query(querystring::AbstractString, conn::Connection=conn; output::Output=DataFrame, delim::Char=',')
     if conn == null_conn
         error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
@@ -73,6 +89,7 @@ end
 # sql"..." string literal for convenience;
 # it doesn't do anything different than query right now,
 # but we could potentially do some interesting things here
+"Same are query()."
 macro sql_str(s)
     query(s)
 end
@@ -83,9 +100,13 @@ macro query(x)
     :(query(replace($x, '`', '\"')))
 end
 
-# querymeta: Sends query string to DBMS, once executed, return resultset metadata
 # it may seem odd to include the other arguments for querymeta,
 # but it's so switching between query and querymeta doesn't require exluding args (convenience)
+"""
+    querymeta(querystring::AbstractString,conn::Connection=conn; output::Output=DataFrame,delim::Char=',')
+
+Sends query string to DBMS, once executed, return resultset metadata. Input parameters expected are the query string and the connection object. By default the output is returned as a `DataFrame`. Output can also be written to a file passing the name of the file as `AbstractString`, the delimiter could also be specified, which by default is comma.
+"""
 function querymeta(querystring::AbstractString,conn::Connection=conn; output::Output=DataFrame,delim::Char=',')
     if conn == null_conn
         error("[ODBC]: A valid connection was not specified (and no valid default connection exists)")
@@ -102,6 +123,11 @@ function querymeta(querystring::AbstractString,conn::Connection=conn; output::Ou
     return conn.resultset
 end
 
+"""
+    disconnect(connection::Connection=conn)
+
+`disconnect` closes a connection type, frees all handles and resets the default connection conn as necessary. If invoked with no arguments (i.e. disconnect()), the defaut connection conn is closed.
+"""
 function disconnect(connection::Connection=conn)
     global Connections, conn
     ODBCFreeStmt!(connection.stmt_ptr)
@@ -122,7 +148,7 @@ function disconnect(connection::Connection=conn)
     end
 end
 
-# List Installed Drivers
+"List all the installed database drivers."
 function listdrivers()
     global env
     env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE))
@@ -139,7 +165,7 @@ function listdrivers()
     return descriptions, attributes
 end
 
-# List defined DSNs
+"List all the DSNs."
 function listdsns()
     global env
     env == C_NULL && (env = ODBCAllocHandle(SQL_HANDLE_ENV,SQL_NULL_HANDLE) )
