@@ -62,9 +62,9 @@ driver.
 for various DBMS/driver configurations is
 http://www.connectionstrings.com/)
 
-* `query(connection::Connection=conn, querystring; file=:DataFrame,delim='\t')`
+* `query(querystring, connection::Connection=conn; file=:DataFrame,delim='\t')`
   
-  If a connection type isn't specified as the first positional argument, the query will be executed against
+  If a connection type isn't specified, the query will be executed against
 the default connection (stored in the exported variable `conn` if you'd like to
 inspect).
 
@@ -81,7 +81,7 @@ resultset in a DataFrame. Results are stored in the passed connection type's res
 (i.e. `conn.resultset`). Results are stored by default to avoid immediate garbarge collection
 and provide access for the user even if the resultset returned by `query()` isn't stored in a variable.
 
-* `querymeta(conn::Connection=conn, querystring; file=:DataFrame,delim='\t')`
+* `querymeta(querystring, conn::Connection=conn; file=:DataFrame,delim='\t')`
  
   `querymeta` is really just the 1st half of the `query` function. A query string is sent to the DBMS, executed,
 and metadata (i.e. rows, columns, types, column names, etc.) is returned to the user, avoiding actually returning
