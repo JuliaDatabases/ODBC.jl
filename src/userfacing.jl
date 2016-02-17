@@ -89,7 +89,7 @@ end
 # sql"..." string literal for convenience;
 # it doesn't do anything different than query right now,
 # but we could potentially do some interesting things here
-"Same are query()."
+"Same as query()."
 macro sql_str(s)
     query(s)
 end
@@ -105,7 +105,12 @@ end
 """
     querymeta(querystring::AbstractString,conn::Connection=conn; output::Output=DataFrame,delim::Char=',')
 
-Sends query string to DBMS, once executed, return resultset metadata. Input parameters expected are the query string and the connection object. By default the output is returned as a `DataFrame`. Output can also be written to a file passing the name of the file as `AbstractString`, the delimiter could also be specified, which by default is comma.
+Sends  query   string  to   DBMS,  once  executed,   return  resultset
+metadata.  Input parameters  expected  are the  query  string and  the
+connection  object.   By  default   the  output   is  returned   as  a
+`DataFrame`. Output can also be written  to a file passing the name of
+the file as  `AbstractString`, the delimiter could  also be specified,
+which by default is comma.
 """
 function querymeta(querystring::AbstractString,conn::Connection=conn; output::Output=DataFrame,delim::Char=',')
     if conn == null_conn
