@@ -64,6 +64,7 @@ end
 
 Data.isdone(source::ODBC.Source) = source.status != ODBC.API.SQL_SUCCESS
 
+# fetch data from the result of a query; force_append will force the ODBC.append! codepath
 function Data.stream!(source::ODBC.Source, ::Type{Data.Table};force_append::Bool=false)
     rb = source.rb;
     if rb.fetchsize == ODBC.API.MAXFETCHSIZE || size(source,1) < 0 || force_append
@@ -91,7 +92,7 @@ function Data.stream!(source::ODBC.Source, dt::Data.Table)
     dt.other = other
     rows, cols = size(source)
     if rows == 0
-        # empty resultset or DBMS didn't return # of rows, so we just need to keep appending (or we're done)
+        # empty resultset so we're done or DBMS didn't return # of rows, so we just need to keep appending
         r = 0
         while true
             rows = source.rowsfetched[]
@@ -179,4 +180,22 @@ function Data.stream!(source::ODBC.Source, sink::SQLite.Sink)
     end
     SQLite.execute!(sink.db,"analyze $(sink.tablename)")
     return sink
+end
+
+function query(dsn::DSN, querystring::AbstractString)
+    source = ODBC.Source(dsn, querystring)
+    return Data.stream!(source, Data.Table)
+end
+
+# sql"..." string literal for convenience;
+# it doesn't do anything different than query right now,
+# but we could potentially do some interesting things here
+macro sql_str(s)
+    query(s)
+end
+
+# Replaces backticks in the query string with escaped quotes
+# for convenience in using "" in column names, etc.
+macro query(x)
+    :(query(replace($x, '`', '\"')))
 end
