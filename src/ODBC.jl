@@ -101,7 +101,7 @@ end
 
 function disconnect!(conn::DSN)
     ODBCFreeStmt!(conn.stmt_ptr)
-    SQLDisconnect(conn.dbc_ptr)
+    ODBC.API.SQLDisconnect(conn.dbc_ptr)
     return nothing
 end
 
