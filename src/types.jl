@@ -4,7 +4,7 @@ let
     if !isdefined(:odbc_dm)
         @linux_only   lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
         @windows_only lib_choices = ["odbc32"]
-        @osx_only     lib_choices = ["libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
+        @osx_only     lib_choices = ["libodbc.2.dylib","libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
         lib = @compat Libdl.find_library(lib_choices)
         const odbc_dm = lib
     end

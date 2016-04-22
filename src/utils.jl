@@ -58,9 +58,9 @@ function booleanize!(ind::Vector{ODBC.API.SQLLEN})
     end
     return new
 end
-function booleanize!(ind::Vector{ODBC.API.SQLLEN},new::Vector{Bool},off=1)
-    @simd for i = 1:length(new)
-        @inbounds new[i+off] = ind[i] == ODBC.API.SQL_NULL_DATA
+function booleanize!(ind::Vector{ODBC.API.SQLLEN},new::Vector{Bool},offset,len)
+    @simd for i = 1:len
+        @inbounds new[i+offset] = ind[i] == ODBC.API.SQL_NULL_DATA
     end
     return new
 end
@@ -87,22 +87,21 @@ end
 
 "fill a NullableVector by copying the data from a Block that has bitstype/immutable data"
 # copy!(rb.columns[col],rb.indcols[col],data[col],r,rows,other)
-function Base.copy!{T}(block::Block{T}, ind, dest::NullableVector, row, rows, other)
-    ccall(:memcpy, Void, (Ptr{T}, Ptr{T}, Csize_t), pointer(dest.values) + row * sizeof(T), block.ptr, rows * sizeof(T))
-    booleanize!(ind,dest.isnull,row)
+function Base.copy!{T}(block::Block{T}, ind, dest::NullableVector, offset, len, other)
+    ccall(:memcpy, Void, (Ptr{T}, Ptr{T}, Csize_t), pointer(dest.values) + offset * sizeof(T), block.ptr, len * sizeof(T))
+    booleanize!(ind,dest.isnull,offset,len)
     return nothing
 end
 "append to a NullableVector by copying the data from a Block that has bitstype/immutable data"
-function Base.append!{T}(block::Block{T}, ind, dest::NullableVector, rows, other)
-    row = endof(dest.values)
-    ccall(:jl_array_grow_end, Void, (Any, UInt), dest.values, rows)
-    ccall(:memcpy, Void, (Ptr{T}, Ptr{T}, Csize_t), pointer(dest.values) + row * sizeof(T), block.ptr, rows * sizeof(T))
-    ccall(:jl_array_grow_end, Void, (Any, UInt), dest.isnull, rows)
-    booleanize!(ind,dest.isnull,row)
+function Base.append!{T}(block::Block{T}, ind, dest::NullableVector, offset, len, other)
+    ccall(:jl_array_grow_end, Void, (Any, UInt), dest.values, len)
+    ccall(:memcpy, Void, (Ptr{T}, Ptr{T}, Csize_t), pointer(dest.values) + offset * sizeof(T), block.ptr, len * sizeof(T))
+    ccall(:jl_array_grow_end, Void, (Any, UInt), dest.isnull, len)
+    booleanize!(ind,dest.isnull,offset,len)
     return nothing
 end
 "fill a NullableVector by copying the data from a Block that has container-type data"
-function Base.copy!{T<:CHARS}(block::Block{T}, ind, dest::NullableVector, row, rows, other)
+function Base.copy!{T<:CHARS}(block::Block{T}, ind, dest::NullableVector, offset, len, other)
     # basic strategy is:
       # make our own copy of the memory
       # loop over elsize and create PointerString(cur_ptr, ind[row])
@@ -112,27 +111,26 @@ function Base.copy!{T<:CHARS}(block::Block{T}, ind, dest::NullableVector, row, r
     isnull = dest.isnull
     cur = block2.ptr
     elsize = block2.elsize
-    for i = 1:rows
-        @inbounds values[i+row] = Data.PointerString(cur, bytes2codeunits(T,ind[i]))
-        @inbounds isnull[i+row] = ind[i] == ODBC.API.SQL_NULL_DATA
+    for i = 1:len
+        @inbounds values[i+offset] = Data.PointerString(cur, bytes2codeunits(T,ind[i]))
+        @inbounds isnull[i+offset] = ind[i] == ODBC.API.SQL_NULL_DATA
         cur += elsize
     end
     push!(other,block2)
     return nothing
 end
 "append to a NullableVector by copying the data from a Block that has container-type data"
-function Base.append!{T<:CHARS}(block::Block{T}, ind, dest::NullableVector, rows, other)
+function Base.append!{T<:CHARS}(block::Block{T}, ind, dest::NullableVector, offset, len, other)
     values = dest.values
     isnull = dest.isnull
-    row = endof(values)
-    ccall(:jl_array_grow_end, Void, (Any, UInt), values, rows)
-    ccall(:jl_array_grow_end, Void, (Any, UInt), isnull, rows)
+    ccall(:jl_array_grow_end, Void, (Any, UInt), values, len)
+    ccall(:jl_array_grow_end, Void, (Any, UInt), isnull, len)
     block2 = Block(block)
     cur = block2.ptr
     elsize = block2.elsize
-    for i = 1:rows
-        @inbounds values[i+row] = Data.PointerString(cur, bytes2codeunits(T,ind[i]))
-        @inbounds isnull[i+row] = ind[i] == ODBC.API.SQL_NULL_DATA
+    for i = 1:len
+        @inbounds values[i+offset] = Data.PointerString(cur, bytes2codeunits(T,ind[i]))
+        @inbounds isnull[i+offset] = ind[i] == ODBC.API.SQL_NULL_DATA
         cur += elsize
     end
     push!(other,block2)

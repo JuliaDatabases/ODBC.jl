@@ -28,9 +28,9 @@ function Source(dsn::DSN, query::AbstractString)
     ODBC.API.SQLNumResultCols(stmt,cols)
     ODBC.API.SQLRowCount(stmt,rows)
     rows, cols = rows[], cols[]
-    rows = max(0,rows) # in cases where the ODBC driver returns a negative # for rows
-    rowset = rows == 0 ? ODBC.API.MAXFETCHSIZE : min(ODBC.API.MAXFETCHSIZE,rows)
-    bigquery = rows > ODBC.API.MAXFETCHSIZE || rows == 0
+    # rows might be -1 (dbms doesn't return total rows in resultset), 0 (empty resultset), or 1+
+    rowset = rows < 0 ? ODBC.API.MAXFETCHSIZE : min(ODBC.API.MAXFETCHSIZE,rows)
+    multifetch = rows < 0 || rows > ODBC.API.MAXFETCHSIZE
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rowset, ODBC.API.SQL_IS_UINTEGER)
     #Allocate arrays to hold each column's metadata
     cnames = Array(UTF8String,cols)
@@ -49,7 +49,7 @@ function Source(dsn::DSN, query::AbstractString)
         t = dt[]
         ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], null[]
         atype, juliatypes[x] = ODBC.API.SQL2Julia[t]
-        block = ODBC.Block(atype, csizes[x]+1, rowset, bigquery || atype <: ODBC.CHARS)
+        block = ODBC.Block(atype, csizes[x]+1, rowset, multifetch || atype <: ODBC.CHARS)
         ind = Array(ODBC.API.SQLLEN,rowset)
         ODBC.API.SQLBindCols(stmt,x,ODBC.API.SQL2C[t],block.ptr,block.elsize,ind)
         columns[x], indcols[x] = block, ind
@@ -57,7 +57,7 @@ function Source(dsn::DSN, query::AbstractString)
     schema = Data.Schema(cnames, juliatypes, rows,
         Dict("types"=>ctypes, "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
     rb = ODBC.ResultBlock(columns,indcols,rowset)
-    rowsfetched = Ref{ODBC.API.SQLLEN}()
+    rowsfetched = Ref{ODBC.API.SQLLEN}() # will be populated by call to SQLFetchScroll
     ODBC.API.SQLSetStmtAttr(stmt,ODBC.API.SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,ODBC.API.SQL_NTS)
     return ODBC.Source(schema,dsn,query,rb,ODBC.API.SQLFetchScroll(stmt,ODBC.API.SQL_FETCH_NEXT,0),rowsfetched)
 end
@@ -65,12 +65,12 @@ end
 Data.isdone(source::ODBC.Source) = source.status != ODBC.API.SQL_SUCCESS
 
 function Data.stream!(source::ODBC.Source, ::Type{Data.Table};force_append::Bool=false)
-    rb = source.rb
-    if rb.fetchsize == ODBC.API.MAXFETCHSIZE || size(source,1) == 0 || force_append
-        force_append && (source.schema.rows = 0)
+    rb = source.rb;
+    if rb.fetchsize == ODBC.API.MAXFETCHSIZE || size(source,1) < 0 || force_append
+        (size(source,1) < 0 || force_append) && (source.schema.rows = 0)
         # big query where we'll need to fetch multiple times
         # or when the DBMS didn't return the # of rows, so we need to `append!``
-        dt = Data.Table(Data.schema(source))
+        dt = Data.Table(Data.schema(source));
         return Data.stream!(source, dt)
     else
         # small query where we only needed to fetch once
@@ -85,18 +85,19 @@ function Data.stream!(source::ODBC.Source, ::Type{Data.Table};force_append::Bool
 end
 
 function Data.stream!(source::ODBC.Source, dt::Data.Table)
-    rb = source.rb
-    data = dt.data
+    rb = source.rb;
+    data = dt.data;
     other = []
     dt.other = other
     rows, cols = size(source)
     if rows == 0
-        # DBMS didn't return # of rows, so we just need to keep appending
+        # empty resultset or DBMS didn't return # of rows, so we just need to keep appending (or we're done)
         r = 0
         while true
             rows = source.rowsfetched[]
+            rows == 0 && break
             for col = 1:cols
-                ODBC.append!(rb.columns[col],rb.indcols[col],data[col],rows,other)
+                ODBC.append!(rb.columns[col],rb.indcols[col],data[col],r,rows,other)
             end
             r += rows
             Data.isdone(source) && break
@@ -108,6 +109,7 @@ function Data.stream!(source::ODBC.Source, dt::Data.Table)
         r = 0
         while true
             rows = source.rowsfetched[]
+            rows == 0 && break
             for col = 1:cols
                 ODBC.copy!(rb.columns[col],rb.indcols[col],data[col],r,rows,other)
             end
