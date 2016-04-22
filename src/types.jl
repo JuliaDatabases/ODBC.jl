@@ -247,7 +247,7 @@ immutable SQLDate
     day::Int16
 end
 
-Base.show(io::IO,x::SQLDate) = print(io,"$(x.year)-$(x.month)-$(x.day)")
+Base.show(io::IO,x::SQLDate) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))")
 
 immutable SQLTime
     hour::Int16
@@ -255,7 +255,7 @@ immutable SQLTime
     second::Int16
 end
 
-Base.show(io::IO,x::SQLTime) = print(io,"$(x.hour):$(x.minute):$(x.second)")
+Base.show(io::IO,x::SQLTime) = print(io,"$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))")
 
 immutable SQLTimestamp
     year::Int16
@@ -267,7 +267,7 @@ immutable SQLTimestamp
     fraction::Int32 #nanoseconds
 end
 
-Base.show(io::IO,x::SQLTimestamp) = print(io,"$(x.year)-$(x.month)-$(x.day)T$(x.hour):$(x.minute):$(x.second)")
+Base.show(io::IO,x::SQLTimestamp) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))T$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0')) $(x.fraction)")
 
 const SQL_MAX_NUMERIC_LEN = 16
 immutable SQLNumeric
@@ -277,7 +277,7 @@ immutable SQLNumeric
     val::NTuple{SQL_MAX_NUMERIC_LEN,SQLCHAR}
 end
 
-Base.show(io::IO,x::SQLNumeric) = print(io,"SQLNumeric")
+Base.show(io::IO,x::SQLNumeric) = print(io,"SQLNumeric($(x.sign == 1 ? '+' : '-') precision: $(x.precision) scale: $(x.scale) val: $(x.val))")
 
 # typedef struct  tagSQLGUID
 # {
