@@ -46,9 +46,11 @@ function listdrivers()
     desc_length = Ref{ODBC.API.SQLSMALLINT}()
     driver_attr = Block(ODBC.API.SQLWCHAR, BUFLEN)
     attr_length = Ref{ODBC.API.SQLSMALLINT}()
-    while ODBC.API.SQLDrivers(ENV, driver_desc.ptr, BUFLEN, desc_length, driver_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
+    dir = ODBC.API.SQL_FETCH_FIRST
+    while ODBC.API.SQLDrivers(ENV, dir, driver_desc.ptr, BUFLEN, desc_length, driver_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
         push!(descriptions, string(driver_desc, desc_length[]))
         push!(attributes,   string(driver_attr, attr_length[]))
+        dir = ODBC.API.SQL_FETCH_NEXT
     end
     return [descriptions attributes]
 end
@@ -61,9 +63,11 @@ function listdsns()
     desc_length = Ref{ODBC.API.SQLSMALLINT}()
     dsn_attr    = Block(ODBC.API.SQLWCHAR, BUFLEN)
     attr_length = Ref{ODBC.API.SQLSMALLINT}()
-    while ODBC.API.SQLDataSources(ENV, dsn_desc.ptr, BUFLEN, desc_length, dsn_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
+    dir = ODBC.API.SQL_FETCH_FIRST
+    while ODBC.API.SQLDataSources(ENV, dir, dsn_desc.ptr, BUFLEN, desc_length, dsn_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
         push!(descriptions, string(dsn_desc, desc_length[]))
         push!(attributes,   string(dsn_attr, attr_length[]))
+        dir = ODBC.API.SQL_FETCH_NEXT
     end
     return [descriptions attributes]
 end

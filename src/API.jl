@@ -59,6 +59,7 @@ end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms712400(v=vs.85).aspx
 function SQLDrivers(env::Ptr{Void},
+                    dir,
                     driver_desc::Ptr{SQLWCHAR},
                     desclen,
                     desc_length::Ref{SQLSMALLINT},
@@ -67,11 +68,12 @@ function SQLDrivers(env::Ptr{Void},
                     attr_length::Ref{SQLSMALLINT})
     @odbc(:SQLDriversW,
                 (Ptr{Void}, SQLUSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}),
-                env, SQL_FETCH_NEXT, driver_desc, desclen, desc_length, driver_attr, attrlen, attr_length)
+                env, dir, driver_desc, desclen, desc_length, driver_attr, attrlen, attr_length)
 end
 
 #http://msdn.microsoft.com/en-us/library/windows/desktop/ms711004(v=vs.85).aspx
 function SQLDataSources(env::Ptr{Void},
+                        dir,
                         dsn_desc::Ptr{SQLWCHAR},
                         desclen,
                         desc_length::Ref{SQLSMALLINT},
@@ -80,7 +82,7 @@ function SQLDataSources(env::Ptr{Void},
                         attr_length::Ref{SQLSMALLINT})
     @odbc(:SQLDataSourcesW,
                 (Ptr{Void}, SQLUSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}),
-                env, SQL_FETCH_NEXT, dsn_desc, desclen, desc_length, dsn_attr, attrlen, attr_length)
+                env, dir, dsn_desc, desclen, desc_length, dsn_attr, attrlen, attr_length)
 end
 
 #### Handle Functions ####
