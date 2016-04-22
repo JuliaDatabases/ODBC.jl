@@ -126,8 +126,6 @@ end
 # C data types are used in SQLBindCols (ODBCFetch) to allocate column memory; the driver manager converts from the SQL type to this C type in memory
 # Julia types indicate how julia should read the returned C data type memory from the previous step
 
-# Data Type Status: Pretty good, I think we're at 95% support, really only missing native date, time, interval, and GUID types (currently just read in as strings)
-
 # SQL Data Type                     C Data Type                         Julia Type
 # ---------------------------------------------------------------------------------
 # SQL_CHAR                          SQL_C_CHAR                          UInt8
@@ -168,6 +166,7 @@ end
 # SQL_GUID                          SQL_C_GUID                          SQLGUID
 
 # SQL Data Type Definitions
+const SQL_NULL_DATA     = -1
 const SQL_CHAR          = Int16(  1) # Character string of fixed string length n.
 const SQL_VARCHAR       = Int16( 12) # Variable-length character string with a maximum string length n.
 const SQL_LONGVARCHAR   = Int16( -1) # Variable length character data. Maximum length is data source–dependent.
@@ -191,8 +190,9 @@ const SQL_TYPE_DATE     = Int16( 91) # Year, month, and day fields, conforming t
 const SQL_TYPE_TIME     = Int16( 92) # Hour, minute, and second fields, with valid values for hours of 00 to 23,
                                      # valid values for minutes of 00 to 59, and valid values for seconds of 00 to 61. Precision p indicates the seconds precision.
 const SQL_TYPE_TIMESTAMP = Int16( 93) # Year, month, day, hour, minute, and second fields, with valid values as defined for the DATE and TIME data types.
-
-const SQL_NULL_DATA = -1
+# SQL Server specific
+const SQL_SS_TIME2       = Int16(-154)
+const SQL_SS_TIMESTAMPOFFSET = Int16(-155)
 
 #const SQL_INTERVAL_MONTH            = Int16(102)
 #const SQL_INTERVAL_YEAR             = Int16(101)
@@ -316,6 +316,8 @@ const SQL2C = Dict(
     SQL_TYPE_DATE      => SQL_C_TYPE_DATE,
     SQL_TYPE_TIME      => SQL_C_TYPE_TIME,
     SQL_TYPE_TIMESTAMP => SQL_C_TYPE_TIMESTAMP,
+    SQL_SS_TIME2       => SQL_C_TYPE_TIME,
+    SQL_SS_TIMESTAMPOFFSET => SQL_C_TYPE_TIMESTAMP,
     SQL_GUID           => SQL_C_GUID)
 
 """
@@ -347,6 +349,8 @@ const SQL2Julia = Dict(
     SQL_TYPE_DATE      => (SQLDate, SQLDate),
     SQL_TYPE_TIME      => (SQLTime, SQLTime),
     SQL_TYPE_TIMESTAMP => (SQLTimestamp, SQLTimestamp),
+    SQL_SS_TIME2       => (SQLTime, SQLTime),
+    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, SQLTimestamp),
     SQL_GUID           => (SQLGUID, SQLGUID))
 
 const SQL_TYPES = Dict(
@@ -372,6 +376,8 @@ const SQL_TYPES = Dict(
      91 => "SQL_TYPE_DATE",
      92 => "SQL_TYPE_TIME",
      93 => "SQL_TYPE_TIMESTAMP",
+   -154 => "SQL_SS_TIME2",
+   -155 => "SQL_SS_TIMESTAMPOFFSET",
     102 => "SQL_INTERVAL_MONTH",
     101 => "SQL_INTERVAL_YEAR",
     107 => "SQL_INTERVAL_YEAR_TO_MONTH",
