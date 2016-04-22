@@ -127,6 +127,7 @@ end
 function Data.stream!(source::ODBC.Source, sink::CSV.Sink;header::Bool=true)
     header && CSV.writeheaders(source,sink)
     rb = source.rb
+    null = sink.options.null
     rows, cols = size(source)
     r = 0
     while true
@@ -134,7 +135,7 @@ function Data.stream!(source::ODBC.Source, sink::CSV.Sink;header::Bool=true)
         for row = 1:rows, col = 1:cols
             ind = rb.indcols[col][row]
             val = getfield(rb.columns[col], row, ind)
-            CSV.writefield(sink, ind == ODBC.API.SQL_NULL_DATA ? sink.null : val, col, cols)
+            CSV.writefield(sink, ind == ODBC.API.SQL_NULL_DATA ? null : val, col, cols)
         end
         r += rows
         Data.isdone(source) && break
