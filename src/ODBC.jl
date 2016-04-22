@@ -105,6 +105,7 @@ function disconnect!(conn::DSN)
     return nothing
 end
 
+# Represents the collection of variables that aid when fetching data
 immutable ResultBlock
     columns::Vector{Block}
     indcols::Vector{Vector{ODBC.API.SQLLEN}}
@@ -121,7 +122,6 @@ type Source <: Data.Source
 end
 
 include("backend.jl")
-include("userfacing.jl")
 
 function __init__()
     global const ENV = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
