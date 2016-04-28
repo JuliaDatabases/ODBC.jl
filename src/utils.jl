@@ -1,4 +1,4 @@
-"just a block of memory that will be `free`d when we're done with it; T is the element type and N is the size of each element"
+"just a block of memory; T is the element type, `len` is total # of **bytes* pointed to, and `elsize` is size of each element"
 type Block{T}
     ptr::Ptr{T}     # pointer to a block of memory
     len::UInt       # total # of bytes in block
