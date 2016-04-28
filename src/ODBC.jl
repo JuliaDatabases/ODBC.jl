@@ -1,7 +1,7 @@
 using DataStreams
 module ODBC
 
-using Compat, NullableArrays, DataStreams, CSV, SQLite
+using Compat, NullableArrays, DataStreams, CSV, SQLite, DecFP
 
 include("API.jl")
 include("utils.jl")
@@ -24,6 +24,8 @@ function ODBCError(handle::Ptr{Void},handletype::Int16)
         println("[ODBC] $st: $msg")
         i += 1
     end
+    free!(state)
+    free!(error_msg)
     return true
 end
 
@@ -52,6 +54,8 @@ function listdrivers()
         push!(attributes,   string(driver_attr, attr_length[]))
         dir = ODBC.API.SQL_FETCH_NEXT
     end
+    free!(driver_desc)
+    free!(driver_attr)
     return [descriptions attributes]
 end
 
@@ -69,6 +73,8 @@ function listdsns()
         push!(attributes,   string(dsn_attr, attr_length[]))
         dir = ODBC.API.SQL_FETCH_NEXT
     end
+    free!(dsn_desc)
+    free!(dsn_attr)
     return [descriptions attributes]
 end
 
@@ -109,8 +115,12 @@ end
 immutable ResultBlock
     columns::Vector{Block}
     indcols::Vector{Vector{ODBC.API.SQLLEN}}
+    jltypes::Vector{DataType}
     fetchsize::Int
+    rowsfetched::Ref{ODBC.API.SQLLEN}
 end
+
+Base.show(io::IO, rb::ResultBlock) = print(io, "ODBC.ResultBlock:\n\trowsfetched: $(rb.rowsfetched)\n\tfetchsize: $(rb.fetchsize)\n\tcolumns: $(length(rb.columns))\n\t$(rb.jltypes)")
 
 type Source <: Data.Source
     schema::Data.Schema
@@ -118,8 +128,9 @@ type Source <: Data.Source
     query::AbstractString
     rb::ResultBlock
     status::Int
-    rowsfetched::Ref{ODBC.API.SQLLEN}
 end
+
+Base.show(io::IO, source::Source) = print(io, "ODBC.Source:\n\tDSN: $(source.dsn)\n\tstatus: $(source.status)\n\tschema: $(source.schema)")
 
 include("backend.jl")
 

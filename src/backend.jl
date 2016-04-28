@@ -229,6 +229,13 @@ function query(dsn::DSN, querystring::AbstractString)
     return Data.stream!(source, Data.Table)
 end
 
+function execute!(dsn::DSN, query::AbstractString)
+    stmt = dsn.stmt_ptr
+    ODBC.ODBCFreeStmt!(stmt)
+    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query)
+    return
+end
+
 # sql"..." string literal for convenience;
 # it doesn't do anything different than query right now,
 # but we could potentially do some interesting things here
