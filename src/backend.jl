@@ -21,6 +21,13 @@ function ODBCDriverConnect!(dbc::Ptr{Void},conn_string,driver_prompt::UInt16)
     return connection_string
 end
 
+function execute!(dsn::DSN, query::AbstractString)
+    stmt = dsn.stmt_ptr
+    ODBC.ODBCFreeStmt!(stmt)
+    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query)
+    return
+end
+
 # independent Source constructor
 function Source(dsn::DSN, query::AbstractString)
     stmt = dsn.stmt_ptr
@@ -224,16 +231,9 @@ function Data.stream!(source::ODBC.Source, sink::SQLite.Sink)
     return sink
 end
 
-function query(dsn::DSN, querystring::AbstractString)
+function query(dsn::DSN, querystring::AbstractString, sink=Data.Table)
     source = ODBC.Source(dsn, querystring)
-    return Data.stream!(source, Data.Table)
-end
-
-function execute!(dsn::DSN, query::AbstractString)
-    stmt = dsn.stmt_ptr
-    ODBC.ODBCFreeStmt!(stmt)
-    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query)
-    return
+    return Data.stream!(source, sink)
 end
 
 # sql"..." string literal for convenience;
