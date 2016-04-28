@@ -267,7 +267,7 @@ immutable SQLTimestamp
     fraction::Int32 #nanoseconds
 end
 
-Base.show(io::IO,x::SQLTimestamp) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))T$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))$(x.fraction == 0 ? "" : string(" ",x.fraction,"ns"))")
+Base.show(io::IO,x::SQLTimestamp) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))T$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))$(x.fraction == 0 ? "" : strip(@sprintf("%.9f",x.fraction/1e+9),'0'))")
 
 const SQL_MAX_NUMERIC_LEN = 16
 immutable SQLNumeric
