@@ -40,7 +40,7 @@ bytes2codeunits(::Type{UInt32}, bytes::ODBC.API.SQLLEN) = ifelse(bytes == ODBC.A
 
 const DECZERO = Dec64(0)
 
-cleanup!{T<:CHARS}(::Type{T}, block, other) = push!(other, block)
+cleanup!{T}(::Type{T}, block, other) = push!(other, block)
 cleanup!(::Type{Vector{UInt8}}, block, other) = zero!(block)
 cleanup!(::Type{Dec64}, block, other) = free!(block)
 
