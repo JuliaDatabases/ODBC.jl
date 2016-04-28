@@ -22,7 +22,7 @@
  #Error Handling and Diagnostics
 module API
 
-using Compat, DataStreams
+using Compat, DataStreams, DecFP
 
 include("types.jl")
 

@@ -300,8 +300,8 @@ const SQL2C = Dict(
     SQL_WCHAR          => SQL_C_WCHAR,
     SQL_WVARCHAR       => SQL_C_WCHAR,
     SQL_WLONGVARCHAR   => SQL_C_WCHAR,
-    SQL_DECIMAL        => SQL_C_NUMERIC,
-    SQL_NUMERIC        => SQL_C_NUMERIC,
+    SQL_DECIMAL        => SQL_C_WCHAR,
+    SQL_NUMERIC        => SQL_C_WCHAR,
     SQL_SMALLINT       => SQL_C_SHORT,
     SQL_INTEGER        => SQL_C_LONG,
     SQL_REAL           => SQL_C_FLOAT,
@@ -322,36 +322,39 @@ const SQL2C = Dict(
 
 """
 maps SQL types from the ODBC manager to Julia types;
-in particular, it returns a Tuple{A,B}, where `A` is the Julia type
+in particular, it returns a Tuple{A,B,Bool}, where `A` is the Julia type
 used to allocate and return data from the ODBC manager, while `B`
-represents the final column type of the data
+represents the final column type of the data; conversion from `A` to `B` happens
+through the `cast(::Type{B})` function in utils.jl.
+The 3rd `Bool` value indicates whether the column should even be pre-allocated
+or retrieved dynamically at fetching time (i.e. LONGTEXT and LONGBINARY SQL types)
 """
 const SQL2Julia = Dict(
-    SQL_CHAR           => (SQLCHAR, Data.PointerString{SQLCHAR}),
-    SQL_VARCHAR        => (SQLCHAR, Data.PointerString{SQLCHAR}),
-    SQL_LONGVARCHAR    => (SQLCHAR, Data.PointerString{SQLCHAR}),
-    SQL_WCHAR          => (SQLWCHAR, Data.PointerString{SQLWCHAR}),
-    SQL_WVARCHAR       => (SQLWCHAR, Data.PointerString{SQLWCHAR}),
-    SQL_WLONGVARCHAR   => (SQLWCHAR, Data.PointerString{SQLWCHAR}),
-    SQL_DECIMAL        => (SQLNumeric, SQLNumeric),
-    SQL_NUMERIC        => (SQLNumeric, SQLNumeric),
-    SQL_SMALLINT       => (SQLSMALLINT, SQLSMALLINT),
-    SQL_INTEGER        => (SQLINTEGER, SQLINTEGER),
-    SQL_REAL           => (SQLREAL, SQLREAL),
-    SQL_FLOAT          => (SQLFLOAT, SQLFLOAT),
-    SQL_DOUBLE         => (SQLDOUBLE, SQLDOUBLE),
-    SQL_BIT            => (Int8, Int8),
-    SQL_TINYINT        => (Int8, Int8),
-    SQL_BIGINT         => (Int64, Int64),
-    SQL_BINARY         => (UInt8, Data.PointerString{UInt8}),
-    SQL_VARBINARY      => (UInt8, Data.PointerString{UInt8}),
-    SQL_LONGVARBINARY  => (UInt8, Data.PointerString{UInt8}),
-    SQL_TYPE_DATE      => (SQLDate, SQLDate),
-    SQL_TYPE_TIME      => (SQLTime, SQLTime),
-    SQL_TYPE_TIMESTAMP => (SQLTimestamp, SQLTimestamp),
-    SQL_SS_TIME2       => (SQLTime, SQLTime),
-    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, SQLTimestamp),
-    SQL_GUID           => (SQLGUID, SQLGUID))
+    SQL_CHAR           => (SQLCHAR, Data.PointerString{SQLCHAR}, false),
+    SQL_VARCHAR        => (SQLCHAR, Data.PointerString{SQLCHAR}, false),
+    SQL_LONGVARCHAR    => (SQLCHAR, Data.PointerString{SQLCHAR}, true),
+    SQL_WCHAR          => (SQLWCHAR, Data.PointerString{SQLWCHAR}, false),
+    SQL_WVARCHAR       => (SQLWCHAR, Data.PointerString{SQLWCHAR}, false),
+    SQL_WLONGVARCHAR   => (SQLWCHAR, Data.PointerString{SQLWCHAR}, true),
+    SQL_DECIMAL        => (SQLWCHAR, Dec64, false),
+    SQL_NUMERIC        => (SQLWCHAR, Dec64, false),
+    SQL_SMALLINT       => (SQLSMALLINT, SQLSMALLINT, false),
+    SQL_INTEGER        => (SQLINTEGER, SQLINTEGER, false),
+    SQL_REAL           => (SQLREAL, SQLREAL, false),
+    SQL_FLOAT          => (SQLFLOAT, SQLFLOAT, false),
+    SQL_DOUBLE         => (SQLDOUBLE, SQLDOUBLE, false),
+    SQL_BIT            => (Int8, Int8, false),
+    SQL_TINYINT        => (Int8, Int8, false),
+    SQL_BIGINT         => (Int64, Int64, false),
+    SQL_BINARY         => (UInt8, Vector{UInt8}, false),
+    SQL_VARBINARY      => (UInt8, Vector{UInt8}, false),
+    SQL_LONGVARBINARY  => (UInt8, Vector{UInt8}, true),
+    SQL_TYPE_DATE      => (SQLDate, SQLDate, false),
+    SQL_TYPE_TIME      => (SQLTime, SQLTime, false),
+    SQL_TYPE_TIMESTAMP => (SQLTimestamp, SQLTimestamp, false),
+    SQL_SS_TIME2       => (SQLTime, SQLTime, false),
+    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, SQLTimestamp, false),
+    SQL_GUID           => (SQLGUID, SQLGUID, false))
 
 const SQL_TYPES = Dict(
       1 => "SQL_CHAR",
