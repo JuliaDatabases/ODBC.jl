@@ -98,8 +98,14 @@ end
 
 # Fetch Strategies
   #1. Reinterpet Blocks that were allocated and bound
+    # isbits arrays: let Julia take ownership of Block memory; zero out the Block
+    # mutable arrays: keep references to Block in `other`
   #2. Copy allocated and bound Blocks to pre-allocated output and reinterpret final output
+    # isbits arrays: copy Block memory to dest array, free allocated Blocks
+    # mutable arrays: keep references to copied Blocks in `other`; free allocated Blocks
   #3. Grow output by rows fetched, copy allocated and bound Blocks to newly grown output, reinterpret final output
+    # isbits arrays: copy Block memory to dest array, free allocated Blocks
+    # mutable arrays: keep references to copied Blocks in `other`
 # Fetch Strategy Determination
   # if known # of rows and # of rows < MAXFETCHSIZE and no LONGTEXT
     # then set rowset = rows, do one SQLFetchScroll, fetch strategy #1
@@ -124,8 +130,7 @@ function Data.stream!(source::ODBC.Source, ::Type{Data.Table})
         data = Array(NullableVector, cols)
         other = []
         for col = 1:cols
-            data[col] = NullableArray(rb.jltypes[col],rb.columns[col],rb.indcols[col],rows)
-            push!(other, rb.columns[col])
+            data[col] = NullableArray(rb.jltypes[col],rb.columns[col],rb.indcols[col],rows, other)
         end
         return Data.Table(Data.schema(source),data,other)
     else
@@ -194,7 +199,7 @@ function Data.stream!(source::ODBC.Source, sink::CSV.Sink;header::Bool=true)
     return sink
 end
 
-function getbind!{T}(jltype::T,block::Block,ind,row,col,stmt)
+function getbind!{T}(jltype::Type{T},block::Block,ind,row,col,stmt)
     val = getfield(jltype, block, row, ind)::T
     if ind == ODBC.API.SQL_NULL_DATA
         SQLite.bind!(stmt,col,SQLite.NULL)
@@ -211,7 +216,7 @@ function Data.stream!(source::ODBC.Source, sink::SQLite.Sink)
     SQLite.transaction(sink.db) do
         r = 0
         while true
-            rowsfetched = source.rowsfetched[]
+            rowsfetched = rb.rowsfetched[]
             for row = 1:rowsfetched
                 for col = 1:cols
                     getbind!(rb.jltypes[col],rb.columns[col],rb.indcols[col][row],row,col,stmt)

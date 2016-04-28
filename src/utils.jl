@@ -26,6 +26,8 @@ function Block{T}(block::Block{T},n::Integer=block.len)
 end
 
 free!(block::Block) = Libc.free(block.ptr)
+"remove the .ptr from a Block"
+zero!(block::Block) = (block.ptr = 0; return nothing)
 
 # used for getting messages back from ODBC driver manager; SQLDrivers, SQLError, etc.
 Base.string(block::Block{UInt8},  len::Integer) = utf8(block.ptr,len)
@@ -38,12 +40,16 @@ bytes2codeunits(::Type{UInt32}, bytes::ODBC.API.SQLLEN) = ifelse(bytes == ODBC.A
 
 const DECZERO = Dec64(0)
 
-cast{T}(::Type{T}, ptr, len) = Data.PointerString(ptr, len)
-cast(::Type{Vector{UInt8}}, ptr, len) = pointer_to_array(ptr, len, true)
-cast(::Type{Dec64}, ptr, len) = len == 0 ? DECZERO : parse(Dec64, string(Data.PointerString(ptr, len)))
+cleanup!{T<:CHARS}(::Type{T}, block, other) = push!(other, block)
+cleanup!(::Type{Vector{UInt8}}, block, other) = zero!(block)
+cleanup!(::Type{Dec64}, block, other) = free!(block)
+
+cast{T}(::Type{T}, ptr, len, own) = Data.PointerString(ptr, len)
+cast(::Type{Vector{UInt8}}, ptr, len, own) = pointer_to_array(ptr, len, own)
+cast(::Type{Dec64}, ptr, len, own) = len == 0 ? DECZERO : parse(Dec64, string(Data.PointerString(ptr, len)))
 
 getfield{T}(jltype,block::Block{T}, row, ind) = unsafe_load(block.ptr, row)
-getfield{T<:CHARS}(jltype, block::Block{T}, row, ind) = cast(jltype, block.ptr + block.elsize * (row-1), ODBC.bytes2codeunits(T,ind))
+getfield{T<:CHARS}(jltype, block::Block{T}, row, ind) = cast(jltype, block.ptr + block.elsize * (row-1), ODBC.bytes2codeunits(T,ind), false)
 
 function booleanize!(ind::Vector{ODBC.API.SQLLEN},rows)
     new = Array(Bool, rows)
@@ -59,18 +65,24 @@ function booleanize!(ind::Vector{ODBC.API.SQLLEN},new::Vector{Bool},offset,len)
     return new
 end
 
-"create a NullableVector from a Block that has bitstype/immutable data"
-NullableArrays.NullableArray{T}(jltype, block::Block{T}, ind, rows) = NullableArray(pointer_to_array(block.ptr, rows, false), booleanize!(ind,rows))
+"""create a NullableVector from a Block that has bitstype/immutable data;
+   we're passing ownership of the memory to Julia and zeroing out the ptr in `block`"""
+function NullableArrays.NullableArray{T}(jltype, block::Block{T}, ind, rows, other)
+    a = NullableArray(pointer_to_array(block.ptr, rows, true), booleanize!(ind,rows))
+    zero!(block)
+    return a
+end
 
 "create a NullableVector from a Block that has container-type or Dec64 data"
-function NullableArrays.NullableArray{T<:CHARS}(jltype, block::Block{T}, ind, rows)
+function NullableArrays.NullableArray{T<:CHARS}(jltype, block::Block{T}, ind, rows, other)
     values = Array(jltype, rows)
     cur = block.ptr
     elsize = block.elsize
     for row = 1:rows
-        @inbounds values[row] = ODBC.cast(jltype, cur, ODBC.bytes2codeunits(T,ind[row]))
+        @inbounds values[row] = ODBC.cast(jltype, cur, ODBC.bytes2codeunits(T,ind[row]), true)
         cur += elsize
     end
+    cleanup!(jltype, block, other)
     return NullableArray(values, booleanize!(ind,rows))
 end
 
@@ -82,7 +94,21 @@ function Base.copy!{T}(jltype, block::Block{T}, ind, dest::NullableVector, offse
     return nothing
 end
 
-"fill a NullableVector by copying the data from a Block that has container-type or Dec64 data"
+"fill a NullableVector by copying the data from a Block that has Dec64 data"
+function Base.copy!{T<:CHARS}(::Type{Dec64}, block::Block{T}, ind, dest::NullableVector, offset, len, other)
+    values = dest.values
+    isnull = dest.isnull
+    cur = block.ptr
+    elsize = block.elsize
+    for i = 1:len
+        @inbounds values[i+offset] = cast(Dec64, cur, ODBC.bytes2codeunits(T,ind[i]), true)
+        @inbounds isnull[i+offset] = ind[i] == ODBC.API.SQL_NULL_DATA
+        cur += elsize
+    end
+    return nothing
+end
+
+"fill a NullableVector by copying the data from a Block that has container-type"
 function Base.copy!{T<:CHARS}(jltype, block::Block{T}, ind, dest::NullableVector, offset, len, other)
     # basic strategy is:
       # make our own copy of the memory
@@ -94,11 +120,11 @@ function Base.copy!{T<:CHARS}(jltype, block::Block{T}, ind, dest::NullableVector
     cur = block2.ptr
     elsize = block2.elsize
     for i = 1:len
-        @inbounds values[i+offset] = cast(jltype, cur, ODBC.bytes2codeunits(T,ind[i]))
+        @inbounds values[i+offset] = cast(jltype, cur, ODBC.bytes2codeunits(T,ind[i]), true)
         @inbounds isnull[i+offset] = ind[i] == ODBC.API.SQL_NULL_DATA
         cur += elsize
     end
-    push!(other,block2)
+    cleanup!(jltype, block2, other)
     return nothing
 end
 
@@ -110,6 +136,23 @@ function Base.append!{T}(jltype, block::Block{T}, ind, dest::NullableVector, off
     booleanize!(ind,dest.isnull,offset,len)
     return nothing
 end
+
+"append to a NullableVector by copying the data from a Block that has container-type data"
+function Base.append!{T<:CHARS}(::Type{Dec64}, block::Block{T}, ind, dest::NullableVector, offset, len, other)
+    values = dest.values
+    isnull = dest.isnull
+    ccall(:jl_array_grow_end, Void, (Any, UInt), values, len)
+    ccall(:jl_array_grow_end, Void, (Any, UInt), isnull, len)
+    cur = block.ptr
+    elsize = block.elsize
+    for i = 1:len
+        @inbounds values[i+offset] = cast(Dec64, cur, ODBC.bytes2codeunits(T,ind[i]), true)
+        @inbounds isnull[i+offset] = ind[i] == ODBC.API.SQL_NULL_DATA
+        cur += elsize
+    end
+    return nothing
+end
+
 "append to a NullableVector by copying the data from a Block that has container-type data"
 function Base.append!{T<:CHARS}(jltype, block::Block{T}, ind, dest::NullableVector, offset, len, other)
     values = dest.values
@@ -120,10 +163,10 @@ function Base.append!{T<:CHARS}(jltype, block::Block{T}, ind, dest::NullableVect
     cur = block2.ptr
     elsize = block2.elsize
     for i = 1:len
-        @inbounds values[i+offset] = cast(jltype, cur, ODBC.bytes2codeunits(T,ind[i]))
+        @inbounds values[i+offset] = cast(jltype, cur, ODBC.bytes2codeunits(T,ind[i]), true)
         @inbounds isnull[i+offset] = ind[i] == ODBC.API.SQL_NULL_DATA
         cur += elsize
     end
-    push!(other,block2)
+    cleanup!(jltype, block2, other)
     return nothing
 end
