@@ -141,7 +141,6 @@ function Data.stream!(source::ODBC.Source, ::Type{Data.Table})
 end
 
 function Data.stream!(source::ODBC.Source, dt::Data.Table)
-    Data.schema(source) == Data.schema(dt) || throw(ArgumentError("schema mismatch between source and sink"))
     rb = source.rb;
     rows, cols = size(source)
     data = dt.data;
@@ -215,7 +214,6 @@ function getbind!{T}(jltype::Type{T},block::Block,ind,row,col,stmt)
 end
 
 function Data.stream!(source::ODBC.Source, sink::SQLite.Sink)
-    Data.schema(source) == Data.schema(sink) || throw(ArgumentError("schema mismatch between source and sink"))
     rb = source.rb
     rows, cols = size(source)
     stmt = sink.stmt
