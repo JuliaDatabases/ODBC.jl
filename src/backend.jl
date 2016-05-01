@@ -141,6 +141,7 @@ function Data.stream!(source::ODBC.Source, ::Type{Data.Table})
 end
 
 function Data.stream!(source::ODBC.Source, dt::Data.Table)
+    Data.schema(source) == Data.schema(dt) || throw(ArgumentError("schema mismatch between source and sink"))
     rb = source.rb;
     rows, cols = size(source)
     data = dt.data;
@@ -148,7 +149,7 @@ function Data.stream!(source::ODBC.Source, dt::Data.Table)
     dt.other = other
     r = 0
     while true
-        rowsfetched = rb.rowsfetched[]
+        rowsfetched::ODBC.API.SQLLEN = rb.rowsfetched[]
         rowsfetched == 0 && break
         if rows < 0
             # fetch strategy #3: grow our output and copy Blocks to new output space until done
@@ -173,25 +174,30 @@ function Data.stream!(source::ODBC.Source, dt::Data.Table)
     return dt
 end
 
-function Data.stream!(source::ODBC.Source, sink::CSV.Sink;header::Bool=true)
+function getfield!{T}(jltype::Type{T},block::Block,ind,row,col,cols,sink,null)
+    val = ODBC.getfield(jltype, block, row, ind)
+    CSV.writefield(sink, ind == ODBC.API.SQL_NULL_DATA ? null : val, col, cols)
+end
+
+function Data.stream!(source::ODBC.Source, sink::CSV.Sink,header::Bool=true)
     header && CSV.writeheaders(source,sink)
     rb = source.rb
     null = sink.options.null
     rows, cols = size(source)
     r = 0
     while true
-        rowsfetched = rb.rowsfetched[]
+        rowsfetched::ODBC.API.SQLLEN = rb.rowsfetched[]
+        rowsfetched == 0 && break
         for row = 1:rowsfetched, col = 1:cols
-            ind = rb.indcols[col][row]
-            val = getfield(rb.jltypes[col], rb.columns[col], row, ind)
-            CSV.writefield(sink, ind == ODBC.API.SQL_NULL_DATA ? null : val, col, cols)
+            ind::ODBC.API.SQLLEN = rb.indcols[col][row]
+            ODBC.getfield!(rb.jltypes[col],rb.columns[col],ind,row,col,cols,sink,null)
         end
         r += rowsfetched
         Data.isdone(source) && break
         source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
     end
     for col = 1:cols
-        free!(rb.columns[col])
+        ODBC.free!(rb.columns[col])
     end
     source.schema.rows = r
     sink.schema = source.schema
@@ -209,6 +215,7 @@ function getbind!{T}(jltype::Type{T},block::Block,ind,row,col,stmt)
 end
 
 function Data.stream!(source::ODBC.Source, sink::SQLite.Sink)
+    Data.schema(source) == Data.schema(sink) || throw(ArgumentError("schema mismatch between source and sink"))
     rb = source.rb
     rows, cols = size(source)
     stmt = sink.stmt
@@ -216,10 +223,10 @@ function Data.stream!(source::ODBC.Source, sink::SQLite.Sink)
     SQLite.transaction(sink.db) do
         r = 0
         while true
-            rowsfetched = rb.rowsfetched[]
+            rowsfetched::ODBC.API.SQLLEN = rb.rowsfetched[]
             for row = 1:rowsfetched
                 for col = 1:cols
-                    getbind!(rb.jltypes[col],rb.columns[col],rb.indcols[col][row],row,col,stmt)
+                    getbind!(rb.jltypes[col],rb.columns[col],rb.indcols[col][row]::ODBC.API.SQLLEN,row,col,stmt)
                 end
                 SQLite.sqlite3_step(handle)
                 SQLite.sqlite3_reset(handle)
