@@ -3,7 +3,7 @@ reload("ODBC")
 @show ODBC.listdrivers()
 @show ODBC.listdsns()
 
-dsn = ODBC.DSN("")
+dsn = ODBC.DSN("Driver={MySQL ODBC Driver};")
 
 # Check some basic queries
 dbs = ODBC.query(dsn, "show databases")
@@ -13,9 +13,9 @@ data = ODBC.query(dsn, "select table_name from information_schema.tables");
 # setup a test database
 # ODBC.Source(dsn, "drop database if exists testdb")
 # ODBC.Source(dsn, "create database testdb")
-ODBC.Source(dsn, "use testdb")
-ODBC.Source(dsn, "drop table if exists test1")
-ODBC.Source(dsn, "create table test1
+ODBC.execute!(dsn, "use testdb")
+ODBC.execute!(dsn, "drop table if exists test1")
+ODBC.execute!(dsn, "create table test1
                     (test_bigint bigint,
                      test_bit bit,
                      test_decimal decimal,
@@ -165,36 +165,29 @@ ODBC.Source(dsn, "insert test1 VALUES
 data = ODBC.query(dsn, "select * from test1")
 @test size(data) == (2,27)
 
-
 # ODBC.execute!(dsn, """
 # CREATE TABLE test2
 # (
 #     ID INT NOT NULL PRIMARY KEY,
-#     Name VARCHAR(25),
+#     first_name VARCHAR(25),
+#     last_name VARCHAR(25),
 #     Salary DECIMAL,
-#     Date DATE,
-#     DeptNo SMALLINT,
-#     DeptBudget FLOAT
+#     `hourly rate` real,
+#     hireDate DATE,
+#     `last clockin` DATETIME
 # );""")
-# @time for i = ODBC.API.MAXFETCHSIZE+1:ODBC.API.MAXFETCHSIZE+10
-#     ODBC.execute!(dsn, """
-#     INSERT INTO test2 (ID, Name, Salary, Date, DeptNo, DeptBudget)
-#      VALUES ($i, 'John', 10000.50, '2015-08-03', 1301, 30000.0)
-#     """)
-#     i % 1000 == 0 && println(i)
-# end
-source = ODBC.Source(dsn, "select `salary` from test2 limit 10")
-data = Data.stream!(source, Data.Table)
+# ODBC.execute!(dsn, "load data local infile '/Users/jacobquinn/Downloads/randoms.csv' into table test2
+#                     fields terminated by ',' lines terminated by '\n'
+#                     (id,first_name,last_name,salary,`hourly rate`,hiredate,`last clockin`)")
+
 data = ODBC.query(dsn, "select count(*) from test2")
 @test size(data) == (1,1)
-@test data.data[1][1] === Nullable(65545)
+@test data.data[1][1] === Nullable(70000)
 
 @time data = ODBC.query(dsn, "select * from test2");
-@test size(data)
-
-@time data = ODBC.query(dsn, "select * from test1");
-source = ODBC.Source(dsn, "select * from test1")
-data = Data.stream!(source, Data.Table)
+@test size(data) == (70000,7)
+@test data.data[1].values == [1:70000...]
+@test data.data[end][1] === Nullable(ODBC.API.SQLTimestamp(2002,1,17,21,32,0,0))
 
 # test exporting test1 to CSV
 source = ODBC.Source(dsn, "select * from test1")
@@ -202,13 +195,19 @@ csv = CSV.Sink("test1.csv")
 Data.stream!(source, csv)
 open("test1.csv") do f
     @test readline(f) == "\"test_bigint\",\"test_bit\",\"test_decimal\",\"test_int\",\"test_numeric\",\"test_smallint\",\"test_mediumint\",\"test_tiny_int\",\"test_float\",\"test_real\",\"test_date\",\"test_datetime\",\"test_timestamp\",\"test_time\",\"test_year\",\"test_char\",\"test_varchar\",\"test_binary\",\"test_varbinary\",\"test_tinyblob\",\"test_blob\",\"test_mediumblob\",\"test_longblob\",\"test_tinytext\",\"test_text\",\"test_mediumtext\",\"test_longtext\"\n"
-    @test readline(f) == "1,1,+1E+0,1,+1E+0,1,1,1,1.2,1.2,2016-01-01,2016-01-01T01:01:01 ,2016-01-01T01:01:01 ,01:01:01,2016,\"A\",\"hey there sailor\",UInt8[49,50],\"\",UInt8[104,101,121,32,116,104,101,114,101,32,97,98,114,97,104,97,109],UInt8[104,101,121,32,116,104,101,114,101,32,98,105,108,108],UInt8[104,101,121,32,116,104,101,114,101,32,99,104,97,114,108,105,101],UInt8[104,101,121,32,116,104,101,114,101,32,100,97,110],\"hey there ephraim\",\"hey there frank\",\"hey there george\",\"hey there hank\"\n"
+    @test readline(f) == "1,1,+1E+0,1,+1E+0,1,1,1,1.2,1.2,2016-01-01,2016-01-01T01:01:01,2016-01-01T01:01:01,01:01:01,2016,\"A\",\"hey there sailor\",UInt8[49,50],\"\",UInt8[104,101,121,32,116,104,101,114,101,32,97,98,114,97,104,97,109],UInt8[104,101,121,32,116,104,101,114,101,32,98,105,108,108],UInt8[104,101,121,32,116,104,101,114,101,32,99,104,97,114,108,105,101],UInt8[104,101,121,32,116,104,101,114,101,32,100,97,110],\"hey there ephraim\",\"hey there frank\",\"hey there george\",\"hey there hank\"\n"
 end
+rm("test1.csv")
 
 # # test exporting test2 to CSV
-# source = ODBC.Source(dsn, "select * from test2")
-# csv = CSV.Sink("test2.csv")
-# Data.stream!(source, csv)
+source = ODBC.Source(dsn, "select * from test2")
+csv = CSV.Sink("test2.csv")
+Data.stream!(source, csv)
+open("test2.csv") do f
+    @test readline(f) == "\"ID\",\"first_name\",\"last_name\",\"Salary\",\"hourly rate\",\"hireDate\",\"last clockin\"\n"
+    @test readline(f) == "1,\"Lawrence\",\"Powell\",+87217E+0,26.47,2002-04-09,2002-01-17T21:32:00\n"
+end
+
 
 # test exporting test1 to SQLite
 db = SQLite.DB()
@@ -217,15 +216,21 @@ sqlite = SQLite.Sink(source, db, "test1")
 Data.stream!(source, sqlite)
 
 data = SQLite.query(db, "select * from test1")
-@test
+@test size(data) == (2,27)
+@test data.data[1][1] === Nullable(1)
+@test data.data[3][1] === Nullable(1.0)
+@test data.data[11][1] === Nullable(ODBC.API.SQLDate(2016,1,1))
 
 # test exporting test2 to SQLite
 source = ODBC.Source(dsn, "select * from test2")
-sqlite = SQLite.Sink(db, "test2")
+sqlite = SQLite.Sink(source, db, "test2")
 Data.stream!(source, sqlite)
 
 data = SQLite.query(db, "select * from test2")
-@test
+@test size(data) == (70000,7)
+@test data.data[1].values == [1:70000...]
+@test data.data[end][1] === Nullable(ODBC.API.SQLTimestamp(2002,1,17,21,32,0,0))
 
-ODBC.Source(dsn, "drop table if exists test1")
+
+ODBC.execute!(dsn, "drop table if exists test1")
 # ODBC.Source(dsn, "drop table if exists test2")
