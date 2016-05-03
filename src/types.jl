@@ -326,6 +326,11 @@ const SQL2C = Dict(
     SQL_SS_TIMESTAMPOFFSET => SQL_C_TYPE_TIMESTAMP,
     SQL_GUID           => SQL_C_GUID)
 
+@windows_only begin
+    SQL2C[SQL_DECIMAL] = SQL_C_DOUBLE
+    SQL2C[SQL_NUMERIC] = SQL_C_DOUBLE
+end
+
 """
 maps SQL types from the ODBC manager to Julia types;
 in particular, it returns a Tuple{A,B,Bool}, where `A` is the Julia type
@@ -342,8 +347,8 @@ const SQL2Julia = Dict(
     SQL_WCHAR          => (SQLWCHAR, Data.PointerString{SQLWCHAR}, false),
     SQL_WVARCHAR       => (SQLWCHAR, Data.PointerString{SQLWCHAR}, false),
     SQL_WLONGVARCHAR   => (SQLWCHAR, Data.PointerString{SQLWCHAR}, true),
-    SQL_DECIMAL        => (@windows ? SQLDOUBLE : SQLWCHAR, @windows ? SQLDOUBLE : Dec64, false),
-    SQL_NUMERIC        => (@windows ? SQLDOUBLE : SQLWCHAR, @windows ? SQLDOUBLE : Dec64, false),
+    SQL_DECIMAL        => (SQLWCHAR, Dec64, false),
+    SQL_NUMERIC        => (SQLWCHAR, Dec64, false),
     SQL_SMALLINT       => (SQLSMALLINT, SQLSMALLINT, false),
     SQL_INTEGER        => (SQLINTEGER, SQLINTEGER, false),
     SQL_REAL           => (SQLREAL, SQLREAL, false),
@@ -361,6 +366,11 @@ const SQL2Julia = Dict(
     SQL_SS_TIME2       => (SQLTime, SQLTime, false),
     SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, SQLTimestamp, false),
     SQL_GUID           => (SQLGUID, SQLGUID, false))
+
+@windows_only begin
+    SQL2Julia[SQL_DECIMAL] = (SQLDOUBLE, SQLDOUBLE, false)
+    SQL2Julia[SQL_NUMERIC] = (SQLDOUBLE, SQLDOUBLE, false)
+end
 
 "Convenience mapping of SQL types to their string representation"
 const SQL_TYPES = Dict(

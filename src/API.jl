@@ -465,7 +465,7 @@ function SQLRowCount(stmt::Ptr{Void},rows::Ref{Int})
                 stmt, rows)
 end
 
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713558(v=vs.85).aspx"
+# "http://msdn.microsoft.com/en-us/library/windows/desktop/ms713558(v=vs.85).aspx"
 # function SQLColAttribute(stmt::Ptr{Void},x::Int,)
 # = @odbc(:SQLColAttributeW,
 #                 (Ptr{Void},UInt16,UInt16,Ptr,Int16,Ptr{Int16},Ptr{Int}),
