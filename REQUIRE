@@ -1,3 +1,7 @@
-DataFrames v0.6.10
-Dates
-julia 0.3
+julia 0.4
+Compat
+NullableArrays
+DataStreams
+CSV
+SQLite
+DecFP

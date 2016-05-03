@@ -1,97 +1,173 @@
+using DataStreams
+"""
+library for interfacing with an ODBC Driver Manager.
+Handles connecting to systems, sending queries/statements and returning results, if any.
+Types include:
+  * `DSN` representing a valid ODBC connection
+  * `ODBC.Source` representing an executed query string ready for returning results
+
+Methods:
+  * `ODBC.listdrivers` for listing installed and registered drivers in the ODBC Driver Manager
+  * `ODBC.listdsns` for listing pre-defined ODBC DSNs in the ODBC Driver Manager
+  * `ODBC.query` for executing and returning the results of an SQL query string
+
+See the help documentation for the individual types/methods for more information.
+"""
 module ODBC
 
-using Compat
-using DataFrames
-using DataArrays
-if VERSION < v"0.4-"
-    using Dates
+using Compat, NullableArrays, DataStreams, CSV, SQLite, DecFP
+
+include("API.jl")
+include("utils.jl")
+
+type ODBCError <: Exception
+    msg::AbstractString
 end
 
-export advancedconnect,
-       query, querymeta, @query, @sql_str,
-       Connection, Metadata, conn, Connections,
-       disconnect, listdrivers, listdsns
+const BUFLEN = 1024
 
-include("ODBC_Types.jl")
-include("ODBC_API.jl")
-
-"Holds metadata related to an executed query resultset."
-type Metadata
-    querystring::AbstractString
-    cols::Int
-    rows::Int
-    colnames::Array{UTF8String}
-    @compat coltypes::Array{Tuple{AbstractString, Int16}}
-    colsizes::Array{Int}
-    coldigits::Array{Int16}
-    colnulls::Array{Int16}
+function ODBCError(handle::Ptr{Void},handletype::Int16)
+    i = Int16(1)
+    state = ODBC.Block(ODBC.API.SQLWCHAR,6)
+    native = Ref{ODBC.API.SQLINTEGER}()
+    error_msg = ODBC.Block(ODBC.API.SQLWCHAR, BUFLEN)
+    msg_length = Ref{ODBC.API.SQLSMALLINT}()
+    while ODBC.API.SQLGetDiagRec(handletype,handle,i,state.ptr,native,error_msg.ptr,BUFLEN,msg_length) == ODBC.API.SQL_SUCCESS
+        st  = string(state,5)
+        msg = string(error_msg, msg_length[])
+        println("[ODBC] $st: $msg")
+        i += 1
+    end
+    free!(state)
+    free!(error_msg)
+    return true
 end
 
-Base.show(io::IO,meta::Metadata) = begin
-    if meta == null_meta
-        print(io, "No metadata")
-    else
-        println(io, "Resultset metadata for executed query")
-        println(io, "-------------------------------------")
-        println(io, "Query:   $(meta.querystring)")
-        println(io, "Columns: $(meta.cols)")
-        println(io, "Rows:    $(meta.rows)")
-        println(io, DataFrame(Names=meta.colnames,
-                              Types=meta.coltypes,
-                              Sizes=meta.colsizes,
-                              Digits=meta.coldigits,
-                              Nullable=meta.colnulls))
+#Macros to to check if a function returned a success value or not
+macro CHECK(handle,handletype,func)
+    str = string(func)
+    quote
+        ret = $func
+        ret != ODBC.API.SQL_SUCCESS && ret != ODBC.API.SQL_SUCCESS_WITH_INFO && ODBCError($handle,$handletype) &&
+            throw(ODBCError("$($str) failed; return code: $ret => $(ODBC.API.RETURN_VALUES[ret])"))
+        nothing
     end
 end
 
-"Connection object holds information related to each established connection and retrieved resultsets."
-type Connection
+"List ODBC drivers that have been installed and registered"
+function listdrivers()
+    descriptions = AbstractString[]
+    attributes   = AbstractString[]
+    driver_desc = Block(ODBC.API.SQLWCHAR, BUFLEN)
+    desc_length = Ref{ODBC.API.SQLSMALLINT}()
+    driver_attr = Block(ODBC.API.SQLWCHAR, BUFLEN)
+    attr_length = Ref{ODBC.API.SQLSMALLINT}()
+    dir = ODBC.API.SQL_FETCH_FIRST
+    while ODBC.API.SQLDrivers(ENV, dir, driver_desc.ptr, BUFLEN, desc_length, driver_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
+        push!(descriptions, string(driver_desc, desc_length[]))
+        push!(attributes,   string(driver_attr, attr_length[]))
+        dir = ODBC.API.SQL_FETCH_NEXT
+    end
+    free!(driver_desc)
+    free!(driver_attr)
+    return [descriptions attributes]
+end
+
+"List ODBC DSNs, both user and system, that have been previously defined"
+function listdsns()
+    descriptions = AbstractString[]
+    attributes   = AbstractString[]
+    dsn_desc    = Block(ODBC.API.SQLWCHAR, BUFLEN)
+    desc_length = Ref{ODBC.API.SQLSMALLINT}()
+    dsn_attr    = Block(ODBC.API.SQLWCHAR, BUFLEN)
+    attr_length = Ref{ODBC.API.SQLSMALLINT}()
+    dir = ODBC.API.SQL_FETCH_FIRST
+    while ODBC.API.SQLDataSources(ENV, dir, dsn_desc.ptr, BUFLEN, desc_length, dsn_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
+        push!(descriptions, string(dsn_desc, desc_length[]))
+        push!(attributes,   string(dsn_attr, attr_length[]))
+        dir = ODBC.API.SQL_FETCH_NEXT
+    end
+    free!(dsn_desc)
+    free!(dsn_attr)
+    return [descriptions attributes]
+end
+
+"""
+A DSN represents an established ODBC connection.
+It is passed to most other ODBC methods as a first argument
+"""
+type DSN
     dsn::AbstractString
-    number::Int
     dbc_ptr::Ptr{Void}
     stmt_ptr::Ptr{Void}
-
-    # Holding a reference to the last resultset is useful if the user
-    # runs several test queries just using `query()` or `sql"..."` and
-    # then realizes the last resultset should actually be saved to a variable.
-    resultset::Any
 end
 
-Base.show(io::IO,conn::Connection) = begin
-    if conn == null_conn
-        print(io, "Null ODBC Connection Object")
-    else
-        println(io, "ODBC Connection Object")
-        println(io, "----------------------")
-        println(io, "Connection Data Source: $(conn.dsn)")
-        println(io, "$(conn.dsn) Connection Number: $(conn.number)")
-        if conn.resultset == null_resultset
-            print(io, "Contains resultset(s)? No")
-        else
-            print(io, "Contains resultset(s)? Yes")
-        end
+Base.show(io::IO,conn::DSN) = print(io,"ODBC.DSN($(conn.dsn))")
+
+"""
+Construct a `DSN` type by connecting to a valid ODBC DSN or by specifying a valid connection string.
+Takes optional 2nd and 3rd arguments for `username` and `password`, respectively.
+1st argument `dsn` can be either the name of a pre-defined ODBC DSN or a valid connection string.
+A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
+"""
+function DSN(dsn::AbstractString, username::AbstractString="", password::AbstractString="";driver_prompt::Integer=ODBC.API.SQL_DRIVER_NOPROMPT)
+    dbc = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV)
+    dsns = ODBC.listdsns()
+    found = false
+    for d in dsns[:,1]
+        dsn == d && (found = true)
     end
+    if found
+        @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLConnect(dbc,dsn,username,password)
+    else
+        dsn = ODBCDriverConnect!(dbc, dsn, driver_prompt % UInt16)
+    end
+    stmt = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dbc)
+    conn = DSN(dsn, dbc, stmt)
+    return conn
 end
 
-Base.show(io::IO, conns::Vector{Connection}) = map(show, conns)
+"disconnect a connected `DSN`"
+function disconnect!(conn::DSN)
+    ODBCFreeStmt!(conn.stmt_ptr)
+    ODBC.API.SQLDisconnect(conn.dbc_ptr)
+    return nothing
+end
 
-# Global module consts and variables
-typealias Output @compat(Union{DataType,AbstractString})
+"Internal transition type for use while fetching results of an SQL query from a DSN"
+immutable ResultBlock
+    columns::Vector{Block}
+    indcols::Vector{Vector{ODBC.API.SQLLEN}}
+    jltypes::Vector{DataType}
+    fetchsize::Int
+    rowsfetched::Ref{ODBC.API.SQLLEN}
+end
 
-const null_resultset = DataFrame()
-const null_conn = Connection("", 0, C_NULL, C_NULL, null_resultset)
-@compat const null_meta = Metadata("", 0, 0, UTF8String[], Tuple{AbstractString,Int16}[], Int[], Int16[], Int16[])
+Base.show(io::IO, rb::ResultBlock) = print(io, "ODBC.ResultBlock:\n\trowsfetched: $(rb.rowsfetched)\n\tfetchsize: $(rb.fetchsize)\n\tcolumns: $(length(rb.columns))\n\t$(rb.jltypes)")
 
-global env = C_NULL
+"An `ODBC.Source` type executes a `query` string upon construction and prepares data for streaming to an appropriate `Data.Sink`"
+type Source <: Data.Source
+    schema::Data.Schema
+    dsn::DSN
+    query::AbstractString
+    rb::ResultBlock
+    status::Int
+end
 
-"Global variable consisting of all the objects of type Connection, for managing references to multiple connections"
-global Connections = Connection[]
-
-#Create default connection = null
-global conn = null_conn
-global ret = ""
+Base.show(io::IO, source::Source) = print(io, "ODBC.Source:\n\tDSN: $(source.dsn)\n\tstatus: $(source.status)\n\tschema: $(source.schema)")
 
 include("backend.jl")
-include("userfacing.jl")
+
+function __init__()
+    global const ENV = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
+end
+
+# used to 'clear' a statement of bound columns, resultsets,
+# and other bound parameters in preparation for a subsequent query
+function ODBCFreeStmt!(stmt)
+    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_CLOSE)
+    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_UNBIND)
+    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_RESET_PARAMS)
+end
 
 end #ODBC module

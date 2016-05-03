@@ -1,248 +1,268 @@
-using Compat
+"Allocate ODBC handles for interacting with the ODBC Driver Manager"
 function ODBCAllocHandle(handletype, parenthandle)
-    handle = Array(Ptr{Void},1)
-    if @FAILED SQLAllocHandle(handletype,parenthandle,handle)
-        error("[ODBC]: ODBC Handle Allocation Failed; Return Code: $ret")
-    else
-        #If allocation succeeded, retrieve handle pointer stored in handle's array index 1
-        handle = handle[1]
-        if handletype == SQL_HANDLE_ENV
-            if @FAILED SQLSetEnvAttr(handle,SQL_ATTR_ODBC_VERSION,SQL_OV_ODBC3)
-                #If version-setting fails, release environment handle and set global env variable to a null pointer
-                SQLFreeHandle(SQL_HANDLE_ENV,handle)
-                global env = C_NULL
-                error("[ODBC]: Failed to set ODBC version; Return Code: $ret")
-            end
-        end
+    handle = Ref{Ptr{Void}}()
+    ODBC.API.SQLAllocHandle(handletype,parenthandle,handle)
+    handle = handle[]
+    if handletype == ODBC.API.SQL_HANDLE_ENV
+        ODBC.API.SQLSetEnvAttr(handle,ODBC.API.SQL_ATTR_ODBC_VERSION,ODBC.API.SQL_OV_ODBC3)
     end
     return handle
 end
 
-# Connect to qualified DSN (pre-established through ODBC Admin), with optional username and password inputs
-function ODBCConnect!(dbc::Ptr{Void},dsn::AbstractString,username::AbstractString,password::AbstractString)
-    if @FAILED SQLConnect(dbc,dsn,username,password)
-        ODBCError(SQL_HANDLE_DBC,dbc)
-        error("[ODBC]: SQLConnect failed; Return Code: $ret")
-    end
-end
-
-# Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin
-@compat function ODBCDriverConnect!(dbc::Ptr{Void},conn_string::AbstractString,driver_prompt::UInt16)
+"Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin"
+function ODBCDriverConnect!(dbc::Ptr{Void},conn_string,driver_prompt::UInt16)
     window_handle = C_NULL
     @windows_only window_handle = ccall((:GetForegroundWindow, :user32), Ptr{Void}, () )
-    @windows_only driver_prompt = SQL_DRIVER_PROMPT
-    out_buff = Array(Int16,1)
-    if @FAILED SQLDriverConnect(dbc,window_handle,conn_string,C_NULL,out_buff,driver_prompt)
-        ODBCError(SQL_HANDLE_DBC,dbc)
-        error("[ODBC]: SQLDriverConnect failed; Return Code: $ret")
-    end
+    @windows_only driver_prompt = ODBC.API.SQL_DRIVER_PROMPT
+    out_conn = Block(ODBC.API.SQLWCHAR,BUFLEN)
+    out_buff = Ref{Int16}()
+    @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLDriverConnect(dbc,window_handle,conn_string,out_conn.ptr,BUFLEN,out_buff,driver_prompt)
+    connection_string = string(out_conn,out_buff[])
+    free!(out_conn)
+    return connection_string
 end
 
-# Send query to DMBS
-function ODBCQueryExecute(stmt::Ptr{Void}, querystring::AbstractString)
-    if @FAILED SQLExecDirect(stmt, utf16(querystring))
-        ODBCError(SQL_HANDLE_STMT,stmt)
-        error("[ODBC]: SQLExecDirect failed; Return Code: $ret")
-    end
+"`ODBC.execute!` is a minimal method for just executing an SQL `query` string. No results are checked for or returned."
+function execute!(dsn::DSN, query::AbstractString)
+    stmt = dsn.stmt_ptr
+    ODBC.ODBCFreeStmt!(stmt)
+    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query)
+    return
 end
 
-# Retrieve resultset metadata once query is processed, Metadata type is returned
-@compat function ODBCMetadata(stmt::Ptr{Void},querystring::AbstractString)
-        #Allocate space for and fetch number of columns and rows in resultset
-        cols = Array(Int16,1)
-        rows = Array(Int,1)
-        SQLNumResultCols(stmt,cols)
-        SQLRowCount(stmt,rows)
-        #Allocate arrays to hold each column's metadata
-        colnames = UTF8String[]
-        coltypes = @compat Array{@compat Tuple{ AbstractString,Int16 }}(0)
-        colsizes = Int[]
-        coldigits = Int16[]
-        colnulls  = Int16[]
-        #Allocate space for and fetch the name, type, size, etc. for each column
-        for x = 1:cols[1]
-            column_name = zeros(UInt8, 256)
-            name_length = Array(Int16, 1)
-            datatype = Array(Int16, 1)
-            column_size = Array(Int, 1)
-            decimal_digits = Array(Int16, 1)
-            nullable = Array(Int16, 1)
-            SQLDescribeCol(stmt, x, column_name, name_length, datatype, column_size, decimal_digits, nullable)
-            push!(colnames, ODBCClean(column_name, 1, name_length[1]))
-            push!(coltypes, (get(SQL_TYPES, Int(datatype[1]), "SQL_CHAR"), datatype[1]))
-            push!(colsizes, Int(column_size[1]))
-            push!(coldigits, decimal_digits[1])
-            push!(colnulls, nullable[1])
+"""
+`ODBC.Source` constructs a valid `Data.Source` type that executes an SQL `query` string for the `dsn` ODBC DSN.
+Results are checked for and an `ODBC.ResultBlock` is allocated to prepare for fetching the resultset.
+"""
+function Source(dsn::DSN, query::AbstractString)
+    stmt = dsn.stmt_ptr
+    ODBC.ODBCFreeStmt!(stmt)
+    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query)
+    rows, cols = Ref{Int}(), Ref{Int16}()
+    ODBC.API.SQLNumResultCols(stmt,cols)
+    ODBC.API.SQLRowCount(stmt,rows)
+    rows, cols = rows[], cols[]
+    #Allocate arrays to hold each column's metadata
+    cnames = Array(UTF8String,cols)
+    ctypes, csizes = Array(ODBC.API.SQLSMALLINT,cols), Array(ODBC.API.SQLULEN,cols)
+    cdigits, cnulls = Array(ODBC.API.SQLSMALLINT,cols), Array(ODBC.API.SQLSMALLINT,cols)
+    juliatypes = Array(DataType,cols)
+    alloctypes = Array(DataType,cols)
+    indcols = Array(Vector{ODBC.API.SQLLEN},cols)
+    columns = Array(ODBC.Block,cols)
+    longtext = false
+    #Allocate space for and fetch the name, type, size, etc. for each column
+    len, dt, csize = Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLULEN}()
+    digits, null = Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLSMALLINT}()
+    cname = ODBC.Block(ODBC.API.SQLWCHAR, ODBC.BUFLEN)
+    for x = 1:cols
+        ODBC.API.SQLDescribeCol(stmt, x, cname.ptr, ODBC.BUFLEN, len, dt, csize, digits, null)
+        cnames[x] = string(cname, len[])
+        t = dt[]
+        ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], null[]
+        alloctypes[x], juliatypes[x], islongtext = ODBC.API.SQL2Julia[t]
+        longtext |= islongtext
+    end
+    ODBC.free!(cname)
+    # Determine fetch strategy
+    # rows might be -1 (dbms doesn't return total rows in resultset), 0 (empty resultset), or 1+
+    if rows > -1 # known # of rows
+        if longtext # longtext column types present in resultset
+            rowset = min(1,rows) # in case of rows == 0, empty resultset
+            multifetch = rows != 1 # we don't need to multifetch if there's only one row
+        else
+            if rows < ODBC.API.MAXFETCHSIZE
+                rowset = rows # rowset is >= 0 and < MAXFETCHSIZE
+                multifetch = false
+            else
+                rowset = ODBC.API.MAXFETCHSIZE
+                multifetch = true
+            end
         end
-    return Metadata(querystring, Int(cols[1]), rows[1], colnames, coltypes, colsizes, coldigits, colnulls)
-end
-
-# [Using resultset metadata, allocate space/arrays for previously generated resultset, retrieve results
-@compat function ODBCBindCols(stmt::Ptr{Void},meta::Metadata)
-    #with catalog functions or all-filtering WHERE clauses, resultsets can have 0 rows/cols
-    meta.rows == 0 && return (Any[],Any[],0)
-    rowset = MULTIROWFETCH > meta.rows ? (meta.rows < 0 ? 1 : meta.rows) : MULTIROWFETCH
-    SQLSetStmtAttr(stmt, SQL_ATTR_ROW_ARRAY_SIZE, UInt(rowset), SQL_IS_UINTEGER)
-    # these Any arrays are where the ODBC manager dumps result data
-    indicator = Any[]
-    columns = Any[]
-    for x = 1:meta.cols
-        sqltype = meta.coltypes[x][2]
-        #we need the C type so the ODBC manager knows how to store the data
-        ctype = get(SQL2C,sqltype,SQL_C_CHAR)
-        #we need the julia type that corresponds to the C type size
-        jtype = get(SQL2Julia,sqltype,UInt8)
-        holder, jlsize = ODBCColumnAllocate(jtype,meta.colsizes[x]+1,rowset)
-        ind = Array(Int,rowset)
-        if @SUCCEEDED ODBC.SQLBindCols(stmt,x,ctype,holder,Int(jlsize),ind)
-            push!(columns,holder)
-            push!(indicator,ind)
-        else #SQL_ERROR
-            ODBCError(SQL_HANDLE_STMT,stmt)
-            error("[ODBC]: SQLBindCol $x failed; Return Code: $ret")
-        end
+    else
+        # unknown # of rows
+        multifetch = true
+        rowset = longtext ? 1 : ODBC.API.MAXFETCHSIZE
     end
-    return (columns, indicator, rowset)
-end
-
-# ODBCColumnAllocate is used to allocate the raw
-# underlying C-type buffers to be bound in SQLBindCol
-ODBCColumnAllocate(x,y,z)                       = (Array(x,z),sizeof(x))
-@compat ODBCColumnAllocate(x::Type{UInt8},y,z)  = (zeros(x,(y,z)),y)
-@compat ODBCColumnAllocate(x::Type{UInt16},y,z) = (zeros(x,(y,z)),y*2)
-@compat ODBCColumnAllocate(x::Type{UInt32},y,z) = (zeros(x,(y,z)),y*4)
-
-# ODBCAllocate is the Julia type array that the raw underlying C-type buffer
-# data is converted to when moved to a DataFrame or written to file
-ODBCAllocate(x,y)                           = zeros(eltype(typeof(x)),y)
-@compat ODBCAllocate(x::Array{UInt8,2},y)   = Array(UTF8String,y)
-@compat ODBCAllocate(x::Array{UInt16,2},y)  = Array(UTF16String,y)
-@compat ODBCAllocate(x::Array{UInt32,2},y)  = Array(UTF8String,y)
-ODBCAllocate(x::Array{SQLDate,1},y)      = Array(SQLDate,y)
-ODBCAllocate(x::Array{SQLTime,1},y)      = Array(SQLTime,y)
-ODBCAllocate(x::Array{SQLTimestamp,1},y) = Array(SQLTimestamp,y)
-
-# ODBCClean does any necessary transformations from raw C-type to Julia type
-ODBCClean(x,y,z) = x[y]
-@compat ODBCClean(x::Array{UInt8},y,z)          = utf8(x[1:z,y])
-@compat ODBCClean(x::Array{UInt16},y,z)         = utf16(x[1:z,y])
-@compat ODBCClean(x::Array{UInt32},y,z)         = utf32(x[1:z,y])
-
-function ODBCCopy!(dest,dsto,src,n,ind,nas)
-    for i = 1:n
-        nas[i+dsto-1] = ind[i] < 0
-        dest[i+dsto-1] = src[i]
-    end
-end
-
-@compat function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{UInt8,2},n,ind,nas)
-    for i = 1:n
-        nas[i+dsto-1] = ind[i] < 0
-        dest[i+dsto-1] = utf8(bytestring(src[1:ind[i],i]))
-    end
-end
-
-@compat function ODBCCopy!(dest::Array{UTF16String},dsto,src::Array{UInt16,2},n,ind,nas)
-    for i = 1:n
-        nas[i+dsto-1] = ind[i] < 0
-        raw = src[1:div(ind[i], 2), i]
-        str = utf16(pointer(raw), length(raw))
-        dest[i+dsto-1] = str
-    end
-end
-
-@compat function ODBCCopy!(dest::Array{UTF8String},dsto,src::Array{UInt32},n,ind,nas)
-    for i = 1:n
-        nas[i+dsto-1] = ind[i] < 0
-        dest[i+dsto-1] = utf8(bytestring(convert(Array{UInt8},src[1:div(ind[i],4),i])))
-    end
-end
-
-# ODBCEscape takes a Julia value and gets it ready for writing to a file i.e. converts to string
-ODBCEscape(x) = string(x)
-ODBCEscape(x::AbstractString) = "\"$x\""
-
-#function for fetching a resultset into a DataFrame
-function ODBCFetchDataFrame(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
-    ## tic()
-    cols = Array(Any,meta.cols)
-    nas = Array(BitVector,meta.cols)
-    for i = 1:meta.cols
-        cols[i] = ODBCAllocate(columns[i],meta.rows)
-        nas[i] = falses(meta.rows)
-    end
-    rowsfetched = zeros(Int,1)
-    SQLSetStmtAttr(stmt,SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,SQL_NTS)
-    r = 1
-    while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-        rows = rowsfetched[1] < rowset ? rowsfetched[1] : rowset
-        for col = 1:meta.cols
-            ODBCCopy!(cols[col],r,columns[col],rows,indicator[col],nas[col])
-        end
-        r += rows
-    end
-    ## toc()
-    @compat cols = Any[DataArray(cols[col],nas[col]) for col = 1:length(cols)]
-    resultset = DataFrame(cols, DataFrames.Index(Symbol[DataFrames.identifier(i) for i in meta.colnames]))
-end
-
-function ODBCFetchDataFramePush!(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,indicator)
-    cols = Array(Any,meta.cols)
-    nas = Array(BitVector,meta.cols)
-    for i = 1:meta.cols
-        cols[i] = ODBCAllocate(columns[i],0)
-        nas[i] = falses(0)
-    end
-    rowsfetched = zeros(Int,1)
-    SQLSetStmtAttr(stmt,SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,SQL_NTS)
-    while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-        rows = rowsfetched[1] < rowset ? rowsfetched[1] : rowset
-        for col = 1:meta.cols
-            temp = ODBCAllocate(columns[col],rows)
-            tempna = falses(rows)
-            ODBCCopy!(temp,1,columns[col],rows,indicator[col],tempna)
-            append!(cols[col],temp)
-            append!(nas[col],tempna)
+    ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rowset, ODBC.API.SQL_IS_UINTEGER)
+    if rows != 0
+        for x = 1:cols
+            block = ODBC.Block(alloctypes[x], rowset, csizes[x]+1)
+            ind = Array(ODBC.API.SQLLEN,rowset)
+            ODBC.API.SQLBindCols(stmt,x,ODBC.API.SQL2C[ctypes[x]],block.ptr,block.elsize,ind)
+            columns[x], indcols[x] = block, ind
         end
     end
-    @compat cols = Any[DataArray(cols[col],nas[col]) for col = 1:length(cols)]
-    resultset = DataFrame(cols, DataFrames.Index(Symbol[DataFrames.identifier(i) for i in meta.colnames]))
+    schema = Data.Schema(cnames, juliatypes, rows,
+        Dict("types"=>[ODBC.API.SQL_TYPES[c] for c in ctypes], "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
+    rowsfetched = Ref{ODBC.API.SQLLEN}() # will be populated by call to SQLFetchScroll
+    ODBC.API.SQLSetStmtAttr(stmt,ODBC.API.SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,ODBC.API.SQL_NTS)
+    rb = ODBC.ResultBlock(columns,indcols,juliatypes,rowset,rowsfetched)
+    return ODBC.Source(schema,dsn,query,rb,ODBC.API.SQLFetchScroll(stmt,ODBC.API.SQL_FETCH_NEXT,0))
 end
 
-function ODBCDirectToFile(stmt::Ptr{Void},meta::Metadata,columns::Array{Any,1},rowset::Int,output::AbstractString,delim::Char,l::Int)
-    out_file = l == 0 ? open(output,"w") : open(output,"a")
-    write(out_file,join(meta.colnames,delim)*"\n")
-    while @SUCCEEDED SQLFetchScroll(stmt,SQL_FETCH_NEXT,0)
-        for row = 1:rowset, col = 1:meta.cols
-            write(out_file,ODBCEscape(ODBCClean(columns[col],row)))
-            write(out_file,delim)
-            col == meta.cols && write(out_file,"\n")
+# Fetch Strategies
+  #1. Reinterpet Blocks that were allocated and bound
+    # isbits arrays: let Julia take ownership of Block memory; zero out the Block
+    # mutable arrays: keep references to Block in `other`
+  #2. Copy allocated and bound Blocks to pre-allocated output and reinterpret final output
+    # isbits arrays: copy Block memory to dest array, free allocated Blocks
+    # mutable arrays: keep references to copied Blocks in `other`; free allocated Blocks
+  #3. Grow output by rows fetched, copy allocated and bound Blocks to newly grown output, reinterpret final output
+    # isbits arrays: copy Block memory to dest array, free allocated Blocks
+    # mutable arrays: keep references to copied Blocks in `other`
+# Fetch Strategy Determination
+  # if known # of rows and # of rows < MAXFETCHSIZE and no LONGTEXT
+    # then set rowset = rows, do one SQLFetchScroll, fetch strategy #1
+  # if known # of rows and # of rows > MAXFETCHSIZE and no LONGTEXT
+    # then set rowset = MAXFETCHSIZE, do multiple SQLFetchScroll, fetch strategy #2
+  # if known # of rows and # of rows < or > MAXFETCHSIZE and LONGTEXT
+    # then set rowset = 1, do multiple SQLFetchScroll, fetch strategy #2
+  # if unknown # of rows and no LONGTEXT
+    # then set rowset = MAXFETCHSIZE, do one or more SQLFetchScroll, fetch strategy #3
+  # if unknown # of rows and LONGTEXT
+    # then set rowset = 1, do multiple SQLFetchScroll, fetch strategy #3
+  # if # of rows = 0 then done
+
+"Checks if an `ODBC.Source` has finished fetching results from an executed query string"
+Data.isdone(source::ODBC.Source) = source.status != ODBC.API.SQL_SUCCESS && source.status != ODBC.API.SQL_SUCCESS_WITH_INFO
+
+"""
+Stream the results of `source` (if any) to a `Data.Table` type. The `Data.Table` will be allocated according
+to the size of the resultset of the query string.
+"""
+function Data.stream!(source::ODBC.Source, ::Type{Data.Table})
+    rb = source.rb;
+    rows, cols = size(source)
+    if rb.fetchsize == rows
+        # fetch strategy #1: reinterpret allocated Blocks
+        data = Array(NullableVector, cols)
+        other = []
+        for col = 1:cols
+            data[col] = NullableArray(rb.jltypes[col],rb.columns[col],rb.indcols[col],rows, other)
+        end
+        return Data.Table(Data.schema(source),data,other)
+    else
+        # fetch strategy #2 or #3
+        dt = Data.Table(Data.header(source), Data.types(source), max(0,rows));
+        return Data.stream!(source, dt)
+    end
+end
+
+"Stream the results of an `ODBC.Source` to a pre-allocated `Data.Table`"
+function Data.stream!(source::ODBC.Source, dt::Data.Table)
+    rb = source.rb;
+    rows, cols = size(source)
+    data = dt.data;
+    other = []
+    dt.other = other
+    r = 0
+    while true
+        rowsfetched::ODBC.API.SQLLEN = rb.rowsfetched[]
+        rowsfetched == 0 && break
+        if rows < 0
+            # fetch strategy #3: grow our output and copy Blocks to new output space until done
+            for col = 1:cols
+                ODBC.append!(rb.jltypes[col],rb.columns[col],rb.indcols[col],data[col],r,rowsfetched,other)
+            end
+        else
+            # fetch strategy #2: copy allocated Blocks to pre-allocated output
+            for col = 1:cols
+                #TODO: add a check that we have enough space to copy rowsfetched into data[col] from r
+                ODBC.copy!(rb.jltypes[col],rb.columns[col],rb.indcols[col],data[col],r,rowsfetched,other)
+            end
+        end
+        r += rowsfetched
+        Data.isdone(source) && break
+        source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
+    end
+    for col = 1:cols
+        free!(rb.columns[col])
+    end
+    source.schema.rows = dt.schema.rows = r
+    return dt
+end
+
+function getfield!{T}(jltype::Type{T},block::Block,ind,row,col,cols,sink,null)
+    val = ODBC.getfield(jltype, block, row, ind)
+    CSV.writefield(sink, ind == ODBC.API.SQL_NULL_DATA ? null : val, col, cols)
+end
+
+"Stream the results of an `ODBC.Source` directly to a CSV file, represented by `sink::CSV.Sink`"
+function Data.stream!(source::ODBC.Source, sink::CSV.Sink,header::Bool=true)
+    header && CSV.writeheaders(source,sink)
+    rb = source.rb
+    null = sink.options.null
+    rows, cols = size(source)
+    r = 0
+    while true
+        rowsfetched::ODBC.API.SQLLEN = rb.rowsfetched[]
+        rowsfetched == 0 && break
+        for row = 1:rowsfetched, col = 1:cols
+            ind::ODBC.API.SQLLEN = rb.indcols[col][row]
+            ODBC.getfield!(rb.jltypes[col],rb.columns[col],ind,row,col,cols,sink,null)
+        end
+        r += rowsfetched
+        Data.isdone(source) && break
+        source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
+    end
+    for col = 1:cols
+        ODBC.free!(rb.columns[col])
+    end
+    source.schema.rows = r
+    sink.schema = source.schema
+    close(sink)
+    return sink
+end
+
+function getbind!{T}(jltype::Type{T},block::Block,ind,row,col,stmt)
+    val = getfield(jltype, block, row, ind)::T
+    if ind == ODBC.API.SQL_NULL_DATA
+        SQLite.bind!(stmt,col,SQLite.NULL)
+    else
+        SQLite.bind!(stmt,col,val)
+    end
+end
+
+"Stream the results of an `ODBC.Source` directly to an SQLite table, represented by `sink::SQLite.Sink`"
+function Data.stream!(source::ODBC.Source, sink::SQLite.Sink)
+    rb = source.rb
+    rows, cols = size(source)
+    stmt = sink.stmt
+    handle = stmt.handle
+    SQLite.transaction(sink.db) do
+        r = 0
+        while true
+            rowsfetched::ODBC.API.SQLLEN = rb.rowsfetched[]
+            for row = 1:rowsfetched
+                for col = 1:cols
+                    getbind!(rb.jltypes[col],rb.columns[col],rb.indcols[col][row]::ODBC.API.SQLLEN,row,col,stmt)
+                end
+                SQLite.sqlite3_step(handle)
+                SQLite.sqlite3_reset(handle)
+            end
+            r += rows
+            Data.isdone(source) && break
+            source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr,ODBC.API.SQL_FETCH_NEXT,0)
         end
     end
-    close(out_file)
-    return DataFrame()
-end
-
-# used to 'clear' a statement of bound columns, resultsets,
-# and other bound parameters in preparation for a subsequent query
-function ODBCFreeStmt!(stmt)
-    SQLFreeStmt(stmt,SQL_CLOSE)
-    SQLFreeStmt(stmt,SQL_UNBIND)
-    SQLFreeStmt(stmt,SQL_RESET_PARAMS)
-end
-
-# Takes an SQL handle as input and retrieves any error messages
-# associated with that handle; there may be more than one
-@compat function ODBCError(handletype::Int16,handle::Ptr{Void})
-    i = Int16(1)
-    state = zeros(UInt8,6)
-    error_msg = zeros(UInt8, 1024)
-    native = zeros(Int,1)
-    msg_length = zeros(Int16,1)
-    while @SUCCEEDED SQLGetDiagRec(handletype,handle,i,state,native,error_msg,msg_length)
-        st  = ODBCClean(state,1,5)
-        msg = ODBCClean(error_msg, 1, msg_length[1])
-        println("[ODBC] $st: $msg")
-        i = Int16(i+1)
+    for col = 1:cols
+        free!(rb.columns[col])
     end
+    SQLite.execute!(sink.db,"analyze $(sink.tablename)")
+    return sink
+end
+
+"""
+Convenience method that constructs an `ODBC.Source` and streams the results to `sink`.
+`sink` can be any valid `Data.Sink` (`CSV.Sink`,`SQLite.Sink`,etc.) and by default, is a `Data.Table`.
+"""
+function query(dsn::DSN, querystring::AbstractString, sink=Data.Table)
+    source = ODBC.Source(dsn, querystring)
+    return Data.stream!(source, sink)
+end
+
+"Convenience string macro for executing an SQL statement against a DSN."
+macro sql_str(s,dsn)
+    query(dsn,s)
 end
