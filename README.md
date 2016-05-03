@@ -18,6 +18,7 @@ julia> using ODBC        # Loads the ODBC module for use (needs to be run with e
 
 Basic Usage:
 ```julia
+using DataFrames
 using ODBC
 
 # list installed ODBC drivers
@@ -29,7 +30,11 @@ ODBC.listdsns()
 dsn = ODBC.DSN("pre_defined_DSN","username","password")
 
 # Basic a basic query that returns results at a Data.Table by default
-dbs = ODBC.query(dsn, "show databases")
+datatable = ODBC.query(dsn, "show databases")
+
+# convert result to a DataFrame for additional data manipulation functionality
+df = DataFrame(datatable)
+# ... additional data processing ...
 
 # Execute a query without returning results
 ODBC.execute!(dsn, "use mydb")
