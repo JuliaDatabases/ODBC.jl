@@ -293,6 +293,12 @@ immutable SQLGUID
     Data4::NTuple{8,Cuchar}
 end
 
+"""
+Dict for mapping SQL types to C types.
+When executing an SQL query that returns results, the DBMS will return the SQL types of the resultset;
+The application then tells the ODBC Driver Manager how to actually return the data
+(by specifying the equivalent C type or something else entirely).
+"""
 const SQL2C = Dict(
     SQL_CHAR           => SQL_C_CHAR,
     SQL_VARCHAR        => SQL_C_CHAR,
@@ -326,8 +332,8 @@ in particular, it returns a Tuple{A,B,Bool}, where `A` is the Julia type
 used to allocate and return data from the ODBC manager, while `B`
 represents the final column type of the data; conversion from `A` to `B` happens
 through the `cast(::Type{B})` function in utils.jl.
-The 3rd `Bool` value indicates whether the column should even be pre-allocated
-or retrieved dynamically at fetching time (i.e. LONGTEXT and LONGBINARY SQL types)
+The 3rd `Bool` value indicates whether the column is a LONGTEXT or LONGBINARY SQL types, since these
+tend to require special result-handling rules.
 """
 const SQL2Julia = Dict(
     SQL_CHAR           => (SQLCHAR, Data.PointerString{SQLCHAR}, false),
@@ -356,6 +362,7 @@ const SQL2Julia = Dict(
     SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, SQLTimestamp, false),
     SQL_GUID           => (SQLGUID, SQLGUID, false))
 
+"Convenience mapping of SQL types to their string representation"
 const SQL_TYPES = Dict(
       1 => "SQL_CHAR",
      12 => "SQL_VARCHAR",
@@ -396,6 +403,7 @@ const SQL_TYPES = Dict(
     113 => "SQL_INTERVAL_MINUTE_TO_SECOND",
     -11 => "SQL_GUID")
 
+"Convenience mapping of SQL types to their C-type equivalent as a string"
 const C_TYPES = Dict(
     SQL_CHAR           => "SQL_C_CHAR",
     SQL_VARCHAR        => "SQL_C_CHAR",

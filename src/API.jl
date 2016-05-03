@@ -1,25 +1,27 @@
-#ODBC API Function Definitions
-#By Jacob Quinn, 2013
-#In general, the ODBC functions are implemented to mirror the C header files (sql.h,sqlext.h,sqltypes.h,sqlucode.h)
-#A few liberties are taken in utliizing standard Julia functions and idioms
-#Format:
- #function name
- #URL reference
- #short function description
- #valid const definitions
- #relevant notes
- #working and tested status
- #function definition code
+"""
+ODBC API Function Definitions
+By Jacob Quinn, 2016
+In general, the ODBC functions are implemented to mirror the C header files (sql.h,sqlext.h,sqltypes.h,sqlucode.h)
+A few liberties are taken in utliizing standard Julia functions and idioms
+Format:
+  * function name
+  * URL reference
+  * short function description
+  * valid const definitions
+  * relevant notes
+  * working and tested status
+  * function definition code
 
-#Contents
- #Macros and Utility Functions
- #Handle Functions
- #Connection Functions
- #Resultset Metadata Functions
- #Query Functions
- #Resultset Retrieval Functions
- #DBMS Meta Functions
- #Error Handling and Diagnostics
+Contents
+ * Macros and Utility Functions
+ * Handle Functions
+ * Connection Functions
+ * Resultset Metadata Functions
+ * Query Functions
+ * Resultset Retrieval Functions
+ * DBMS Meta Functions
+ * Error Handling and Diagnostics
+"""
 module API
 
 using Compat, DataStreams, DecFP
@@ -28,8 +30,10 @@ include("types.jl")
 
 #### Macros and Utility Functions ####
 
+"""
 # MAXFETCHSIZE sets the default rowset fetch size
 # used in retrieving resultset blocks from queries
+"""
 const MAXFETCHSIZE = 65535
 
 # success codes
@@ -57,7 +61,7 @@ macro odbc(func,args,vals...)
     end
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms712400(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712400(v=vs.85).aspx"
 function SQLDrivers(env::Ptr{Void},
                     dir,
                     driver_desc::Ptr{SQLWCHAR},
@@ -71,7 +75,7 @@ function SQLDrivers(env::Ptr{Void},
                 env, dir, driver_desc, desclen, desc_length, driver_attr, attrlen, attr_length)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms711004(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711004(v=vs.85).aspx"
 function SQLDataSources(env::Ptr{Void},
                         dir,
                         dsn_desc::Ptr{SQLWCHAR},
@@ -88,7 +92,7 @@ end
 #### Handle Functions ####
 
 # SQLAllocHandle
-# http://msdn.microsoft.com/en-us/library/windows/desktop/ms712455(v=vs.85).aspx
+#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712455(v=vs.85).aspx"
 # Description: allocates an environment, connection, statement, or descriptor handle
 # Valid handle types
 const SQL_HANDLE_ENV  = Int16(1)
@@ -105,7 +109,7 @@ function SQLAllocHandle(handletype::SQLSMALLINT, parenthandle::Ptr{Void}, handle
 end
 
 # SQLFreeHandle
-# http://msdn.microsoft.com/en-us/library/windows/desktop/ms710123(v=vs.85).aspx
+#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710123(v=vs.85).aspx"
 # Description: frees resources associated with a specific environment, connection, statement, or descriptor handle
 # See SQLAllocHandle for valid handle types
 # Status: Tested on Windows, Linux, Mac 32/64-bit
@@ -116,7 +120,7 @@ function SQLFreeHandle(handletype::SQLSMALLINT,handle::Ptr{Void})
 end
 
 # SQLSetEnvAttr
-# http://msdn.microsoft.com/en-us/library/windows/desktop/ms709285(v=vs.85).aspx
+#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709285(v=vs.85).aspx"
 # Description: sets attributes that govern aspects of environments
 # Valid attributes; valid values for attribute are indented
 const SQL_ATTR_CONNECTION_POOLING = 201
@@ -141,7 +145,7 @@ function SQLSetEnvAttr{T<:Union{Int,UInt}}(env_handle::Ptr{Void}, attribute::Int
 end
 
 # SQLGetEnvAttr
-# http://msdn.microsoft.com/en-us/library/windows/desktop/ms709276(v=vs.85).aspx
+#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709276(v=vs.85).aspx"
 # Description: returns the current setting of an environment attribute
 # Valid attributes: See SQLSetEnvAttr
 # Status:
@@ -152,7 +156,7 @@ function SQLGetEnvAttr(env::Ptr{Void},attribute::Int,value::Array{Int,1},bytes_r
 end
 
 # SQLSetConnectAttr
-# http://msdn.microsoft.com/en-us/library/windows/desktop/ms713605(v=vs.85).aspx
+#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713605(v=vs.85).aspx"
 # Description: sets attributes that govern aspects of connections.
 # Valid attributes
 const SQL_ATTR_ACCESS_MODE = 101
@@ -228,7 +232,7 @@ function SQLSetConnectAttr(dbc::Ptr{Void},attribute::Int,value::Array{Int},value
 end
 
 #SQLGetConnectAttr
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms710297(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710297(v=vs.85).aspx"
 #Description: returns the current setting of a connection attribute.
 #Valid attributes: see SQLSetConnectAttr in addition to those below
 const SQL_ATTR_AUTO_IPD = 10001
@@ -244,7 +248,7 @@ function SQLGetConnectAttr{T,N}(dbc::Ptr{Void},attribute::Int,value::Array{T,N},
 end
 
 #SQLSetStmtAttr
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms712631(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712631(v=vs.85).aspx"
 #Description: sets attributes related to a statement.
 #Valid attributes
 const SQL_ATTR_ROW_STATUS_PTR = 25
@@ -266,7 +270,7 @@ function SQLSetStmtAttr(stmt::Ptr{Void},attribute,value,value_length)
 end
 
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms715438(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715438(v=vs.85).aspx"
 function SQLGetStmtAttr{T,N}(stmt::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1})
     @odbc(:SQLGetStmtAttrW,
                 (Ptr{Void},Int,Ptr{T},Int,Ptr{Int}),
@@ -274,7 +278,7 @@ function SQLGetStmtAttr{T,N}(stmt::Ptr{Void},attribute::Int,value::Array{T,N},by
 end
 
 #SQLFreeStmt
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms709284(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709284(v=vs.85).aspx"
 #Description: stops processing associated with a specific statement,
 # closes any open cursors associated with the statement,
 # discards pending results, or, optionally,
@@ -291,28 +295,28 @@ function SQLFreeStmt(stmt::Ptr{Void},param::UInt16)
                 stmt, param)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms713560(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713560(v=vs.85).aspx"
 function SQLSetDescField{T,N}(desc::Ptr{Void},i::Int16,field_id::Int16,value::Array{T,N},value_length::Array{Int,1})
     @odbc(:SQLSetDescFieldW,
                 (Ptr{Void},Int16,Int16,Ptr{T},Int),
                 desc,field_id,value,value_length)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms716370(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716370(v=vs.85).aspx"
 function SQLGetDescField{T,N}(desc::Ptr{Void},i::Int16,attribute::Int16,value::Array{T,N},bytes_returned::Array{Int,1})
     @odbc(:SQLGetDescFieldW,
                 (Ptr{Void},Int16,Int16,Ptr{T},Int,Ptr{Int}),
                 desc,attribute,value,sizeof(T)*N,bytes_returned)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms710921(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710921(v=vs.85).aspx"
 function SQLGetDescRec(desc::Ptr{Void},i::Int16,name::Array{UInt8,1},name_length::Array{Int16,1},type_ptr::Array{Int16,1},subtype_ptr::Array{Int16,1},length_ptr::Array{Int,1},precision_ptr::Array{Int16,1},scale_ptr::Array{Int16,1},nullable_ptr::Array{Int16,1},)
     @odbc(:SQLGetDescRecW,
                 (Ptr{Void},Int16,Ptr{UInt8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16},Ptr{Int16}),
                 desc,i,name,length(name),name_length,type_ptr,subtype_ptr,length_ptr,precision_ptr,scale_ptr,nullable_ptr)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms715378(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715378(v=vs.85).aspx"
 function SQLCopyDesc(source_desc::Ptr{Void},dest_desc::Ptr{Void})
     @odbc(:SQLCopyDesc,
                 (Ptr{Void},Ptr{Void}),
@@ -321,7 +325,7 @@ end
 
 ### Connection Functions ###
 # SQLConnect
-# http://msdn.microsoft.com/en-us/library/windows/desktop/ms711810(v=vs.85).aspx
+#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711810(v=vs.85).aspx"
 # Description: establishes connections to a driver and a data source
 # Status:
 function SQLConnect(dbc::Ptr{Void},dsn,username,password)
@@ -331,7 +335,7 @@ function SQLConnect(dbc::Ptr{Void},dsn,username,password)
 end
 
 #SQLDriverConnect
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms715433(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715433(v=vs.85).aspx"
 #Description:
 #Valid driver_prompt
 const SQL_DRIVER_COMPLETE = UInt16(1)
@@ -345,7 +349,7 @@ function SQLDriverConnect(dbc::Ptr{Void},window_handle::Ptr{Void},conn_string,ou
                 dbc,window_handle,utf(conn_string),sizeof(conn_string),out_conn,out_len,out_buff,driver_prompt)
 end
 #SQLBrowseConnect
- #http://msdn.microsoft.com/en-us/library/windows/desktop/ms714565(v=vs.85).aspx
+ "http://msdn.microsoft.com/en-us/library/windows/desktop/ms714565(v=vs.85).aspx"
  #Description: supports an iterative method of discovering and enumerating the attributes and attribute values required to connect to a data source
  #Status:
 function SQLBrowseConnect(dbc::Ptr{Void},instring::AbstractString,outstring::Array{SQLWCHAR,1},indicator::Array{Int16,1})
@@ -354,7 +358,7 @@ function SQLBrowseConnect(dbc::Ptr{Void},instring::AbstractString,outstring::Arr
                 dbc,utf(instring),length(instring),utf(outstring),length(outstring),indicator)
 end
 #SQLDisconnect
- #http://msdn.microsoft.com/en-us/library/windows/desktop/ms713946(v=vs.85).aspx
+ "http://msdn.microsoft.com/en-us/library/windows/desktop/ms713946(v=vs.85).aspx"
  #Description: closes the connection associated with a specific connection handle
  #Status:
 function SQLDisconnect(dbc::Ptr{Void})
@@ -363,7 +367,7 @@ function SQLDisconnect(dbc::Ptr{Void})
                 dbc)
 end
 #SQLGetFunctions
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms709291(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709291(v=vs.85).aspx"
 #Descriptions:
 #Valid functionid
 
@@ -376,7 +380,7 @@ function SQLGetFunctions(dbc::Ptr{Void},functionid::UInt16,supported::Array{UInt
 end
 
 #SQLGetInfo
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms711681(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711681(v=vs.85).aspx"
 #Description:
 #Status:
 function SQLGetInfo{T,N}(dbc::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1})
@@ -387,7 +391,7 @@ end
 
 #### Query Functions ####
 #SQLNativeSql
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms714575(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714575(v=vs.85).aspx"
 #Description: returns the SQL string as modified by the driver
 #Status:
 function SQLNativeSql(dbc::Ptr{Void},query_string::AbstractString,output_string::Array{SQLWCHAR,1},length_ind::Array{Int,1})
@@ -397,7 +401,7 @@ function SQLNativeSql(dbc::Ptr{Void},query_string::AbstractString,output_string:
 end
 
 #SQLGetTypeInfo
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms714632(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714632(v=vs.85).aspx"
 #Description:
 #valid sqltype
 #const SQL_ALL_TYPES =
@@ -408,21 +412,21 @@ function SQLGetTypeInfo(stmt::Ptr{Void},sqltype::Int16)
                 stmt,sqltype)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms713824(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713824(v=vs.85).aspx"
 function SQLPutData{T}(stmt::Ptr{Void},data::Array{T},data_length::Int)
     @odbc(:SQLPutData,
                 (Ptr{Void},Ptr{T},Int),
                 stmt,data,data_length)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms710926(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710926(v=vs.85).aspx"
 function SQLPrepare(stmt::Ptr{Void},query_string::AbstractString)
     @odbc(:SQLPrepareW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16),
                 stmt,utf(query_string),length(query_string))
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms713584(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713584(v=vs.85).aspx"
 function SQLExecute(stmt::Ptr{Void})
     @odbc(:SQLExecute,
                 (Ptr{Void},),
@@ -430,7 +434,7 @@ function SQLExecute(stmt::Ptr{Void})
 end
 
 #SQLExecDirect
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms713611(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713611(v=vs.85).aspx"
 #Description: executes a preparable statement
 #Status:
 function SQLExecDirect(stmt::Ptr{Void},query::AbstractString)
@@ -439,7 +443,7 @@ function SQLExecDirect(stmt::Ptr{Void},query::AbstractString)
                 stmt,utf(query),length(query))
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms714112(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714112(v=vs.85).aspx"
 function SQLCancel(stmt::Ptr{Void})
     @odbc(:SQLCancel,
                 (Ptr{Void},),
@@ -447,49 +451,49 @@ function SQLCancel(stmt::Ptr{Void})
 end
 
 #### Resultset Metadata Functions ####
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms715393(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715393(v=vs.85).aspx"
 function SQLNumResultCols(stmt::Ptr{Void},cols::Ref{Int16})
     @odbc(:SQLNumResultCols,
                 (Ptr{Void},Ref{Int16}),
                 stmt, cols)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms711835(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711835(v=vs.85).aspx"
 function SQLRowCount(stmt::Ptr{Void},rows::Ref{Int})
     @odbc(:SQLRowCount,
                 (Ptr{Void},Ref{Int}),
                 stmt, rows)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms713558(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713558(v=vs.85).aspx"
 # function SQLColAttribute(stmt::Ptr{Void},x::Int,)
 # = @odbc(:SQLColAttributeW,
 #                 (Ptr{Void},UInt16,UInt16,Ptr,Int16,Ptr{Int16},Ptr{Int}),
 #                 stmt,x,)
 # end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms716289(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716289(v=vs.85).aspx"
 function SQLDescribeCol(stmt,x,nm::Ptr{SQLWCHAR},nmlen,len::Ref{Int16},dt::Ref{Int16},cs::Ref{SQLULEN},dd::Ref{Int16},nul::Ref{Int16})
     @odbc(:SQLDescribeColW,
                 (Ptr{Void},SQLUSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ref{SQLSMALLINT},Ref{SQLSMALLINT},Ref{SQLULEN},Ref{SQLSMALLINT},Ref{SQLSMALLINT}),
                 stmt,x,nm,nmlen,len,dt,cs,dd,nul)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms710188(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710188(v=vs.85).aspx"
 function SQLDescribeParam(stmt::Ptr{Void},x::Int,sqltype::Array{Int16,1},column_size::Array{Int,1},decimal_digits::Array{Int16,1},nullable::Array{Int16,1})
     @odbc(:SQLDescribeParam,
                 (Ptr{Void},UInt16,Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
                 stmt,x,sqltype,column_size,decimal_digits,nullable)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms712366(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712366(v=vs.85).aspx"
 function SQLParamData(stmt::Ptr{Void},ptr_buffer::Array{Ptr{Void},1})
     @odbc(:SQLParamData,
                 (Ptr{Void},Ptr{Void}),
                 stmt,ptr_buffer)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms715409(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715409(v=vs.85).aspx"
 function SQLNumParams(stmt::Ptr{Void},param_count::Array{Int16,1})
     @odbc(:SQLNumParams,
                 (Ptr{Void},Ptr{Int16}),
@@ -498,7 +502,7 @@ end
 
 #### Resultset Retrieval Functions ####
 #SQLBindParameter
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms710963(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710963(v=vs.85).aspx"
 #Description:
 #valid iotype
 const SQL_PARAM_INPUT = Int16(1)
@@ -514,28 +518,28 @@ function SQLBindParameter{T}(stmt::Ptr{Void},x::Int,iotype::Int16,ctype::Int16,s
 end
 SQLSetParam = SQLBindParameter
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms711010(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711010(v=vs.85).aspx"
 function SQLBindCols(stmt::Ptr{Void},x,ctype,mem,jlsize,indicator::Vector{SQLLEN})
     @odbc(:SQLBindCol,
                 (Ptr{Void},SQLUSMALLINT,SQLSMALLINT,Ptr{Void},SQLLEN,Ptr{SQLLEN}),
                 stmt,x,ctype,mem,jlsize,indicator)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms711707(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711707(v=vs.85).aspx"
 function SQLSetCursorName(stmt::Ptr{Void},cursor::AbstractString)
     @odbc(:SQLSetCursorNameW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16),
                 stmt,utf(cursor),length(cursor))
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms716209(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716209(v=vs.85).aspx"
 function SQLGetCursorName(stmt::Ptr{Void},cursor::Array{UInt8,1},cursor_length::Array{Int16,1})
     @odbc(:SQLGetCursorNameW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{Int16}),
                 stmt,utf(cursor),length(cursor),cursor_length)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms715441(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715441(v=vs.85).aspx"
 function SQLGetData{T,N}(stmt::Ptr{Void},i::Int,ctype::Int16,value::Array{T,N},bytes_returned::Array{Int,1})
     @odbc(:SQLGetData,
                 (Ptr{Void},UInt16,Int16,Ptr{T},Int,Ptr{Int}),
@@ -543,7 +547,7 @@ function SQLGetData{T,N}(stmt::Ptr{Void},i::Int,ctype::Int16,value::Array{T,N},b
 end
 
 #SQLFetchScroll
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms714682(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714682(v=vs.85).aspx"
 #Description:
 #valid fetch_orientation
 const SQL_FETCH_NEXT = Int16(1)
@@ -560,7 +564,7 @@ function SQLFetchScroll(stmt::Ptr{Void},fetch_orientation::Int16,fetch_offset::I
                 stmt,fetch_orientation,fetch_offset)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms713591(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713591(v=vs.85).aspx"
 function SQLExtendedFetch(stmt::Ptr{Void},fetch_orientation::UInt16,fetch_offset::Int,row_count_ptr::Array{Int,1},row_status_array::Array{Int16,1})
     @odbc(:SQLExtendedFetch,
                 (Ptr{Void},UInt16,Int,Ptr{Int},Ptr{Int16}),
@@ -568,7 +572,7 @@ function SQLExtendedFetch(stmt::Ptr{Void},fetch_orientation::UInt16,fetch_offset
 end
 
 #SQLSetPos
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms713507(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713507(v=vs.85).aspx"
 #Description:
 #valid operation
 const SQL_POSITION = UInt16(0) #SQLSetPos
@@ -586,7 +590,7 @@ function SQLSetPos{T}(stmt::Ptr{Void},rownumber::T,operation::UInt16,lock_type::
                 stmt,rownumber,operation,lock_type)
 end #T can be Uint64 or UInt16 it seems
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms714673(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714673(v=vs.85).aspx"
 function SQLMoreResults(stmt::Ptr{Void})
     @odbc(:SQLMoreResults,
                 (Ptr{Void},),
@@ -594,7 +598,7 @@ function SQLMoreResults(stmt::Ptr{Void})
 end
 
 #SQLEndTran
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms716544(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716544(v=vs.85).aspx"
 #Description:
 #valid completion_type
 const SQL_COMMIT = Int16(0) #SQLEndTran
@@ -606,7 +610,7 @@ function SQLEndTran(handletype::Int16,handle::Ptr{Void},completion_type::Int16)
                 handletype,handle,completion_type)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms709301(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709301(v=vs.85).aspx"
 function SQLCloseCursor(stmt::Ptr{Void})
     @odbc(:SQLCloseCursor,
                 (Ptr{Void},),
@@ -614,7 +618,7 @@ function SQLCloseCursor(stmt::Ptr{Void})
 end
 
 #SQLBulkOperations
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms712471(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712471(v=vs.85).aspx"
 #Description:
 #valid operation
 const SQL_ADD = UInt16(4) #SQLBulkOperations
@@ -629,56 +633,56 @@ function SQLBulkOperations(stmt::Ptr{Void},operation::UInt16)
 end
 
 #### DBMS Meta Functions ####
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms711683(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711683(v=vs.85).aspx"
 function SQLColumns(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString,column::AbstractString)
     @odbc(:SQLColumnsW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),utf(table),length(table),utf(column),length(column))
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms716336(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716336(v=vs.85).aspx"
 function SQLColumnPrivileges(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString,column::AbstractString)
     @odbc(:SQLColumnPrivilegesW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),utf(table),length(table),utf(column),length(column))
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms709315(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709315(v=vs.85).aspx"
 function SQLForeignKeys(stmt::Ptr{Void},pkcatalog::AbstractString,pkschema::AbstractString,pktable::AbstractString,fkcatalog::AbstractString,fkschema::AbstractString,fktable::AbstractString)
     @odbc(:SQLForeignKeysW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(pkcatalog),utf(schema),length(pkschema),utf(table),length(pktable),utf(catalog),length(fkcatalog),utf(schema),length(fkschema),utf(table),length(fktable))
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms711005(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711005(v=vs.85).aspx"
 function SQLPrimaryKeys(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString)
     @odbc(:SQLPrimaryKeysW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),utf(table),length(table))
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms711701(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711701(v=vs.85).aspx"
 function SQLProcedureColumns(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,proc::AbstractString,column::AbstractString)
     @odbc(:SQLProcedureColumnsW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),proc,length(proc),utf(column),length(column))
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms715368(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715368(v=vs.85).aspx"
 function SQLProcedures(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,proc::AbstractString)
     @odbc(:SQLProceduresW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),proc,length(proc))
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms711831(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711831(v=vs.85).aspx"
 function SQLTables(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString,table_type::AbstractString)
     @odbc(:SQLTablesW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
                 stmt,utf(catalog),length(catalog),utf(schema),length(schema),utf(table),length(table),table_type,length(table_type))
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms713565(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713565(v=vs.85).aspx"
 function SQLTablePrivileges(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractString,table::AbstractString)
     @odbc(:SQLTablePrivilegesW,
                 (Ptr{Void},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
@@ -686,7 +690,7 @@ function SQLTablePrivileges(stmt::Ptr{Void},catalog::AbstractString,schema::Abst
 end
 
 #SQLStatistics
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms711022(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711022(v=vs.85).aspx"
 #Description:
 #valid unique
 const SQL_INDEX_ALL = UInt16(1)
@@ -705,7 +709,7 @@ function SQLStatistics(stmt::Ptr{Void},catalog::AbstractString,schema::AbstractS
 end
 
 #SQLSpecialColumns
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms714602(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714602(v=vs.85).aspx"
 #Description:
 #valid id_type
 const SQL_BEST_ROWID        = Int16(1) #SQLSpecialColumns
@@ -727,14 +731,14 @@ end
 
 #### Error Handling Functions ####
 #TODO: add consts
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms710181(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710181(v=vs.85).aspx"
 function SQLGetDiagField(handletype::Int16,handle::Ptr{Void},i::Int16,diag_id::Int16,diag_info::Array{SQLWCHAR,1},buffer_length::Int16,diag_length::Array{Int16,1})
     @odbc(:SQLGetDiagFieldW,
                 (Int16,Ptr{Void},Int16,Int16,Ptr{SQLWCHAR},Int16,Ptr{Int16}),
                 handletype,handle,i,diag_id,utf(diag_info),buffer_length,msg_length)
 end
 
-#http://msdn.microsoft.com/en-us/library/windows/desktop/ms716256(v=vs.85).aspx
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716256(v=vs.85).aspx"
 function SQLGetDiagRec(handletype,handle,i,state::Ptr{SQLWCHAR},native::Ref{SQLINTEGER},error_msg,errlen,msg_length)
     @odbc(:SQLGetDiagRecW,
                 (SQLSMALLINT,Ptr{Void},SQLSMALLINT,Ptr{SQLWCHAR},Ref{SQLINTEGER},Ptr{SQLWCHAR},SQLSMALLINT,Ref{SQLSMALLINT}),

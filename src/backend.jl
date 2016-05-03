@@ -1,3 +1,4 @@
+"Allocate ODBC handles for interacting with the ODBC Driver Manager"
 function ODBCAllocHandle(handletype, parenthandle)
     handle = Ref{Ptr{Void}}()
     ODBC.API.SQLAllocHandle(handletype,parenthandle,handle)
@@ -8,7 +9,7 @@ function ODBCAllocHandle(handletype, parenthandle)
     return handle
 end
 
-# Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin
+"Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin"
 function ODBCDriverConnect!(dbc::Ptr{Void},conn_string,driver_prompt::UInt16)
     window_handle = C_NULL
     @windows_only window_handle = ccall((:GetForegroundWindow, :user32), Ptr{Void}, () )
@@ -21,6 +22,7 @@ function ODBCDriverConnect!(dbc::Ptr{Void},conn_string,driver_prompt::UInt16)
     return connection_string
 end
 
+"`ODBC.execute!` is a minimal method for just executing an SQL `query` string. No results are checked for or returned."
 function execute!(dsn::DSN, query::AbstractString)
     stmt = dsn.stmt_ptr
     ODBC.ODBCFreeStmt!(stmt)
@@ -28,7 +30,10 @@ function execute!(dsn::DSN, query::AbstractString)
     return
 end
 
-# independent Source constructor
+"""
+`ODBC.Source` constructs a valid `Data.Source` type that executes an SQL `query` string for the `dsn` ODBC DSN.
+Results are checked for and an `ODBC.ResultBlock` is allocated to prepare for fetching the resultset.
+"""
 function Source(dsn::DSN, query::AbstractString)
     stmt = dsn.stmt_ptr
     ODBC.ODBCFreeStmt!(stmt)
@@ -89,7 +94,7 @@ function Source(dsn::DSN, query::AbstractString)
         end
     end
     schema = Data.Schema(cnames, juliatypes, rows,
-        Dict("types"=>ctypes, "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
+        Dict("types"=>[ODBC.API.SQL_TYPES[c] for c in ctypes], "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
     rowsfetched = Ref{ODBC.API.SQLLEN}() # will be populated by call to SQLFetchScroll
     ODBC.API.SQLSetStmtAttr(stmt,ODBC.API.SQL_ATTR_ROWS_FETCHED_PTR,rowsfetched,ODBC.API.SQL_NTS)
     rb = ODBC.ResultBlock(columns,indcols,juliatypes,rowset,rowsfetched)
@@ -119,9 +124,13 @@ end
     # then set rowset = 1, do multiple SQLFetchScroll, fetch strategy #3
   # if # of rows = 0 then done
 
+"Checks if an `ODBC.Source` has finished fetching results from an executed query string"
 Data.isdone(source::ODBC.Source) = source.status != ODBC.API.SQL_SUCCESS && source.status != ODBC.API.SQL_SUCCESS_WITH_INFO
 
-# fetch data from the result of a query
+"""
+Stream the results of `source` (if any) to a `Data.Table` type. The `Data.Table` will be allocated according
+to the size of the resultset of the query string.
+"""
 function Data.stream!(source::ODBC.Source, ::Type{Data.Table})
     rb = source.rb;
     rows, cols = size(source)
@@ -140,6 +149,7 @@ function Data.stream!(source::ODBC.Source, ::Type{Data.Table})
     end
 end
 
+"Stream the results of an `ODBC.Source` to a pre-allocated `Data.Table`"
 function Data.stream!(source::ODBC.Source, dt::Data.Table)
     rb = source.rb;
     rows, cols = size(source)
@@ -178,6 +188,7 @@ function getfield!{T}(jltype::Type{T},block::Block,ind,row,col,cols,sink,null)
     CSV.writefield(sink, ind == ODBC.API.SQL_NULL_DATA ? null : val, col, cols)
 end
 
+"Stream the results of an `ODBC.Source` directly to a CSV file, represented by `sink::CSV.Sink`"
 function Data.stream!(source::ODBC.Source, sink::CSV.Sink,header::Bool=true)
     header && CSV.writeheaders(source,sink)
     rb = source.rb
@@ -213,6 +224,7 @@ function getbind!{T}(jltype::Type{T},block::Block,ind,row,col,stmt)
     end
 end
 
+"Stream the results of an `ODBC.Source` directly to an SQLite table, represented by `sink::SQLite.Sink`"
 function Data.stream!(source::ODBC.Source, sink::SQLite.Sink)
     rb = source.rb
     rows, cols = size(source)
@@ -241,20 +253,16 @@ function Data.stream!(source::ODBC.Source, sink::SQLite.Sink)
     return sink
 end
 
+"""
+Convenience method that constructs an `ODBC.Source` and streams the results to `sink`.
+`sink` can be any valid `Data.Sink` (`CSV.Sink`,`SQLite.Sink`,etc.) and by default, is a `Data.Table`.
+"""
 function query(dsn::DSN, querystring::AbstractString, sink=Data.Table)
     source = ODBC.Source(dsn, querystring)
     return Data.stream!(source, sink)
 end
 
-# sql"..." string literal for convenience;
-# it doesn't do anything different than query right now,
-# but we could potentially do some interesting things here
-macro sql_str(s)
-    query(s)
-end
-
-# Replaces backticks in the query string with escaped quotes
-# for convenience in using "" in column names, etc.
-macro query(x)
-    :(query(replace($x, '`', '\"')))
+"Convenience string macro for executing an SQL statement against a DSN."
+macro sql_str(s,dsn)
+    query(dsn,s)
 end

@@ -1,4 +1,18 @@
 using DataStreams
+"""
+library for interfacing with an ODBC Driver Manager.
+Handles connecting to systems, sending queries/statements and returning results, if any.
+Types include:
+  * `DSN` representing a valid ODBC connection
+  * `ODBC.Source` representing an executed query string ready for returning results
+
+Methods:
+  * `ODBC.listdrivers` for listing installed and registered drivers in the ODBC Driver Manager
+  * `ODBC.listdsns` for listing pre-defined ODBC DSNs in the ODBC Driver Manager
+  * `ODBC.query` for executing and returning the results of an SQL query string
+
+See the help documentation for the individual types/methods for more information.
+"""
 module ODBC
 
 using Compat, NullableArrays, DataStreams, CSV, SQLite, DecFP
@@ -40,7 +54,7 @@ macro CHECK(handle,handletype,func)
     end
 end
 
-# List Installed Drivers
+"List ODBC drivers that have been installed and registered"
 function listdrivers()
     descriptions = AbstractString[]
     attributes   = AbstractString[]
@@ -59,7 +73,7 @@ function listdrivers()
     return [descriptions attributes]
 end
 
-# List defined DSNs
+"List ODBC DSNs, both user and system, that have been previously defined"
 function listdsns()
     descriptions = AbstractString[]
     attributes   = AbstractString[]
@@ -78,7 +92,10 @@ function listdsns()
     return [descriptions attributes]
 end
 
-"DSN represents an established ODBC connection"
+"""
+A DSN represents an established ODBC connection.
+It is passed to most other ODBC methods as a first argument
+"""
 type DSN
     dsn::AbstractString
     dbc_ptr::Ptr{Void}
@@ -87,7 +104,12 @@ end
 
 Base.show(io::IO,conn::DSN) = print(io,"ODBC.DSN($(conn.dsn))")
 
-# Connect to DSN, returns DSN object,
+"""
+Construct a `DSN` type by connecting to a valid ODBC DSN or by specifying a valid connection string.
+Takes optional 2nd and 3rd arguments for `username` and `password`, respectively.
+1st argument `dsn` can be either the name of a pre-defined ODBC DSN or a valid connection string.
+A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
+"""
 function DSN(dsn::AbstractString, username::AbstractString="", password::AbstractString="";driver_prompt::Integer=ODBC.API.SQL_DRIVER_NOPROMPT)
     dbc = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV)
     dsns = ODBC.listdsns()
@@ -105,13 +127,14 @@ function DSN(dsn::AbstractString, username::AbstractString="", password::Abstrac
     return conn
 end
 
+"disconnect a connected `DSN`"
 function disconnect!(conn::DSN)
     ODBCFreeStmt!(conn.stmt_ptr)
     ODBC.API.SQLDisconnect(conn.dbc_ptr)
     return nothing
 end
 
-# Represents the collection of variables that aid when fetching data
+"Internal transition type for use while fetching results of an SQL query from a DSN"
 immutable ResultBlock
     columns::Vector{Block}
     indcols::Vector{Vector{ODBC.API.SQLLEN}}
@@ -122,6 +145,7 @@ end
 
 Base.show(io::IO, rb::ResultBlock) = print(io, "ODBC.ResultBlock:\n\trowsfetched: $(rb.rowsfetched)\n\tfetchsize: $(rb.fetchsize)\n\tcolumns: $(length(rb.columns))\n\t$(rb.jltypes)")
 
+"An `ODBC.Source` type executes a `query` string upon construction and prepares data for streaming to an appropriate `Data.Sink`"
 type Source <: Data.Source
     schema::Data.Schema
     dsn::DSN

@@ -18,15 +18,16 @@ function Block{T}(::Type{T}, elements::Int, extradim::Integer=1)
     return block
 end
 
-# copy `n` bytes of a block
+"Create a new `Block` type from an existing `Block`, optionally only copying `n` bytes from `block`."
 function Block{T}(block::Block{T},n::Integer=block.len)
     block2 = Block{T}(convert(Ptr{T},Libc.malloc(n)),n,block.elsize)
     ccall(:memcpy, Void, (Ptr{T}, Ptr{T}, Csize_t), block2.ptr, block.ptr, n)
     return block2
 end
 
+"Free the memory held by `block`. The `block` no longer points to valid memory."
 free!(block::Block) = Libc.free(block.ptr)
-"remove the .ptr from a Block"
+"remove the .ptr from a Block to avoid unintentional referencing"
 zero!(block::Block) = (block.ptr = 0; return nothing)
 
 # used for getting messages back from ODBC driver manager; SQLDrivers, SQLError, etc.
@@ -34,23 +35,28 @@ Base.string(block::Block{UInt8},  len::Integer) = utf8(block.ptr,len)
 Base.string(block::Block{UInt16}, len::Integer) = utf16(block.ptr,len)
 Base.string(block::Block{UInt32}, len::Integer) = utf32(block.ptr,len)
 
+# translate a # of bytes and a code unit type (UInt8, UInt16, UInt32) and return the # of code units; returns 0 if field is null
 bytes2codeunits(::Type{UInt8},  bytes::ODBC.API.SQLLEN) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, convert(ODBC.API.SQLLEN,0), bytes)
 bytes2codeunits(::Type{UInt16}, bytes::ODBC.API.SQLLEN) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, convert(ODBC.API.SQLLEN,0), bytes >> 1)
 bytes2codeunits(::Type{UInt32}, bytes::ODBC.API.SQLLEN) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, convert(ODBC.API.SQLLEN,0), bytes >> 2)
 
 const DECZERO = Dec64(0)
 
+# cleanup routine for various "special" types when fetching (string types, byte vector, Decimal types)
 cleanup!{T}(::Type{T}, block, other) = push!(other, block)
 cleanup!(::Type{Vector{UInt8}}, block, other) = zero!(block)
 cleanup!(::Type{Dec64}, block, other) = free!(block)
 
+# conversion routines for "special" types where we can't just reinterpret the memory directly
 cast{T}(::Type{T}, ptr, len, own) = Data.PointerString(ptr, len)
 cast(::Type{Vector{UInt8}}, ptr, len, own) = pointer_to_array(ptr, len, own)
 cast(::Type{Dec64}, ptr, len, own) = len == 0 ? DECZERO : parse(Dec64, string(Data.PointerString(ptr, len)))
 
+# Used by streaming to CSV.Sink and SQLite.Sink; these operate on one field at a time (row/column)
 getfield{T}(jltype,block::Block{T}, row, ind) = unsafe_load(block.ptr, row)
 getfield{T<:CHARS}(jltype, block::Block{T}, row, ind) = cast(jltype, block.ptr + block.elsize * (row-1), ODBC.bytes2codeunits(T,ind), false)
 
+"Take an `ind` indicator vector and return a `Vector{Bool}` with `false` entries for null/missing fields"
 function booleanize!(ind::Vector{ODBC.API.SQLLEN},rows)
     new = Array(Bool, rows)
     @simd for i = 1:rows
@@ -58,6 +64,7 @@ function booleanize!(ind::Vector{ODBC.API.SQLLEN},rows)
     end
     return new
 end
+"Take an `ind` indicator vector and return a `Vector{Bool}` with `false` entries for null/missing fields"
 function booleanize!(ind::Vector{ODBC.API.SQLLEN},new::Vector{Bool},offset,len)
     @simd for i = 1:len
         @inbounds new[i+offset] = ind[i] == ODBC.API.SQL_NULL_DATA
@@ -66,14 +73,22 @@ function booleanize!(ind::Vector{ODBC.API.SQLLEN},new::Vector{Bool},offset,len)
 end
 
 """create a NullableVector from a Block that has bitstype/immutable data;
-   we're passing ownership of the memory to Julia and zeroing out the ptr in `block`"""
+   we're passing ownership of the memory to Julia and zeroing out the ptr in `block` (not freeing)"""
 function NullableArrays.NullableArray{T}(jltype, block::Block{T}, ind, rows, other)
     a = NullableArray(pointer_to_array(block.ptr, rows, true), booleanize!(ind,rows))
     zero!(block)
     return a
 end
 
-"create a NullableVector from a Block that has container-type or Dec64 data"
+"""
+create a NullableVector from a Block that has container-type or Dec64 data.
+We allocate a `rows`-length `values` array of the `jltype`, then run the necessary conversion method (`cast`)
+on the `block` memory to get the appropriate `jltype` value.
+We finish by "cleaning up" the `block` memory by:
+  * Keeping a reference in `other` for string types
+  * Letting julia take ownership of the memory for byte vectors (`Vector{UInt8}`) and zeroing out `block`
+  * Freeing the `block` memory for Dec64 since we're creating the separate Dec64 bitstype
+"""
 function NullableArrays.NullableArray{T<:CHARS}(jltype, block::Block{T}, ind, rows, other)
     values = Array(jltype, rows)
     cur = block.ptr
@@ -86,8 +101,8 @@ function NullableArrays.NullableArray{T<:CHARS}(jltype, block::Block{T}, ind, ro
     return NullableArray(values, booleanize!(ind,rows))
 end
 
-"fill a NullableVector by copying the data from a Block that has bitstype/immutable data"
 # copy!(rb.columns[col],rb.indcols[col],data[col],r,rows,other)
+"fill a NullableVector by copying the data from a Block that has bitstype/immutable data"
 function Base.copy!{T}(jltype, block::Block{T}, ind, dest::NullableVector, offset, len, other)
     ccall(:memcpy, Void, (Ptr{T}, Ptr{T}, Csize_t), pointer(dest.values) + offset * sizeof(T), block.ptr, len * sizeof(T))
     booleanize!(ind,dest.isnull,offset,len)
