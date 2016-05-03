@@ -1,14 +1,25 @@
-language: cpp
-compiler: 
-    - clang
+language: julia
+os:
+  - osx
+  - linux
+julia:
+  - nightly
+  - 0.4
 notifications:
-    email: false
+  email: false
+
+services:
+  - mysql
+
 before_install:
-    - sudo add-apt-repository ppa:staticfloat/julia-deps -y
-    - sudo add-apt-repository ppa:staticfloat/julianightlies -y
-    - sudo apt-get update -qq -y
-    - sudo apt-get install libpcre3-dev julia -y
+  - sudo apt-get update
+  - sudo apt-get install libmyodbc libsqliteodbc unixodbc unixodbc-dev
+  - sudo odbcinst -i -d -f /usr/share/libmyodbc/odbcinst.ini
+  - sudo odbcinst -i -s -l -f ./test/odbc.ini
+
 script:
-    - julia -e 'Pkg.init(); run(`ln -s $(pwd()) $(Pkg.dir())/ODBC`); Pkg.resolve()'
-    - julia -e 'using ODBC; @assert isdefined(:ODBC); @assert typeof(ODBC) === Module'
-    - julia test/test.jl
+  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
+  - julia -e 'Pkg.clone(pwd()); Pkg.build("ODBC"); Pkg.test("ODBC"; coverage=true)';
+after_success:
+  - julia -e 'cd(Pkg.dir("ODBC")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())';
+#  - julia -e 'cd(Pkg.dir("ODBC")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())';
