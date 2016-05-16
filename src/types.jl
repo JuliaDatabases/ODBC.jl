@@ -117,7 +117,7 @@ for t in [:SQLCHAR, :SQLSCHAR, :SQLWCHAR, :SQLDATE, :SQLDECIMAL,
           :SWORD, :UDWORD, :UWORD, :SLONG, :SSHORT, :SDOUBLE,
           :LDOUBLE, :SFLOAT, :PTR, :HENV, :HDBC, :HSTMT, :RETCODE,
           :SQLHWND]
-    fn = symbol(lowercase(string(t)))
+    fn = Symbol(lowercase(string(t)))
     @eval $fn(x) = convert($t, x)
 end
 

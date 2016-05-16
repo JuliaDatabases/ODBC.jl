@@ -43,7 +43,7 @@ function Source(dsn::DSN, query::AbstractString)
     ODBC.API.SQLRowCount(stmt,rows)
     rows, cols = rows[], cols[]
     #Allocate arrays to hold each column's metadata
-    cnames = Array(UTF8String,cols)
+    cnames = Array(@compat(String),cols)
     ctypes, csizes = Array(ODBC.API.SQLSMALLINT,cols), Array(ODBC.API.SQLULEN,cols)
     cdigits, cnulls = Array(ODBC.API.SQLSMALLINT,cols), Array(ODBC.API.SQLSMALLINT,cols)
     juliatypes = Array(DataType,cols)
@@ -85,13 +85,11 @@ function Source(dsn::DSN, query::AbstractString)
         rowset = longtext ? 1 : ODBC.API.MAXFETCHSIZE
     end
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rowset, ODBC.API.SQL_IS_UINTEGER)
-    if rows != 0
-        for x = 1:cols
-            block = ODBC.Block(alloctypes[x], rowset, csizes[x]+1)
-            ind = Array(ODBC.API.SQLLEN,rowset)
-            ODBC.API.SQLBindCols(stmt,x,ODBC.API.SQL2C[ctypes[x]],block.ptr,block.elsize,ind)
-            columns[x], indcols[x] = block, ind
-        end
+    for x = 1:cols
+        block = ODBC.Block(alloctypes[x], rowset, csizes[x]+1)
+        ind = Array(ODBC.API.SQLLEN,rowset)
+        ODBC.API.SQLBindCols(stmt,x,ODBC.API.SQL2C[ctypes[x]],block.ptr,block.elsize,ind)
+        columns[x], indcols[x] = block, ind
     end
     schema = Data.Schema(cnames, juliatypes, rows,
         Dict("types"=>[ODBC.API.SQL_TYPES[c] for c in ctypes], "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
