@@ -2,10 +2,6 @@
 if !isdefined(Base, :unsafe_wrap)
     unsafe_string(ptr, len) = utf8(ptr, len)
     unsafe_wrap{A<:Array}(::Type{A}, ptr, len, own) = pointer_to_array(ptr, len, own)
-    encode_to_utf8(T, vec::Vector{UInt16}) = UTF16String(vec)
-    encode_to_utf8(T, vec::Vector{UInt32}) = UTF32String(vec)
-else
-    encode_to_utf8 = Base.encode_to_utf8
 end
 
 "just a block of memory; T is the element type, `len` is total # of **bytes* pointed to, and `elsize` is size of each element"
