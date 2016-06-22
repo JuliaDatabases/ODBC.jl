@@ -2,10 +2,10 @@
 let
     global odbc_dm
     if !isdefined(:odbc_dm)
-        @linux_only   lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"]
-        @windows_only lib_choices = ["odbc32"]
-        @osx_only     lib_choices = ["libodbc.2.dylib","libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"]
-        lib = @compat Libdl.find_library(lib_choices)
+        is_linux()   && (lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"])
+        is_windows() && (lib_choices = ["odbc32"])
+        is_apple()   && (lib_choices = ["libodbc.2.dylib","libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"])
+        lib = Libdl.find_library(lib_choices)
         const odbc_dm = lib
     end
 end
@@ -306,8 +306,8 @@ const SQL2C = Dict(
     SQL_WCHAR          => SQL_C_WCHAR,
     SQL_WVARCHAR       => SQL_C_WCHAR,
     SQL_WLONGVARCHAR   => SQL_C_WCHAR,
-    SQL_DECIMAL        => SQL_C_WCHAR,
-    SQL_NUMERIC        => SQL_C_WCHAR,
+    SQL_DECIMAL        => SQL_C_CHAR,
+    SQL_NUMERIC        => SQL_C_CHAR,
     SQL_SMALLINT       => SQL_C_SHORT,
     SQL_INTEGER        => SQL_C_LONG,
     SQL_REAL           => SQL_C_FLOAT,
@@ -326,7 +326,7 @@ const SQL2C = Dict(
     SQL_SS_TIMESTAMPOFFSET => SQL_C_TYPE_TIMESTAMP,
     SQL_GUID           => SQL_C_GUID)
 
-@windows_only begin
+if is_windows()
     SQL2C[SQL_DECIMAL] = SQL_C_DOUBLE
     SQL2C[SQL_NUMERIC] = SQL_C_DOUBLE
 end
@@ -341,14 +341,14 @@ The 3rd `Bool` value indicates whether the column is a LONGTEXT or LONGBINARY SQ
 tend to require special result-handling rules.
 """
 const SQL2Julia = Dict(
-    SQL_CHAR           => (SQLCHAR, Data.PointerString{SQLCHAR}, false),
-    SQL_VARCHAR        => (SQLCHAR, Data.PointerString{SQLCHAR}, false),
-    SQL_LONGVARCHAR    => (SQLCHAR, Data.PointerString{SQLCHAR}, true),
-    SQL_WCHAR          => (SQLWCHAR, Data.PointerString{SQLWCHAR}, false),
-    SQL_WVARCHAR       => (SQLWCHAR, Data.PointerString{SQLWCHAR}, false),
-    SQL_WLONGVARCHAR   => (SQLWCHAR, Data.PointerString{SQLWCHAR}, true),
-    SQL_DECIMAL        => (SQLWCHAR, Dec64, false),
-    SQL_NUMERIC        => (SQLWCHAR, Dec64, false),
+    SQL_CHAR           => (SQLCHAR, WeakRefString{SQLCHAR}, false),
+    SQL_VARCHAR        => (SQLCHAR, WeakRefString{SQLCHAR}, false),
+    SQL_LONGVARCHAR    => (SQLCHAR, WeakRefString{SQLCHAR}, true),
+    SQL_WCHAR          => (SQLWCHAR, WeakRefString{SQLWCHAR}, false),
+    SQL_WVARCHAR       => (SQLWCHAR, WeakRefString{SQLWCHAR}, false),
+    SQL_WLONGVARCHAR   => (SQLWCHAR, WeakRefString{SQLWCHAR}, true),
+    SQL_DECIMAL        => (SQLCHAR, Dec64, false),
+    SQL_NUMERIC        => (SQLCHAR, Dec64, false),
     SQL_SMALLINT       => (SQLSMALLINT, SQLSMALLINT, false),
     SQL_INTEGER        => (SQLINTEGER, SQLINTEGER, false),
     SQL_REAL           => (SQLREAL, SQLREAL, false),
@@ -367,7 +367,7 @@ const SQL2Julia = Dict(
     SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, SQLTimestamp, false),
     SQL_GUID           => (SQLGUID, SQLGUID, false))
 
-@windows_only begin
+if is_windows()
     SQL2Julia[SQL_DECIMAL] = (SQLDOUBLE, SQLDOUBLE, false)
     SQL2Julia[SQL_NUMERIC] = (SQLDOUBLE, SQLDOUBLE, false)
 end

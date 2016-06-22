@@ -1,4 +1,3 @@
-using DataStreams
 """
 library for interfacing with an ODBC Driver Manager.
 Handles connecting to systems, sending queries/statements and returning results, if any.
@@ -18,13 +17,19 @@ See the help documentation for the individual types/methods for more information
 """
 module ODBC
 
-using Compat, NullableArrays, DataStreams, CSV, SQLite, DecFP
+using DecFP, SQLite, CSV, DataStreams, DataFrames, NullableArrays, WeakRefStrings
+
+if !isdefined(Core, :String)
+    typealias String UTF8String
+end
+
+export Data
 
 include("API.jl")
 include("utils.jl")
 
 type ODBCError <: Exception
-    msg::AbstractString
+    msg::String
 end
 
 const BUFLEN = 1024
@@ -59,8 +64,8 @@ end
 
 "List ODBC drivers that have been installed and registered"
 function listdrivers()
-    descriptions = AbstractString[]
-    attributes   = AbstractString[]
+    descriptions = String[]
+    attributes   = String[]
     driver_desc = Block(ODBC.API.SQLWCHAR, BUFLEN)
     desc_length = Ref{ODBC.API.SQLSMALLINT}()
     driver_attr = Block(ODBC.API.SQLWCHAR, BUFLEN)
@@ -78,8 +83,8 @@ end
 
 "List ODBC DSNs, both user and system, that have been previously defined"
 function listdsns()
-    descriptions = AbstractString[]
-    attributes   = AbstractString[]
+    descriptions = String[]
+    attributes   = String[]
     dsn_desc    = Block(ODBC.API.SQLWCHAR, BUFLEN)
     desc_length = Ref{ODBC.API.SQLSMALLINT}()
     dsn_attr    = Block(ODBC.API.SQLWCHAR, BUFLEN)
@@ -100,7 +105,7 @@ A DSN represents an established ODBC connection.
 It is passed to most other ODBC methods as a first argument
 """
 type DSN
-    dsn::AbstractString
+    dsn::String
     dbc_ptr::Ptr{Void}
     stmt_ptr::Ptr{Void}
 end
@@ -113,7 +118,7 @@ Takes optional 2nd and 3rd arguments for `username` and `password`, respectively
 1st argument `dsn` can be either the name of a pre-defined ODBC DSN or a valid connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
 """
-function DSN(dsn::AbstractString, username::AbstractString="", password::AbstractString="";driver_prompt::Integer=ODBC.API.SQL_DRIVER_NOPROMPT)
+function DSN(dsn::AbstractString, username::AbstractString=String(""), password::AbstractString=String("");driver_prompt::Integer=ODBC.API.SQL_DRIVER_NOPROMPT)
     dbc = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV)
     dsns = ODBC.listdsns()
     found = false
@@ -152,7 +157,7 @@ Base.show(io::IO, rb::ResultBlock) = print(io, "ODBC.ResultBlock:\n\trowsfetched
 type Source <: Data.Source
     schema::Data.Schema
     dsn::DSN
-    query::AbstractString
+    query::String
     rb::ResultBlock
     status::Int
 end

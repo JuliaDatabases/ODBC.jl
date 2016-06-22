@@ -43,7 +43,7 @@ function Source(dsn::DSN, query::AbstractString)
     ODBC.API.SQLRowCount(stmt,rows)
     rows, cols = rows[], cols[]
     #Allocate arrays to hold each column's metadata
-    cnames = Array(@compat(String),cols)
+    cnames = Array(String,cols)
     ctypes, csizes = Array(ODBC.API.SQLSMALLINT,cols), Array(ODBC.API.SQLULEN,cols)
     cdigits, cnulls = Array(ODBC.API.SQLSMALLINT,cols), Array(ODBC.API.SQLSMALLINT,cols)
     juliatypes = Array(DataType,cols)
@@ -126,34 +126,31 @@ end
 Data.isdone(source::ODBC.Source) = source.status != ODBC.API.SQL_SUCCESS && source.status != ODBC.API.SQL_SUCCESS_WITH_INFO
 
 """
-Stream the results of `source` (if any) to a `Data.Table` type. The `Data.Table` will be allocated according
+Stream the results of `source` (if any) to a `DataFrame` type. The `DataFrame` will be allocated according
 to the size of the resultset of the query string.
 """
-function Data.stream!(source::ODBC.Source, ::Type{Data.Table})
+function Data.stream!(source::ODBC.Source, ::Type{DataFrame})
     rb = source.rb;
     rows, cols = size(source)
     if rb.fetchsize == rows
         # fetch strategy #1: reinterpret allocated Blocks
-        data = Array(NullableVector, cols)
-        other = []
+        data = Array(Any, cols)
         for col = 1:cols
-            data[col] = NullableArray(rb.jltypes[col],rb.columns[col],rb.indcols[col],rows, other)
+            data[col] = NullableArray(rb.jltypes[col],rb.columns[col],rb.indcols[col],rows)
         end
-        return Data.Table(Data.schema(source),data,other)
+        return DataFrame(data, map(Symbol, Data.header(source)))
     else
         # fetch strategy #2 or #3
-        dt = Data.Table(Data.header(source), Data.types(source), max(0,rows));
-        return Data.stream!(source, dt)
+        df = DataFrame(Data.Schema(Data.header(source), Data.types(source), max(0,rows)))
+        return Data.stream!(source, df)
     end
 end
 
-"Stream the results of an `ODBC.Source` to a pre-allocated `Data.Table`"
-function Data.stream!(source::ODBC.Source, dt::Data.Table)
+"Stream the results of an `ODBC.Source` to a pre-allocated `DataFrame`"
+function Data.stream!(source::ODBC.Source, df::DataFrame)
     rb = source.rb;
     rows, cols = size(source)
-    data = dt.data;
-    other = []
-    dt.other = other
+    data = df.columns;
     r = 0
     while true
         rowsfetched::ODBC.API.SQLLEN = rb.rowsfetched[]
@@ -161,13 +158,13 @@ function Data.stream!(source::ODBC.Source, dt::Data.Table)
         if rows < 0
             # fetch strategy #3: grow our output and copy Blocks to new output space until done
             for col = 1:cols
-                ODBC.append!(rb.jltypes[col],rb.columns[col],rb.indcols[col],data[col],r,rowsfetched,other)
+                ODBC.append!(rb.jltypes[col],rb.columns[col],rb.indcols[col],data[col],r,rowsfetched)
             end
         else
             # fetch strategy #2: copy allocated Blocks to pre-allocated output
             for col = 1:cols
                 #TODO: add a check that we have enough space to copy rowsfetched into data[col] from r
-                ODBC.copy!(rb.jltypes[col],rb.columns[col],rb.indcols[col],data[col],r,rowsfetched,other)
+                ODBC.copy!(rb.jltypes[col],rb.columns[col],rb.indcols[col],data[col],r,rowsfetched)
             end
         end
         r += rowsfetched
@@ -177,8 +174,8 @@ function Data.stream!(source::ODBC.Source, dt::Data.Table)
     for col = 1:cols
         free!(rb.columns[col])
     end
-    source.schema.rows = dt.schema.rows = r
-    return dt
+    source.schema.rows = r
+    return df
 end
 
 function getfield!{T}(jltype::Type{T},block::Block,ind,row,col,cols,sink,null)
@@ -253,9 +250,9 @@ end
 
 """
 Convenience method that constructs an `ODBC.Source` and streams the results to `sink`.
-`sink` can be any valid `Data.Sink` (`CSV.Sink`,`SQLite.Sink`,etc.) and by default, is a `Data.Table`.
+`sink` can be any valid `Data.Sink` (`CSV.Sink`,`SQLite.Sink`,etc.) and by default, is a `DataFrame`.
 """
-function query(dsn::DSN, querystring::AbstractString, sink=Data.Table)
+function query(dsn::DSN, querystring::AbstractString, sink=DataFrame)
     source = ODBC.Source(dsn, querystring)
     return Data.stream!(source, sink)
 end

@@ -24,7 +24,23 @@ Contents
 """
 module API
 
-using Compat, DataStreams, DecFP
+using WeakRefStrings, DecFP
+
+if VERSION < v"0.5.0-dev+4267"
+    if OS_NAME == :Windows
+        const KERNEL = :NT
+    else
+        const KERNEL = OS_NAME
+    end
+
+    @eval is_apple()   = $(KERNEL == :Darwin)
+    @eval is_linux()   = $(KERNEL == :Linux)
+    @eval is_bsd()     = $(KERNEL in (:FreeBSD, :OpenBSD, :NetBSD, :Darwin, :Apple))
+    @eval is_unix()    = $(is_linux() || is_bsd())
+    @eval is_windows() = $(KERNEL == :NT)
+else
+    const KERNEL = Sys.KERNEL
+end
 
 include("types.jl")
 
@@ -54,10 +70,14 @@ const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
                            SQL_STILL_EXECUTING => "SQL_STILL_EXECUTING")
 
 macro odbc(func,args,vals...)
-    quote
-        @windows_only ret = ccall( ($func, odbc_dm), stdcall, SQLRETURN, $args, $(vals...))
-        @unix_only    ret = ccall( ($func, odbc_dm),          SQLRETURN, $args, $(vals...))
-        return ret
+    if is_windows()
+        quote
+            ret = ccall( ($func, odbc_dm), stdcall, SQLRETURN, $args, $(vals...))
+        end
+    else
+        quote
+            ret = ccall( ($func, odbc_dm),          SQLRETURN, $args, $(vals...))
+        end
     end
 end
 
