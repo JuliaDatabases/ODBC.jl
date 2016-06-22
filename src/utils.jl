@@ -38,8 +38,8 @@ zero!(block::Block) = (block.ptr = 0; return nothing)
 
 # used for getting messages back from ODBC driver manager; SQLDrivers, SQLError, etc.
 Base.string(block::Block{UInt8},  len::Integer) = unsafe_string(block.ptr,len)
-Base.string(block::Block{UInt16}, len::Integer) = encode_to_utf8(UInt16, unsafe_wrap(Array, block.ptr, len, false), len)
-Base.string(block::Block{UInt32}, len::Integer) = encode_to_utf8(UInt32, unsafe_wrap(Array, block.ptr, len, false), len)
+Base.string(block::Block{UInt16}, len::Integer) = Base.encode_to_utf8(UInt16, unsafe_wrap(Array, block.ptr, len, false), len)
+Base.string(block::Block{UInt32}, len::Integer) = Base.encode_to_utf8(UInt32, unsafe_wrap(Array, block.ptr, len, false), len)
 
 # translate a # of bytes and a code unit type (UInt8, UInt16, UInt32) and return the # of code units; returns 0 if field is null
 bytes2codeunits(::Type{UInt8},  bytes::ODBC.API.SQLLEN) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, convert(ODBC.API.SQLLEN,0), bytes)
