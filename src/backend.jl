@@ -154,7 +154,7 @@ function Data.stream!(source::ODBC.Source, df::DataFrame)
     r = 0
     while true
         rowsfetched::ODBC.API.SQLLEN = rb.rowsfetched[]
-        rowsfetched == 0 && break
+        (rowsfetched == 0 || rowsfetched > rb.fetchsize) && break
         if rows < 0
             # fetch strategy #3: grow our output and copy Blocks to new output space until done
             for col = 1:cols
