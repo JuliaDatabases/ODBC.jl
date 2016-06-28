@@ -176,7 +176,7 @@ function Base.append!{T<:CHARS}(::Type{Dec64}, block::Block{T}, ind, dest::Nulla
 end
 
 "append to a NullableVector by copying the data from a Block that has container-type data"
-function Base.append!{T<:CHARS}(jltype, block::Block{T}, ind, dest::NullableVector, offset, len, other)
+function Base.append!{T<:CHARS}(jltype, block::Block{T}, ind, dest::NullableVector, offset, len)
     values = dest.values
     isnull = dest.isnull
     ccall(:jl_array_grow_end, Void, (Any, UInt), values, len)
