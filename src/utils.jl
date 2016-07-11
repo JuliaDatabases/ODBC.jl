@@ -4,7 +4,7 @@ if !isdefined(Base, :unsafe_wrap)
     unsafe_wrap{A<:Array}(::Type{A}, ptr, len, own) = pointer_to_array(ptr, len, own)
 end
 
-"just a block of memory; T is the element type, `len` is total # of **bytes* pointed to, and `elsize` is size of each element"
+"just a block of memory; T is the element type, `len` is total # of **bytes** pointed to, and `elsize` is size of each element"
 type Block{T}
     ptr::Ptr{T}     # pointer to a block of memory
     len::UInt       # total # of bytes in block
