@@ -293,6 +293,9 @@ immutable SQLGUID
     Data4::NTuple{8,Cuchar}
 end
 
+# for representing SQL LONG types
+immutable Long{T} end
+
 """
 Dict for mapping SQL types to C types.
 When executing an SQL query that returns results, the DBMS will return the SQL types of the resultset;
@@ -331,6 +334,28 @@ if is_windows()
     SQL2C[SQL_NUMERIC] = SQL_C_DOUBLE
 end
 
+const julia2C = Dict(
+    String                => SQL_C_CHAR,
+    WeakRefString{UInt8}  => SQL_C_CHAR,
+    WeakRefString{UInt16} => SQL_C_WCHAR,
+    WeakRefString{UInt32} => SQL_C_WCHAR,
+    Dec64                 => SQL_C_DOUBLE,
+    Float16               => SQL_C_FLOAT,
+    Float32               => SQL_C_FLOAT,
+    Float64               => SQL_C_DOUBLE,
+    Int8                  => SQL_C_TINYINT,
+    Int16                 => SQL_C_SHORT,
+    Int32                 => SQL_C_LONG,
+    Int64                 => SQL_C_BIGINT,
+    Bool                  => SQL_C_BIT,
+    Vector{UInt8}         => SQL_C_BINARY,
+    Date                  => SQL_C_TYPE_DATE,
+    DateTime              => SQL_C_TYPE_TIMESTAMP,
+    SQLDate               => SQL_C_TYPE_DATE,
+    SQLTime               => SQL_C_TYPE_TIME,
+    SQLTimestamp          => SQL_C_TYPE_TIMESTAMP
+)
+
 """
 maps SQL types from the ODBC manager to Julia types;
 in particular, it returns a Tuple{A,B,Bool}, where `A` is the Julia type
@@ -343,10 +368,10 @@ tend to require special result-handling rules.
 const SQL2Julia = Dict(
     SQL_CHAR           => (SQLCHAR, WeakRefString{SQLCHAR}, false),
     SQL_VARCHAR        => (SQLCHAR, WeakRefString{SQLCHAR}, false),
-    SQL_LONGVARCHAR    => (SQLCHAR, WeakRefString{SQLCHAR}, true),
+    SQL_LONGVARCHAR    => (SQLCHAR, String, true),
     SQL_WCHAR          => (SQLWCHAR, WeakRefString{SQLWCHAR}, false),
     SQL_WVARCHAR       => (SQLWCHAR, WeakRefString{SQLWCHAR}, false),
-    SQL_WLONGVARCHAR   => (SQLWCHAR, WeakRefString{SQLWCHAR}, true),
+    SQL_WLONGVARCHAR   => (SQLWCHAR, String, true),
     SQL_DECIMAL        => (SQLCHAR, Dec64, false),
     SQL_NUMERIC        => (SQLCHAR, Dec64, false),
     SQL_SMALLINT       => (SQLSMALLINT, SQLSMALLINT, false),

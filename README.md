@@ -1,53 +1,55 @@
-ODBC.jl
-=======
-[![ODBC](http://pkg.julialang.org/badges/ODBC_0.4.svg)](http://pkg.julialang.org/?pkg=ODBC&ver=0.4)
-[![ODBC](http://pkg.julialang.org/badges/ODBC_0.5.svg)](http://pkg.julialang.org/?pkg=ODBC&ver=0.5)
 
-Linux: [![Build Status](https://travis-ci.org/JuliaDB/ODBC.jl.svg?branch=master)](https://travis-ci.org/JuliaDB/ODBC.jl)
+# ODBC
 
-Windows: [![Build Status](https://ci.appveyor.com/api/projects/status/github/JuliaDB/ODBC.jl?branch=master&svg=true)](https://ci.appveyor.com/project/JuliaDB/odbc-jl/branch/master)
+*A Julia library for working with ODBC*
 
-An ODBC interface for the Julia programming language
+| **Documentation**                                                               | **PackageEvaluator**                                            | **Build Status**                                                                                |
+|:-------------------------------------------------------------------------------:|:---------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|
+| [![][docs-stable-img]][docs-stable-url] [![][docs-latest-img]][docs-latest-url] | [![][pkg-0.4-img]][pkg-0.4-url] [![][pkg-0.5-img]][pkg-0.5-url] | [![][travis-img]][travis-url] [![][appveyor-img]][appveyor-url] [![][codecov-img]][codecov-url] |
 
-Installation through the Julia package manager:
+
+## Installation
+
+The package is registered in `METADATA.jl` and so can be installed with `Pkg.add`.
+
 ```julia
-julia> Pkg.init()        # Creates julia package repository (only runs once for all packages)
-julia> Pkg.add("ODBC")   # Creates the ODBC repo folder and downloads the ODBC package + dependancy (if needed)
-julia> using ODBC        # Loads the ODBC module for use (needs to be run with each new Julia instance)
+julia> Pkg.add("ODBC")
 ```
 
-Basic Usage:
-```julia
-using DataFrames
-using ODBC
+## Documentation
 
-# list installed ODBC drivers
-ODBC.listdrivers()
-# list pre-defined ODBC DSNs
-ODBC.listdsns()
+- [**STABLE**][docs-stable-url] &mdash; **most recently tagged version of the documentation.**
+- [**LATEST**][docs-latest-url] &mdash; *in-development version of the documentation.*
 
-# connect to a DSN using a pre-defined DSN or custom connection string
-dsn = ODBC.DSN("pre_defined_DSN","username","password")
+## Project Status
 
-# Basic a basic query that returns results at a Data.Table by default
-datatable = ODBC.query(dsn, "show databases")
+The package is tested against Julia `0.4` and *current* `0.5-dev` on Linux, OS X, and Windows.
 
-# convert result to a DataFrame for additional data manipulation functionality
-df = DataFrame(datatable)
-# ... additional data processing ...
+## Contributing and Questions
 
-# Execute a query without returning results
-ODBC.execute!(dsn, "use mydb")
+Contributions are very welcome, as are feature requests and suggestions. Please open an
+[issue][issues-url] if you encounter any problems or would just like to ask a question.
 
-# return query results as a CSV file
-csv = CSV.Sink("mydb_tables.csv")
-data = ODBC.query(dsn, "select table_name from information_schema.tables", csv);
 
-# return query results in an SQLite table
-db = SQLite.DB()
-source = ODBC.Source(dsn, "select table_name from information_schema.tables")
-sqlite = SQLite.Sink(source, db)
-Data.stream!(source, sqlite)
-```
 
-Use the automatic help mode for more information on package types/functions.
+[docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
+[docs-latest-url]: https://JuliaDB.github.io/ODBC.jl/latest
+
+[docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
+[docs-stable-url]: https://JuliaDB.github.io/ODBC.jl/stable
+
+[travis-img]: https://travis-ci.org/JuliaDB/ODBC.jl.svg?branch=master
+[travis-url]: https://travis-ci.org/JuliaDB/ODBC.jl
+
+[appveyor-img]: https://ci.appveyor.com/api/projects/status/h227adt6ovd1u3sx/branch/master?svg=true
+[appveyor-url]: https://ci.appveyor.com/project/JuliaDB/documenter-jl/branch/master
+
+[codecov-img]: https://codecov.io/gh/JuliaDB/ODBC.jl/branch/master/graph/badge.svg
+[codecov-url]: https://codecov.io/gh/JuliaDB/ODBC.jl
+
+[issues-url]: https://github.com/JuliaDB/ODBC.jl/issues
+
+[pkg-0.4-img]: http://pkg.julialang.org/badges/ODBC_0.4.svg
+[pkg-0.4-url]: http://pkg.julialang.org/?pkg=ODBC
+[pkg-0.5-img]: http://pkg.julialang.org/badges/ODBC_0.5.svg
+[pkg-0.5-url]: http://pkg.julialang.org/?pkg=ODBC

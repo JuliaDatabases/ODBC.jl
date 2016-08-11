@@ -1,13 +1,13 @@
 language: julia
 
 os:
-  - osx
   - linux
+  - osx
+
 julia:
-  - nightly
   - 0.4
-notifications:
-  email: false
+  - 0.5
+  - nightly
 
 services:
   - mysql
@@ -18,9 +18,13 @@ before_install:
   - sudo odbcinst -i -d -f /usr/share/libmyodbc/odbcinst.ini
   - sudo odbcinst -i -s -l -f ./test/odbc.ini
 
-script:
-  - if [[ -a .git/shallow ]]; then git fetch --unshallow; fi
-  - julia -e 'Pkg.clone(pwd()); Pkg.build("ODBC"); Pkg.test("ODBC"; coverage=true)';
+notifications:
+  email: false
+
 after_success:
-  - julia -e 'cd(Pkg.dir("ODBC")); Pkg.add("Coverage"); using Coverage; Coveralls.submit(Coveralls.process_folder())';
-#  - julia -e 'cd(Pkg.dir("ODBC")); Pkg.add("Coverage"); using Coverage; Codecov.submit(Codecov.process_folder())';
+  - julia -e 'cd(Pkg.dir("ODBC", "test")); include("coverage.jl")'
+  - julia -e 'Pkg.add("Documenter")'
+  - julia -e 'cd(Pkg.dir("ODBC")); include(joinpath("docs", "make.jl"))'
+
+after_success:
+  - julia -e 'cd(Pkg.dir("ODBC")); Pkg.add("Coverage"); using Coverage; Codecov.submit(process_folder())'

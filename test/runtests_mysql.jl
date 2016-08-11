@@ -3,7 +3,7 @@ using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings
 @show ODBC.listdrivers()
 @show ODBC.listdsns()
 
-dsn = ODBC.DSN("Driver={MySQL ODBC Driver};SERVER=")
+dsn = ODBC.DSN("Driver={MySQL ODBC Driver};SERVER=104.154.97.118;USER=root;PASSWORD=goldmouse")
 
 # Check some basic queries
 dbs = ODBC.query(dsn, "show databases")
@@ -234,3 +234,4 @@ data = SQLite.query(db, "select * from test2")
 
 ODBC.execute!(dsn, "drop table if exists test1")
 # ODBC.Source(dsn, "drop table if exists test2")
+rm("test2.csv")

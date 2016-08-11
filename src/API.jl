@@ -24,7 +24,7 @@ Contents
 """
 module API
 
-using WeakRefStrings, DecFP
+using WeakRefStrings, DecFP, LegacyStrings
 
 if VERSION < v"0.5.0-dev+4267"
     if OS_NAME == :Windows
@@ -560,10 +560,10 @@ function SQLGetCursorName(stmt::Ptr{Void},cursor::Array{UInt8,1},cursor_length::
 end
 
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms715441(v=vs.85).aspx"
-function SQLGetData{T,N}(stmt::Ptr{Void},i::Int,ctype::Int16,value::Array{T,N},bytes_returned::Array{Int,1})
+function SQLGetData(stmt::Ptr{Void},i,ctype,mem,jlsize,indicator::Ref{SQLLEN})
     @odbc(:SQLGetData,
-                (Ptr{Void},UInt16,Int16,Ptr{T},Int,Ptr{Int}),
-                stmt,i,ctype,value,sizeof(T)*N,bytes_returned)
+                (Ptr{Void},SQLUSMALLINT,SQLSMALLINT,Ptr{Void},SQLLEN,Ptr{SQLLEN}),
+                stmt,i,ctype,mem,jlsize,indicator)
 end
 
 #SQLFetchScroll
