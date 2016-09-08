@@ -17,7 +17,11 @@ See the help documentation for the individual types/methods for more information
 """
 module ODBC
 
-using DecFP, DataStreams, DataFrames, NullableArrays, WeakRefStrings
+using DataStreams, DataFrames, NullableArrays, CategoricalArrays, WeakRefStrings
+
+if is_unix()
+    using DecFP
+end
 
 if !isdefined(Core, :String)
     typealias String UTF8String
@@ -133,6 +137,7 @@ type DSN
     dsn::String
     dbc_ptr::Ptr{Void}
     stmt_ptr::Ptr{Void}
+    stmt_ptr2::Ptr{Void}
 end
 
 Base.show(io::IO,conn::DSN) = print(io, "ODBC.DSN($(conn.dsn))")
@@ -156,15 +161,24 @@ function DSN(dsn::AbstractString, username::AbstractString=String(""), password:
         dsn = ODBCDriverConnect!(dbc, dsn, driver_prompt % UInt16)
     end
     stmt = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dbc)
-    conn = DSN(dsn, dbc, stmt)
+    stmt2 = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dbc)
+    conn = DSN(dsn, dbc, stmt, stmt2)
     return conn
 end
 
 "disconnect a connected `DSN`"
 function disconnect!(conn::DSN)
     ODBCFreeStmt!(conn.stmt_ptr)
+    ODBCFreeStmt!(conn.stmt_ptr2)
     ODBC.API.SQLDisconnect(conn.dbc_ptr)
     return nothing
+end
+
+type Statement
+    dsn::DSN
+    stmt::Ptr{Void}
+    query::String
+    task::Task
 end
 
 "An `ODBC.Source` type executes a `query` string upon construction and prepares data for streaming to an appropriate `Data.Sink`"
@@ -175,6 +189,7 @@ type Source <: Data.Source
     columns::Vector{Any}
     status::Int
     rowsfetched::Ref{ODBC.API.SQLLEN}
+    rowoffset::Int
     boundcols::Vector{Any}
     indcols::Vector{Vector{ODBC.API.SQLLEN}}
     sizes::Vector{ODBC.API.SQLULEN}

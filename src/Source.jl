@@ -23,9 +23,72 @@ function ODBCDriverConnect!(dbc::Ptr{Void}, conn_string, driver_prompt::UInt16)
     return connection_string
 end
 
+"`ODBC.prepare` prepares an SQL statement to be executed"
+function prepare(dsn::DSN, query::AbstractString)
+    stmt = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dsn.dbc_ptr)
+    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLPrepare(stmt, query)
+    return Statement(dsn, stmt, query, Task(1))
+end
+
+isnull{T}(x::Nullable{T}) = Base.isnull(x)
+isnull(x) = false
+
+cast{T}(x::T) = x
+cast(x::Date) = ODBC.API.SQLDate(x)
+cast(x::DateTime) = ODBC.API.SQLTimestamp(x)
+cast(x::String) = WeakRefString(pointer(x.data), length(x))
+
+getpointer{T}(::Type{T}, A, i) = unsafe_load(Ptr{Ptr{Void}}(pointer(A, i)))
+getpointer{T}(::Type{WeakRefString{T}}, A, i) = convert(Ptr{Void}, A[i].ptr)
+getpointer(::Type{String}, A, i) = convert(Ptr{Void}, pointer(A[i].data))
+
+sqllength(x) = 1
+sqllength(x::AbstractString) = length(x)
+sqllength(x::Vector{UInt8}) = length(x)
+sqllength(x::ODBC.API.SQLDate) = 10
+sqllength(x::Union{ODBC.API.SQLTime,ODBC.API.SQLTimestamp}) = length(string(x))
+
+clength(x) = 1
+clength(x::AbstractString) = length(x)
+clength(x::Vector{UInt8}) = length(x)
+clength{T}(x::WeakRefString{T}) = codeunits2bytes(T, length(x))
+clength(x::CategoricalArrays.CategoricalValue) = length(String(x))
+clength{T}(x::Nullable{T}) = isnull(x) ? ODBC.API.SQL_NULL_DATA : clength(get(x))
+
+digits(x) = 0
+digits(x::ODBC.API.SQLTimestamp) = length(string(x.fraction * 1000000))
+
+function execute!(statement::Statement, values)
+    stmt = statement.stmt
+    values2 = Any[cast(x) for x in values]
+    pointers = Ptr[]
+    types = map(typeof, values2)
+    for (i, v) in enumerate(values2)
+        if isnull(v)
+            ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBindParameter(stmt, i, ODBC.API.SQL_PARAM_INPUT,
+                ODBC.API.SQL_C_CHAR, ODBC.API.SQL_CHAR, 0, 0, C_NULL, 0, Ref(ODBC.API.SQL_NULL_DATA))
+        else
+            ctype, sqltype = ODBC.API.julia2C[types[i]], ODBC.API.julia2SQL[types[i]]
+            csize, len, dgts = sqllength(v), clength(v), digits(v)
+            ptr = getpointer(types[i], values2, i)
+            # println("ctype: $ctype, sqltype: $sqltype, digits: $dgts, len: $len, csize: $csize")
+            push!(pointers, ptr)
+            ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBindParameter(stmt, i, ODBC.API.SQL_PARAM_INPUT,
+                ctype, sqltype, csize, dgts, ptr, len, Ref(len))
+        end
+    end
+    execute!(statement)
+    return
+end
+
+function execute!(statement::Statement)
+    stmt = statement.stmt
+    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecute(stmt)
+    return
+end
+
 "`ODBC.execute!` is a minimal method for just executing an SQL `query` string. No results are checked for or returned."
-function execute!(dsn::DSN, query::AbstractString)
-    stmt = dsn.stmt_ptr
+function execute!(dsn::DSN, query::AbstractString, stmt=dsn.stmt_ptr)
     ODBC.ODBCFreeStmt!(stmt)
     ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query)
     return
@@ -35,10 +98,10 @@ end
 `ODBC.Source` constructs a valid `Data.Source` type that executes an SQL `query` string for the `dsn` ODBC DSN.
 Results are checked for and an `ODBC.ResultBlock` is allocated to prepare for fetching the resultset.
 """
-function Source(dsn::DSN, query::AbstractString)
+function Source(dsn::DSN, query::AbstractString; noquery::Bool=false)
     stmt = dsn.stmt_ptr
-    ODBC.ODBCFreeStmt!(stmt)
-    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query)
+    noquery || ODBC.ODBCFreeStmt!(stmt)
+    noquery || (ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query))
     rows, cols = Ref{Int}(), Ref{Int16}()
     ODBC.API.SQLNumResultCols(stmt, cols)
     ODBC.API.SQLRowCount(stmt, rows)
@@ -78,7 +141,7 @@ function Source(dsn::DSN, query::AbstractString)
     boundcols = Array{Any}(cols)
     indcols = Array{Vector{ODBC.API.SQLLEN}}(cols)
     for x = 1:cols
-        columns[x] = Vector{juliatypes[x]}()
+        # columns[x] = NullableVector{juliatypes[x]}()
         if longtexts[x]
             boundcols[x], indcols[x] = alloctypes[x][], ODBC.API.SQLLEN[]
         else
@@ -92,7 +155,7 @@ function Source(dsn::DSN, query::AbstractString)
     rowsfetched = Ref{ODBC.API.SQLLEN}() # will be populated by call to SQLFetchScroll
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROWS_FETCHED_PTR, rowsfetched, ODBC.API.SQL_NTS)
     types = [ODBC.API.SQL2C[ctypes[x]] for x = 1:cols]
-    source = ODBC.Source(schema, dsn, query, columns, 100, rowsfetched, boundcols, indcols, csizes, types, [longtexts[x] ? ODBC.API.Long{T} : T for (x, T) in enumerate(juliatypes)])
+    source = ODBC.Source(schema, dsn, query, columns, 100, rowsfetched, 0, boundcols, indcols, csizes, types, [longtexts[x] ? ODBC.API.Long{eltype(T)} : eltype(T) for (x, T) in enumerate(juliatypes)])
     rows != 0 && fetch!(source)
     return source
 end
@@ -123,7 +186,7 @@ end
 # primitive types
 function cast!{T}(::Type{T}, source, col)
     len = source.rowsfetched[]
-    if Data.isdone(source, 1, 1)
+    if Data.isdone(source)
         isnull = Vector{Bool}(len)
         booleanize!(source.indcols[col], isnull, len)
         source.columns[col] = NullableArray{T,1}(resize!(source.boundcols[col], len), isnull)
@@ -137,24 +200,44 @@ function cast!{T}(::Type{T}, source, col)
 end
 
 # decimal/numeric and binary types
+if !is_windows()
+
 const DECZERO = Dec64(0)
 
 cast(::Type{Dec64}, arr, cur, ind) = ind <= 0 ? DECZERO : parse(Dec64, String(unsafe_wrap(Array, pointer(arr, cur), ind)))
-cast(::Type{Vector{UInt8}}, arr, cur, ind) = arr[cur:(cur + max(ind, 0) - 1)]
 
-function cast!{T<:Union{Dec64,Vector{UInt8}}}(::Type{T}, source, col)
+function cast!(::Type{Dec64}, source, col)
     len = source.rowsfetched[]
-    values = Vector{T}(len)
+    values = Vector{Dec64}(len)
     isnull = Vector{Bool}(len)
     cur = 1
     elsize = source.sizes[col] + 1
     @inbounds for x = 1:len
         ind = source.indcols[col][x]
-        values[x] = cast(T, source.boundcols[col], cur, ind)
+        values[x] = cast(Dec64, source.boundcols[col], cur, ind)
         isnull[x] = ind == ODBC.API.SQL_NULL_DATA
         cur += elsize
     end
-    source.columns[col] = NullableArray{T,1}(values, isnull)
+    source.columns[col] = NullableArray{Dec64,1}(values, isnull)
+    return
+end
+end
+
+cast(::Type{Vector{UInt8}}, arr, cur, ind) = arr[cur:(cur + max(ind, 0) - 1)]
+
+function cast!(::Type{Vector{UInt8}}, source, col)
+    len = source.rowsfetched[]
+    values = Vector{Vector{UInt8}}(len)
+    isnull = Vector{Bool}(len)
+    cur = 1
+    elsize = source.sizes[col] + 1
+    @inbounds for x = 1:len
+        ind = source.indcols[col][x]
+        values[x] = cast(Vector{UInt8}, source.boundcols[col], cur, ind)
+        isnull[x] = ind == ODBC.API.SQL_NULL_DATA
+        cur += elsize
+    end
+    source.columns[col] = NullableArray{Vector{UInt8},1}(values, isnull)
     return
 end
 
@@ -175,7 +258,7 @@ function cast!{T}(::Type{WeakRefString{T}}, source, col)
     elsize = source.sizes[col] + 1
     @inbounds for i = 1:len
         indic = source.indcols[col][i]
-        lens[i] = length = ODBC.bytes2codeunits(T, max(indic, 0)) + 1
+        lens[i] = length = ODBC.bytes2codeunits(T, max(indic, 0))
         isnull[i] = indic == ODBC.API.SQL_NULL_DATA
         append!(parent, reinterpret(UInt8, source.boundcols[col][cur:(cur + length - 1)])) # is append already doing a copy here?
         cur += elsize
@@ -214,37 +297,40 @@ function cast!{T}(::Type{ODBC.API.Long{T}}, source, col)
 end
 
 "Checks if an `ODBC.Source` has finished fetching results from an executed query string"
-Data.isdone(source::ODBC.Source, x, y) = source.status != ODBC.API.SQL_SUCCESS && source.status != ODBC.API.SQL_SUCCESS_WITH_INFO
-# Data.reset!(io::ODBC.Source) = nothing
+Data.isdone(source::ODBC.Source, x=1, y=1) = source.status != ODBC.API.SQL_SUCCESS && source.status != ODBC.API.SQL_SUCCESS_WITH_INFO
 
 Data.streamtype{T<:ODBC.Source}(::Type{T}, ::Type{Data.Column}) = true
 Data.streamtype{T<:ODBC.Source}(::Type{T}, ::Type{Data.Field}) = true
 
-function Data.getfield{T}(source::ODBC.Source, ::Type{T}, row, col)
-    val = source.columns[col][row]
-    if col == length(source.columns) && row == length(source.columns[col])!Data.isdone(source, 1, 1)
+function Data.getfield{T}(source::ODBC.Source, ::Type{Nullable{T}}, row, col)
+    val = source.columns[col][row - source.rowoffset]::Nullable{T}
+    if col == length(source.columns) && (row - source.rowoffset) == length(source.columns[col]) && !Data.isdone(source)
         ODBC.fetch!(source)
+        source.rowoffset += source.rowsfetched[]
     end
     return val
 end
 
-# bitstype/immutable types
-function Data.getcolumn{T}(source::ODBC.Source, ::Type{T}, col)
-    dest = source.columns[col]
-    if col == length(source.columns) && !Data.isdone(source, 1, 1)
+function Data.getcolumn{T}(source::ODBC.Source, ::Type{Nullable{T}}, col)
+    dest = source.columns[col]::NullableVector{T}
+    if col == length(source.columns) && !Data.isdone(source)
         ODBC.fetch!(source)
     end
     return dest
 end
 
-"""
-Convenience method that constructs an `ODBC.Source` and streams the results to `sink`.
-`sink` can be any valid `Data.Sink` (`CSV.Sink`,`SQLite.Sink`,etc.) and by default, is a `DataFrame`.
-"""
-function query(dsn::DSN, querystring::AbstractString, sink=DataFrame)
-    source = ODBC.Source(dsn, querystring)
-    return Data.stream!(source, sink)
+function query(dsn::DSN, sql::AbstractString, sink=DataFrame, args...; append::Bool=false)
+    source = Source(dsn, sql)
+    return Data.stream!(source, sink, append, args...)
 end
+
+function query{T}(dsn::DSN, sql::AbstractString, sink::T; append::Bool=false)
+    source = Source(dsn, sql)
+    return Data.stream!(source, sink, append)
+end
+
+query(source::ODBC.Source, sink=DataFrame, args...; append::Bool=false) = Data.stream!(source, sink, append, args...)
+query{T}(source::ODBC.Source, sink::T; append::Bool=false) = Data.stream!(source, sink, append)
 
 "Convenience string macro for executing an SQL statement against a DSN."
 macro sql_str(s,dsn)

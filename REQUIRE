@@ -1,3 +1,7 @@
 julia 0.4.1
 DataStreams
-DecFP
+DataFrames
+NullableArrays
+CategoricalArrays
+WeakRefStrings
+@unix DecFP

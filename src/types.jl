@@ -10,6 +10,11 @@ let
     end
 end
 
+function setODBC(x)
+    global odbc_dm
+    odbc_dm = x
+end
+
 # Translation of sqltypes.h; C typealiases for SQL functions
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms716298(v=vs.85).aspx
 # http://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
@@ -248,6 +253,8 @@ immutable SQLDate
 end
 
 Base.show(io::IO,x::SQLDate) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))")
+SQLDate(x::Date) = SQLDate(Dates.yearmonthday(x)...)
+SQLDate() = SQLDate(0,0,0)
 
 immutable SQLTime
     hour::Int16
@@ -256,6 +263,7 @@ immutable SQLTime
 end
 
 Base.show(io::IO,x::SQLTime) = print(io,"$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))")
+SQLTime() = SQLTime(0,0,0)
 
 immutable SQLTimestamp
     year::Int16
@@ -268,6 +276,13 @@ immutable SQLTimestamp
 end
 
 Base.show(io::IO,x::SQLTimestamp) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))T$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))$(x.fraction == 0 ? "" : strip(@sprintf("%.9f",x.fraction/1e+9),'0'))")
+function SQLTimestamp(x::DateTime)
+    y, m, d = Dates.yearmonthday(x)
+    h, mm, s = Dates.hour(x), Dates.minute(x), Dates.second(x)
+    frac = div(Dates.millisecond(x), 1000000)
+    return SQLTimestamp(y, m, d, h, mm, s, frac)
+end
+SQLTimestamp() = SQLTimestamp(0,0,0,0,0,0,0)
 
 const SQL_MAX_NUMERIC_LEN = 16
 immutable SQLNumeric
@@ -278,6 +293,7 @@ immutable SQLNumeric
 end
 
 Base.show(io::IO,x::SQLNumeric) = print(io,"SQLNumeric($(x.sign == 1 ? '+' : '-') precision: $(x.precision) scale: $(x.scale) val: $(x.val))")
+SQLNumeric() = SQLNumeric(0,0,0,(0,))
 
 # typedef struct  tagSQLGUID
 # {
@@ -334,12 +350,37 @@ if is_windows()
     SQL2C[SQL_NUMERIC] = SQL_C_DOUBLE
 end
 
+const julia2SQL = Dict(
+    String                => SQL_CHAR,
+    WeakRefString{UInt8}  => SQL_CHAR,
+    WeakRefString{UInt16} => SQL_WCHAR,
+    WeakRefString{UInt32} => SQL_WCHAR,
+    Float16               => SQL_FLOAT,
+    Float32               => SQL_FLOAT,
+    Float64               => SQL_DOUBLE,
+    Int8                  => SQL_TINYINT,
+    Int16                 => SQL_SMALLINT,
+    Int32                 => SQL_INTEGER,
+    Int64                 => SQL_BIGINT,
+    Bool                  => SQL_BIT,
+    Vector{UInt8}         => SQL_BINARY,
+    Date                  => SQL_TYPE_DATE,
+    DateTime              => SQL_TYPE_TIMESTAMP,
+    SQLDate               => SQL_TYPE_DATE,
+    SQLTime               => SQL_TYPE_TIME,
+    SQLTimestamp          => SQL_TYPE_TIMESTAMP
+)
+
+if is_unix()
+    #TODO: support SQL_NUMERIC/SQL_DECIMAL properly
+    julia2SQL[Dec64] = SQL_DOUBLE
+end
+
 const julia2C = Dict(
     String                => SQL_C_CHAR,
     WeakRefString{UInt8}  => SQL_C_CHAR,
     WeakRefString{UInt16} => SQL_C_WCHAR,
     WeakRefString{UInt32} => SQL_C_WCHAR,
-    Dec64                 => SQL_C_DOUBLE,
     Float16               => SQL_C_FLOAT,
     Float32               => SQL_C_FLOAT,
     Float64               => SQL_C_DOUBLE,
@@ -356,6 +397,10 @@ const julia2C = Dict(
     SQLTimestamp          => SQL_C_TYPE_TIMESTAMP
 )
 
+if is_unix()
+    julia2C[Dec64] = SQL_C_DOUBLE
+end
+
 """
 maps SQL types from the ODBC manager to Julia types;
 in particular, it returns a Tuple{A,B,Bool}, where `A` is the Julia type
@@ -366,35 +411,35 @@ The 3rd `Bool` value indicates whether the column is a LONGTEXT or LONGBINARY SQ
 tend to require special result-handling rules.
 """
 const SQL2Julia = Dict(
-    SQL_CHAR           => (SQLCHAR, WeakRefString{SQLCHAR}, false),
-    SQL_VARCHAR        => (SQLCHAR, WeakRefString{SQLCHAR}, false),
-    SQL_LONGVARCHAR    => (SQLCHAR, String, true),
-    SQL_WCHAR          => (SQLWCHAR, WeakRefString{SQLWCHAR}, false),
-    SQL_WVARCHAR       => (SQLWCHAR, WeakRefString{SQLWCHAR}, false),
-    SQL_WLONGVARCHAR   => (SQLWCHAR, String, true),
-    SQL_DECIMAL        => (SQLCHAR, Dec64, false),
-    SQL_NUMERIC        => (SQLCHAR, Dec64, false),
-    SQL_SMALLINT       => (SQLSMALLINT, SQLSMALLINT, false),
-    SQL_INTEGER        => (SQLINTEGER, SQLINTEGER, false),
-    SQL_REAL           => (SQLREAL, SQLREAL, false),
-    SQL_FLOAT          => (SQLFLOAT, SQLFLOAT, false),
-    SQL_DOUBLE         => (SQLDOUBLE, SQLDOUBLE, false),
-    SQL_BIT            => (Int8, Int8, false),
-    SQL_TINYINT        => (Int8, Int8, false),
-    SQL_BIGINT         => (Int64, Int64, false),
-    SQL_BINARY         => (UInt8, Vector{UInt8}, false),
-    SQL_VARBINARY      => (UInt8, Vector{UInt8}, false),
-    SQL_LONGVARBINARY  => (UInt8, Vector{UInt8}, true),
-    SQL_TYPE_DATE      => (SQLDate, SQLDate, false),
-    SQL_TYPE_TIME      => (SQLTime, SQLTime, false),
-    SQL_TYPE_TIMESTAMP => (SQLTimestamp, SQLTimestamp, false),
-    SQL_SS_TIME2       => (SQLTime, SQLTime, false),
-    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, SQLTimestamp, false),
-    SQL_GUID           => (SQLGUID, SQLGUID, false))
+    SQL_CHAR           => (SQLCHAR, Nullable{WeakRefString{SQLCHAR}}, false),
+    SQL_VARCHAR        => (SQLCHAR, Nullable{WeakRefString{SQLCHAR}}, false),
+    SQL_LONGVARCHAR    => (SQLCHAR, Nullable{String}, true),
+    SQL_WCHAR          => (SQLWCHAR, Nullable{WeakRefString{SQLWCHAR}}, false),
+    SQL_WVARCHAR       => (SQLWCHAR, Nullable{WeakRefString{SQLWCHAR}}, false),
+    SQL_WLONGVARCHAR   => (SQLWCHAR, Nullable{String}, true),
+    SQL_DECIMAL        => (SQLDOUBLE, Nullable{SQLDOUBLE}, false),
+    SQL_NUMERIC        => (SQLDOUBLE, Nullable{SQLDOUBLE}, false),
+    SQL_SMALLINT       => (SQLSMALLINT, Nullable{SQLSMALLINT}, false),
+    SQL_INTEGER        => (SQLINTEGER,  Nullable{SQLINTEGER}, false),
+    SQL_REAL           => (SQLREAL,   Nullable{SQLREAL}, false),
+    SQL_FLOAT          => (SQLFLOAT,  Nullable{SQLFLOAT}, false),
+    SQL_DOUBLE         => (SQLDOUBLE, Nullable{SQLDOUBLE}, false),
+    SQL_BIT            => (Int8,  Nullable{Int8}, false),
+    SQL_TINYINT        => (Int8,  Nullable{Int8}, false),
+    SQL_BIGINT         => (Int64, Nullable{Int64}, false),
+    SQL_BINARY         => (UInt8, Nullable{Vector{UInt8}}, false),
+    SQL_VARBINARY      => (UInt8, Nullable{Vector{UInt8}}, false),
+    SQL_LONGVARBINARY  => (UInt8, Nullable{Vector{UInt8}}, true),
+    SQL_TYPE_DATE      => (SQLDate, Nullable{SQLDate}, false),
+    SQL_TYPE_TIME      => (SQLTime, Nullable{SQLTime}, false),
+    SQL_TYPE_TIMESTAMP => (SQLTimestamp, Nullable{SQLTimestamp}, false),
+    SQL_SS_TIME2       => (SQLTime, Nullable{SQLTime}, false),
+    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, Nullable{SQLTimestamp}, false),
+    SQL_GUID           => (SQLGUID, Nullable{SQLGUID}, false))
 
-if is_windows()
-    SQL2Julia[SQL_DECIMAL] = (SQLDOUBLE, SQLDOUBLE, false)
-    SQL2Julia[SQL_NUMERIC] = (SQLDOUBLE, SQLDOUBLE, false)
+if is_unix()
+    SQL2Julia[SQL_DECIMAL] = (SQLCHAR, Nullable{Dec64}, false)
+    SQL2Julia[SQL_NUMERIC] = (SQLCHAR, Nullable{Dec64}, false)
 end
 
 "Convenience mapping of SQL types to their string representation"
