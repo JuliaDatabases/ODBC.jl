@@ -80,9 +80,9 @@ data = Data.stream!(source, DataFrame)
 @test Data.types(data) == map(x->Nullable{x},
 [Int64,
  Int8,
- DecFP.Dec64,
+ is_windows() ? Float64 : DecFP.Dec64,
  Int32,
- DecFP.Dec64,
+ is_windows() ? Float64 : DecFP.Dec64,
  Int16,
  Int32,
  Int8,
@@ -107,9 +107,9 @@ data = Data.stream!(source, DataFrame)
  String])
 @test data.columns[1][1] === Nullable(Int64(1))
 @test data.columns[2][1] === Nullable(Int8(1))
-@test data.columns[3][1] === Nullable(ODBC.DecFP.Dec64(1))
+@test data.columns[3][1] === Nullable(is_windows() ? 1.0 : ODBC.DecFP.Dec64(1))
 @test data.columns[4][1] === Nullable(Int32(1))
-@test data.columns[5][1] === Nullable(ODBC.DecFP.Dec64(1))
+@test data.columns[5][1] === Nullable(is_windows() ? 1.0 : ODBC.DecFP.Dec64(1))
 @test data.columns[6][1] === Nullable(Int16(1))
 @test data.columns[7][1] === Nullable(Int32(1))
 @test data.columns[8][1] === Nullable(Int8(1))
@@ -263,8 +263,8 @@ df = ODBC.query(dsn, "select * from test3")
 @test get(df.columns[2][end]) == "Dean"
 @test get(df.columns[3][end-1]) == "McQueen"
 @test get(df.columns[3][end]) == "Martin"
-@test get(df.columns[4][end-1]) == DecFP.Dec64(1)
-@test get(df.columns[4][end]) == DecFP.Dec64(2)
+@test get(df.columns[4][end-1]) == (is_windows() ? 1.0 : DecFP.Dec64(1))
+@test get(df.columns[4][end]) == (is_windows() ? 2.0 : DecFP.Dec64(2))
 @test get(df.columns[5][end-1]) == 100.0
 @test get(df.columns[5][end]) == 10.1
 @test get(df.columns[6][end-1]) == ODBC.API.SQLDate(2016,1,1)
