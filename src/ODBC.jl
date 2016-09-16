@@ -19,6 +19,22 @@ module ODBC
 
 using DataStreams, DataFrames, NullableArrays, CategoricalArrays, WeakRefStrings
 
+if VERSION < v"0.5.0-dev+4267"
+    if OS_NAME == :Windows
+        const KERNEL = :NT
+    else
+        const KERNEL = OS_NAME
+    end
+
+    @eval is_apple()   = $(KERNEL == :Darwin)
+    @eval is_linux()   = $(KERNEL == :Linux)
+    @eval is_bsd()     = $(KERNEL in (:FreeBSD, :OpenBSD, :NetBSD, :Darwin, :Apple))
+    @eval is_unix()    = $(is_linux() || is_bsd())
+    @eval is_windows() = $(KERNEL == :NT)
+else
+    const KERNEL = Sys.KERNEL
+end
+
 if is_unix()
     using DecFP
 end
