@@ -55,7 +55,7 @@ else
     transcode = Base.transcode
 end
 
-if !isdefined(Base, Symbol("@static")
+if !isdefined(Base, Symbol("@static"))
      macro static(ex)
         if isa(ex, Expr)
             if ex.head === :if
