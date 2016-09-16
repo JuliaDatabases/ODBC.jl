@@ -48,7 +48,7 @@ if !isdefined(Base, :unsafe_wrap)
 end
 
 if !isdefined(Base, :transcode)
-    transcode(T, bytes) = Base.encode_to_utf8(T, bytes, length(bytes))
+    transcode(::Type{UInt8}, bytes) = Base.encode_to_utf8(eltype(bytes), bytes, length(bytes))
 else
     transcode = Base.transcode
 end
