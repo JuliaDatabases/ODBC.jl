@@ -12,7 +12,7 @@ end
 # "Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin"
 function ODBCDriverConnect!(dbc::Ptr{Void}, conn_string, driver_prompt::UInt16)
     window_handle = C_NULL
-    @static if is_windows()
+    if is_windows()
         window_handle = ccall((:GetForegroundWindow, :user32), Ptr{Void}, () )
         driver_prompt = ODBC.API.SQL_DRIVER_PROMPT
     end
