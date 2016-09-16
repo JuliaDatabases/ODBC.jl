@@ -49,7 +49,7 @@ end
 
 if !isdefined(Base, :transcode)
     transcode(::Type{UInt8}, bytes) = Base.encode_to_utf8(eltype(bytes), bytes, length(bytes))
-    transcode(::Type{UInt16}, bytes) = Base.encode_to_utf16(bytes, length(bytes))
+    transcode(::Type{UInt16}, bytes) = Base.encode_to_utf16(bytes, length(bytes)+1)
     transcode(::Type{UInt32}, bytes) = utf32(bytes).data
 else
     transcode = Base.transcode
