@@ -5,7 +5,13 @@ using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings, CSV, SQLite, Fea
 
 @show ODBC.API.odbc_dm
 
-dsn = ODBC.DSN("Driver={MySQL};SERVER=127.0.0.1;USER=root;PASSWORD=")
+@show run(`odbcinst -q -d`)
+
+conn_string = "Driver={MySQL};SERVER=127.0.0.1;USER=root;PASSWORD="
+
+@show ODBC.transcode(ODBC.API.SQLWCHAR,conn_string)
+
+dsn = ODBC.DSN(conn_string)
 
 # Check some basic queries
 dbs = ODBC.query(dsn, "show databases")
