@@ -2,7 +2,6 @@ language: julia
 
 os:
   - linux
-  - osx
 
 julia:
   - 0.4
@@ -11,10 +10,11 @@ julia:
 
 services:
   - mysql
+  - postgresql
 
 before_install:
   - sudo apt-get update
-  - sudo apt-get install libmyodbc libsqliteodbc unixodbc unixodbc-dev
+  - sudo apt-get install unixodbc unixodbc-dev libmyodbc odbc-postgresql
   - sudo odbcinst -i -d -f /usr/share/libmyodbc/odbcinst.ini
 
 notifications:

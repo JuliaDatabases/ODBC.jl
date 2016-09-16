@@ -3,6 +3,8 @@ using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings, CSV, SQLite, Fea
 @show ODBC.listdrivers()
 @show ODBC.listdsns()
 
+@show ODBC.API.odbc_dm
+
 dsn = ODBC.DSN("Driver={MySQL};SERVER=127.0.0.1;USER=root;PASSWORD=")
 
 # Check some basic queries
