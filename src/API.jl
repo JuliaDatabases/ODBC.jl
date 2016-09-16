@@ -49,7 +49,7 @@ end
 include("types.jl")
 
 if !isdefined(Base, :wstring)
-    wstring(x) = transcode(ODBC.API.SQLWCHAR, x)
+    wstring(x) = transcode(SQLWCHAR, x)
 end
 
 #### Macros and Utility Functions ####
