@@ -36,13 +36,9 @@ typealias SQLTIMESTAMP  Cuchar
 
 if contains(odbc_dm,"iodbc")
     typealias SQLWCHAR UInt32
-    utf(x) = utf32(x)
-    typealias UTFString UTF32String
 else
     # correct for windows + unixODBC
     typealias SQLWCHAR Cushort
-    utf(x) = utf16(x)
-    typealias UTFString UTF16String
 end
 
 # ODBC API	64-bit platform	32-bit platform
@@ -373,6 +369,7 @@ const julia2SQL = Dict(
 
 if is_unix()
     #TODO: support SQL_NUMERIC/SQL_DECIMAL properly
+    using DecFP
     julia2SQL[Dec64] = SQL_DOUBLE
 end
 
