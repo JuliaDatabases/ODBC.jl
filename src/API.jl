@@ -42,6 +42,10 @@ else
     const KERNEL = Sys.KERNEL
 end
 
+if !isdefined(Core, :String)
+    typealias String UTF8String
+end
+
 include("types.jl")
 
 #### Macros and Utility Functions ####
