@@ -55,6 +55,24 @@ else
     transcode = Base.transcode
 end
 
+if !isdefined(Base, Symbol("@static")
+     macro static(ex)
+        if isa(ex, Expr)
+            if ex.head === :if
+                cond = eval(current_module(), ex.args[1])
+                if cond
+                    return esc(ex.args[2])
+                elseif length(ex.args) == 3
+                    return esc(ex.args[3])
+                else
+                    return nothing
+                end
+            end
+        end
+        throw(ArgumentError("invalid @static macro"))
+    end
+end
+
 export Data, DataFrame
 
 include("API.jl")
