@@ -77,7 +77,7 @@ function Block{T}(::Type{T}, elements::Int, extradim::Integer=1)
 end
 
 # used for getting messages back from ODBC driver manager; SQLDrivers, SQLError, etc.
-Base.String(block::Block, len::Integer) = String(transcode(UInt8, unsafe_wrap(Array, block.ptr, len, false)))
+Base.string(block::Block, len::Integer) = String(transcode(UInt8, unsafe_wrap(Array, block.ptr, len, false)))
 
 type ODBCError <: Exception
     msg::String
@@ -92,8 +92,8 @@ function ODBCError(handle::Ptr{Void}, handletype::Int16)
     error_msg = ODBC.Block(ODBC.API.SQLWCHAR, BUFLEN)
     msg_length = Ref{ODBC.API.SQLSMALLINT}()
     while ODBC.API.SQLGetDiagRec(handletype, handle, i, state.ptr, native, error_msg.ptr, BUFLEN, msg_length) == ODBC.API.SQL_SUCCESS
-        st  = String(state, 5)
-        msg = String(error_msg, msg_length[])
+        st  = string(state, 5)
+        msg = string(error_msg, msg_length[])
         println("[ODBC] $st: $msg")
         i += 1
     end
@@ -121,8 +121,8 @@ function listdrivers()
     attr_length = Ref{ODBC.API.SQLSMALLINT}()
     dir = ODBC.API.SQL_FETCH_FIRST
     while ODBC.API.SQLDrivers(ENV, dir, driver_desc.ptr, BUFLEN, desc_length, driver_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
-        push!(descriptions, String(driver_desc, desc_length[]))
-        push!(attributes,   String(driver_attr, attr_length[]))
+        push!(descriptions, string(driver_desc, desc_length[]))
+        push!(attributes,   string(driver_attr, attr_length[]))
         dir = ODBC.API.SQL_FETCH_NEXT
     end
     return [descriptions attributes]
@@ -138,8 +138,8 @@ function listdsns()
     attr_length = Ref{ODBC.API.SQLSMALLINT}()
     dir = ODBC.API.SQL_FETCH_FIRST
     while ODBC.API.SQLDataSources(ENV, dir, dsn_desc.ptr, BUFLEN, desc_length, dsn_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
-        push!(descriptions, String(dsn_desc, desc_length[]))
-        push!(attributes,   String(dsn_attr, attr_length[]))
+        push!(descriptions, string(dsn_desc, desc_length[]))
+        push!(attributes,   string(dsn_attr, attr_length[]))
         dir = ODBC.API.SQL_FETCH_NEXT
     end
     return [descriptions attributes]

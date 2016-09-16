@@ -19,7 +19,7 @@ function ODBCDriverConnect!(dbc::Ptr{Void}, conn_string, driver_prompt::UInt16)
     out_conn = Block(ODBC.API.SQLWCHAR, BUFLEN)
     out_buff = Ref{Int16}()
     @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLDriverConnect(dbc, window_handle, conn_string, out_conn.ptr, BUFLEN, out_buff, driver_prompt)
-    connection_string = String(out_conn, out_buff[])
+    connection_string = string(out_conn, out_buff[])
     return connection_string
 end
 
@@ -120,7 +120,7 @@ function Source(dsn::DSN, query::AbstractString; noquery::Bool=false)
     cname = ODBC.Block(ODBC.API.SQLWCHAR, ODBC.BUFLEN)
     for x = 1:cols
         ODBC.API.SQLDescribeCol(stmt, x, cname.ptr, ODBC.BUFLEN, len, dt, csize, digits, null)
-        cnames[x] = String(cname, len[])
+        cnames[x] = string(cname, len[])
         t = dt[]
         ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], null[]
         alloctypes[x], juliatypes[x], longtexts[x] = ODBC.API.SQL2Julia[t]
