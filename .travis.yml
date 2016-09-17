@@ -10,12 +10,15 @@ julia:
 
 services:
   - mysql
-  - postgresql
 
 before_install:
   - sudo apt-get update
-  - sudo apt-get install unixodbc unixodbc-dev libmyodbc odbc-postgresql
-  - sudo odbcinst -i -d -f /usr/share/libmyodbc/odbcinst.ini
+  - sudo apt-get install unixodbc unixodbc-dev
+  - curl https://dev.mysql.com/get/Downloads/Connector-ODBC/5.3/mysql-connector-odbc-5.3.6-linux-ubuntu12.04-x86-64bit.tar.gz > ~/myodbc.tar.gz
+  - tar xvfz ~/myodbc.tar.gz -C ~/myodbc
+  - sudo cp ~/myodbc/bin/* /usr/local/bin
+  - sudo cp ~/myodbc/lib/* /usr/local/lib
+  - myodbc-installer -a -d -n "MySQL ODBC 5.2 Driver" -t "Driver=/usr/local/lib/libmyodbc5w.so"
 
 notifications:
   email: false
