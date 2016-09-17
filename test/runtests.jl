@@ -9,6 +9,9 @@ using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings, CSV, SQLite, Fea
 
 conn_string = "Driver={MySQL};SERVER=127.0.0.1;USER=root;PASSWORD="
 
+run(`uname -a`)
+run(`mysqlshow -uroot`)
+
 @show ODBC.transcode(ODBC.API.SQLWCHAR,conn_string)
 
 dsn = ODBC.DSN(conn_string)

@@ -37,13 +37,13 @@ typealias SQLTIMESTAMP  Cuchar
 if contains(odbc_dm,"iodbc")
     typealias SQLWCHAR Cwchar_t
     if !isdefined(Base, :transcode)
-        transcode(T, x) = wstring(x)
+        Base.transcode(T, x) = wstring(x)
     end
 else
     # correct for windows + unixODBC
     typealias SQLWCHAR Cushort
     if !isdefined(Base, :transcode)
-        transcode(T, x) = utf16(x)
+        Base.transcode(T, x) = utf16(x)
     end
 end
 
