@@ -369,8 +369,8 @@ const SQL_DRIVER_PROMPT = UInt16(2)
 #Status:
 function SQLDriverConnect(dbc::Ptr{Void},window_handle::Ptr{Void},conn_string,out_conn::Ptr{SQLWCHAR},out_len,out_buff::Ref{Int16},driver_prompt)
     @odbc(:SQLDriverConnectW,
-                (Ptr{Void},Ptr{Void},Ptr{UInt8},SQLSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
-                dbc,window_handle,conn_string,length(conn_string),out_conn,out_len,out_buff,driver_prompt)
+                (Ptr{Void},Ptr{Void},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
+                dbc,window_handle,transcode(SQLWCHAR,conn_string),length(transcode(SQLWCHAR,conn_string)),out_conn,out_len,out_buff,driver_prompt)
 end
 #SQLBrowseConnect
  "http://msdn.microsoft.com/en-us/library/windows/desktop/ms714565(v=vs.85).aspx"

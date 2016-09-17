@@ -7,7 +7,7 @@ using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings, CSV, SQLite, Fea
 
 @show run(`odbcinst -q -d`)
 
-conn_string = "Driver={MySQL};SERVER=127.0.0.1;Database=mysql;USER=root;PASSWORD=;Option=3"
+conn_string = "Driver={MySQL};SERVER=127.0.0.1;Port=3306;Database=mysql;USER=root;PASSWORD=;Option=3"
 
 run(`uname -a`)
 run(`mysqlshow -uroot`)
