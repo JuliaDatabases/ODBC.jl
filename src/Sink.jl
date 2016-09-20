@@ -3,16 +3,23 @@ type Sink <: Data.Sink
     schema::Data.Schema
     dsn::DSN
     table::String
+    columns::Vector{Any}
+    indcols::Vector{Any}
 end
 
 # DataStreams interface
 function Sink{T}(source, ::Type{T}, append::Bool, dsn::DSN, table::AbstractString)
-    sink = Sink(Data.schema(source), dsn, table)
+    cols = size(source, 2)
+    sink = Sink(Data.schema(source), dsn, table, Vector{Any}(cols), Vector{Any}(cols))
     !append && ODBC.execute!(dsn, "delete from $table")
+    stmt = sink.dsn.stmt_ptr2
+    ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
     return sink
 end
 function Sink{T}(sink, source, ::Type{T}, append::Bool)
     !append && ODBC.execute!(sink.dsn, "delete from $(sink.table)")
+    stmt = sink.dsn.stmt_ptr2
+    ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
     return sink
 end
 
@@ -62,44 +69,35 @@ end
 getCtype{T}(::Type{T}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 getCtype{T}(::Type{Nullable{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 
-function Data.stream!(source, ::Type{Data.Column}, sink::ODBC.Sink, append::Bool=false)
-    Data.types(source) == Data.types(sink) || throw(ArgumentError("schema mismatch: \n$(Data.schema(source))\nvs.\n$(Data.schema(sink))"))
-    rows, cols = size(source)
-    Data.isdone(source, 1, 1) && return sink
+function Data.streamcolumn!{T}(sink::ODBC.Sink, source, ::Type{T}, col, row)
     stmt = sink.dsn.stmt_ptr2
-    ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
-    types = Data.types(source)
-    columns = Vector{Any}(cols)
-    indcols = Vector{Any}(cols)
-    row = 0
-    while !Data.isdone(source, row+1, cols)
-        for col = 1:cols
-            T = types[col]
-            rows, len = prep!(source, T, col, columns, indcols)
-            ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBindCols(stmt, col, getCtype(T), columns[col], len, indcols[col])
-        end
+    rows, len = prep!(source, T, col, sink.columns, sink.indcols)
+    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBindCols(stmt, col, getCtype(T), sink.columns[col], len, sink.indcols[col])
+    if col == size(source, 2)
         ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rows, ODBC.API.SQL_IS_UINTEGER)
         ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBulkOperations(stmt, ODBC.API.SQL_ADD)
-        row += rows
     end
-    Data.setrows!(source, row)
-    return sink
+    return rows
 end
 
 function load{T}(dsn::DSN, table::AbstractString, ::Type{T}, args...; append::Bool=false)
     source = T(args...)
-    sink = Sink(Data.schema(source), dsn, table)
+    cols = size(source, 2)
+    sink = Sink(Data.schema(source), dsn, table, Vector{Any}(cols), Vector{Any}(cols))
     Data.stream!(source, sink, append)
+    Data.close!(sink)
     return sink
 end
 function load(dsn::DSN, table::AbstractString, source; append::Bool=false)
-    sink = Sink(Data.schema(source), dsn, table)
+    cols = size(source, 2)
+    sink = Sink(Data.schema(source), dsn, table, Vector{Any}(cols), Vector{Any}(cols))
     Data.stream!(source, sink, append)
+    Data.close!(sink)
     return sink
 end
 
-load{T}(sink::Sink, ::Type{T}, args...; append::Bool=false) = Data.stream!(T(args...), sink, append)
-load(sink::Sink, source; append::Bool=false) = Data.stream!(source, sink, append)
+load{T}(sink::Sink, ::Type{T}, args...; append::Bool=false) = (sink = Data.stream!(T(args...), sink, append); Data.close!(sink); return sink)
+load(sink::Sink, source; append::Bool=false) = (sink = Data.stream!(source, sink, append); Data.close!(sink); return sink)
 
 # function Data.stream!(source, ::Type{Data.Column}, sink::ODBC.Sink, append::Bool=false)
 #     Data.types(source) == Data.types(sink) || throw(ArgumentError("schema mismatch: \n$(Data.schema(source))\nvs.\n$(Data.schema(sink))"))

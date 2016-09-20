@@ -321,16 +321,20 @@ end
 
 function query(dsn::DSN, sql::AbstractString, sink=DataFrame, args...; append::Bool=false)
     source = Source(dsn, sql)
-    return Data.stream!(source, sink, append, args...)
+    sink = Data.stream!(source, sink, append, args...)
+    Data.close!(sink)
+    return sink
 end
 
 function query{T}(dsn::DSN, sql::AbstractString, sink::T; append::Bool=false)
     source = Source(dsn, sql)
-    return Data.stream!(source, sink, append)
+    sink = Data.stream!(source, sink, append)
+    Data.close!(sink)
+    return sink
 end
 
-query(source::ODBC.Source, sink=DataFrame, args...; append::Bool=false) = Data.stream!(source, sink, append, args...)
-query{T}(source::ODBC.Source, sink::T; append::Bool=false) = Data.stream!(source, sink, append)
+query(source::ODBC.Source, sink=DataFrame, args...; append::Bool=false) = (sink = Data.stream!(source, sink, append, args...); Data.close!(sink); return sink)
+query{T}(source::ODBC.Source, sink::T; append::Bool=false) = (sink = Data.stream!(source, sink, append); Data.close!(sink); return sink)
 
 "Convenience string macro for executing an SQL statement against a DSN."
 macro sql_str(s,dsn)
