@@ -1,7 +1,7 @@
 
 # ODBC
 
-*A Julia library for working with ODBC*
+*A Julia library for interacting with the ODBC API*
 
 | **Documentation**                                                               | **PackageEvaluator**                                            | **Build Status**                                                                                |
 |:-------------------------------------------------------------------------------:|:---------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|
@@ -23,7 +23,7 @@ julia> Pkg.add("ODBC")
 
 ## Project Status
 
-The package is tested against Julia `0.4` and *current* `0.5-dev` on Linux, OS X, and Windows.
+The package is tested against Julia `0.4` and *current* `0.5` on Linux, OS X, and Windows.
 
 ## Contributing and Questions
 

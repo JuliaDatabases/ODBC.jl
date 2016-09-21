@@ -35,7 +35,7 @@ build_script:
 # Need to convert from shallow to complete for Pkg.clone to work
   - IF EXIST .git\shallow (git fetch --unshallow)
   - C:\projects\julia\bin\julia -e "versioninfo();
-      Pkg.clone(pwd(), \"FlatBuffers\"); Pkg.build(\"FlatBuffers\")"
+      Pkg.clone(pwd(), \"ODBC\"); Pkg.build(\"ODBC\")"
 
 test_script:
-  - C:\projects\julia\bin\julia -e "Pkg.test(\"FlatBuffers\")"
+  - C:\projects\julia\bin\julia -e "using ODBC"

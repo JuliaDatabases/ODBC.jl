@@ -1,20 +1,3 @@
-"""
-library for interfacing with an ODBC Driver Manager.
-Handles connecting to systems, sending queries/statements and returning results, if any.
-
-Types include:
-
-  * `DSN` representing a valid ODBC connection
-  * `ODBC.Source` representing an executed query string ready for returning results
-
-Methods:
-
-  * `ODBC.listdrivers` for listing installed and registered drivers in the ODBC Driver Manager
-  * `ODBC.listdsns` for listing pre-defined ODBC DSNs in the ODBC Driver Manager
-  * `ODBC.query` for executing and returning the results of an SQL query string
-
-See the help documentation for the individual types/methods for more information.
-"""
 module ODBC
 
 using DataStreams, DataFrames, NullableArrays, CategoricalArrays, WeakRefStrings
