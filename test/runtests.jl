@@ -252,6 +252,7 @@ Feather.write(file, ODBC.Source, dsn, "select ID, first_name, last_name, salary 
 df = Feather.read(file)
 @test size(df, 1) == size(data, 1)
 @test df.columns[1] == [1:70000...]
+rm("test2.feather")
 
 ODBC.execute!(dsn, "create table test3 as select * from test2 limit 0")
 ODBC.execute!(dsn, "delete from test3")
