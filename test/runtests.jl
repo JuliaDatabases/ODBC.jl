@@ -1,4 +1,4 @@
-using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings, CSV, SQLite, Feather
+using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings, CSV, SQLite, Feather, CategoricalArrays
 
 @show ODBC.listdrivers()
 @show ODBC.listdsns()
@@ -7,8 +7,6 @@ using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings, CSV, SQLite, Fea
 
 @show run(`odbcinst -q -d`)
 
-# conn_string = "Driver={MySQL ODBC Driver};SERVER=127.0.0.1;Port=3306;Database=mysql;USER=root;PASSWORD=;Option=3"
-
 db = "ODBC-MySQL"
 Username = "root"
 Password = ""
@@ -16,7 +14,9 @@ Password = ""
 run(`uname -a`)
 run(`mysqlshow -uroot`)
 
-dsn = ODBC.DSN(db, Username, Password)
+conn_string = "Driver={MySQL ODBC Driver};SERVER=127.0.0.1;Port=3306;Database=mysql;USER=root;PASSWORD=;Option=3"
+dsn = ODBC.DSN(conn_string)
+# dsn = ODBC.DSN(db, Username, Password)
 
 # Check some basic queries
 dbs = ODBC.query(dsn, "show databases")
@@ -191,6 +191,7 @@ CREATE TABLE test2
     `last clockin` DATETIME
 );""")
 randoms = joinpath(dirname(@__FILE__), "randoms.csv")
+# randoms = joinpath(Pkg.dir("ODBC"), "test/randoms.csv")
 ODBC.execute!(dsn, "load data local infile '$randoms' into table test2
                     fields terminated by ',' lines terminated by '\n'
                     (id,first_name,last_name,salary,`hourly rate`,hiredate,`last clockin`)")
@@ -208,6 +209,7 @@ df = ODBC.query(dsn, "select * from test2")
 source = ODBC.Source(dsn, "select * from test1")
 csv = CSV.Sink("test1.csv")
 Data.stream!(source, csv)
+Data.close!(csv)
 open("test1.csv") do f
     @test readline(f) == "\"test_bigint\",\"test_bit\",\"test_decimal\",\"test_int\",\"test_numeric\",\"test_smallint\",\"test_mediumint\",\"test_tiny_int\",\"test_float\",\"test_real\",\"test_date\",\"test_datetime\",\"test_timestamp\",\"test_time\",\"test_year\",\"test_char\",\"test_varchar\",\"test_binary\",\"test_varbinary\",\"test_tinyblob\",\"test_blob\",\"test_mediumblob\",\"test_longblob\",\"test_tinytext\",\"test_text\",\"test_mediumtext\",\"test_longtext\"\n"
     @test readline(f) == "1,1,+1E+0,1,+1E+0,1,1,1,1.2,1.2,2016-01-01,2016-01-01T01:01:01,2016-01-01T01:01:01,01:01:01,2016,\"A\",\"hey there sailor\",UInt8[0x31,0x32],\"\",UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x61,0x62,0x72,0x61,0x68,0x61,0x6d],UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x62,0x69,0x6c,0x6c],UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x63,0x68,0x61,0x72,0x6c,0x69,0x65],UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x64,0x61,0x6e],\"hey there ephraim\",\"hey there frank\",\"hey there george\",\"hey there hank\"\n"
@@ -218,6 +220,7 @@ rm("test1.csv")
 source = ODBC.Source(dsn, "select * from test2")
 csv = CSV.Sink("test2.csv")
 Data.stream!(source, csv)
+Data.close!(csv)
 open("test2.csv") do f
     @test readline(f) == "\"ID\",\"first_name\",\"last_name\",\"Salary\",\"hourly rate\",\"hireDate\",\"last clockin\"\n"
     @test readline(f) == "1,\"Lawrence\",\"Powell\",+87217E+0,26.47,2002-04-09,2002-01-17T21:32:00\n"
@@ -291,7 +294,7 @@ ODBC.Source(dsn, "drop table if exists test3")
 rm("test2.csv")
 
 # more robust Feather testing
-mysqltypes = Dict(Int32=>"INT", Float64=>"DOUBLE", CategoricalArrays.NominalValue{String,Int32}=>"VARCHAR(255)", CategoricalArrays.OrdinalValue{String,Int32}=>"VARCHAR(255)", WeakRefString{UInt8}=>"VARCHAR(255)")
+mysqltypes = Dict(Int32=>"INT", Float64=>"DOUBLE", CategoricalValue{String,Int32}=>"VARCHAR(255)", CategoricalValue{String,Int32}=>"VARCHAR(255)", WeakRefString{UInt8}=>"VARCHAR(255)")
 columndef(name, typ) = "`$name` $(mysqltypes[typ <: Nullable ? eltype(typ) : typ]),"
 
 testnull{T1, T2}(v1::T1, v2::T2) = v1 == v2

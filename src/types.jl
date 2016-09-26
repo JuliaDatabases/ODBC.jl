@@ -414,35 +414,35 @@ The 3rd `Bool` value indicates whether the column is a LONGTEXT or LONGBINARY SQ
 tend to require special result-handling rules.
 """
 const SQL2Julia = Dict(
-    SQL_CHAR           => (SQLCHAR, Nullable{WeakRefString{SQLCHAR}}, false),
-    SQL_VARCHAR        => (SQLCHAR, Nullable{WeakRefString{SQLCHAR}}, false),
-    SQL_LONGVARCHAR    => (SQLCHAR, Nullable{String}, true),
-    SQL_WCHAR          => (SQLWCHAR, Nullable{WeakRefString{SQLWCHAR}}, false),
-    SQL_WVARCHAR       => (SQLWCHAR, Nullable{WeakRefString{SQLWCHAR}}, false),
-    SQL_WLONGVARCHAR   => (SQLWCHAR, Nullable{String}, true),
-    SQL_DECIMAL        => (SQLDOUBLE, Nullable{SQLDOUBLE}, false),
-    SQL_NUMERIC        => (SQLDOUBLE, Nullable{SQLDOUBLE}, false),
-    SQL_SMALLINT       => (SQLSMALLINT, Nullable{SQLSMALLINT}, false),
-    SQL_INTEGER        => (SQLINTEGER,  Nullable{SQLINTEGER}, false),
-    SQL_REAL           => (SQLREAL,   Nullable{SQLREAL}, false),
-    SQL_FLOAT          => (SQLFLOAT,  Nullable{SQLFLOAT}, false),
-    SQL_DOUBLE         => (SQLDOUBLE, Nullable{SQLDOUBLE}, false),
-    SQL_BIT            => (Int8,  Nullable{Int8}, false),
-    SQL_TINYINT        => (Int8,  Nullable{Int8}, false),
-    SQL_BIGINT         => (Int64, Nullable{Int64}, false),
-    SQL_BINARY         => (UInt8, Nullable{Vector{UInt8}}, false),
-    SQL_VARBINARY      => (UInt8, Nullable{Vector{UInt8}}, false),
-    SQL_LONGVARBINARY  => (UInt8, Nullable{Vector{UInt8}}, true),
-    SQL_TYPE_DATE      => (SQLDate, Nullable{SQLDate}, false),
-    SQL_TYPE_TIME      => (SQLTime, Nullable{SQLTime}, false),
-    SQL_TYPE_TIMESTAMP => (SQLTimestamp, Nullable{SQLTimestamp}, false),
-    SQL_SS_TIME2       => (SQLTime, Nullable{SQLTime}, false),
-    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, Nullable{SQLTimestamp}, false),
-    SQL_GUID           => (SQLGUID, Nullable{SQLGUID}, false))
+    SQL_CHAR           => (SQLCHAR, NullableVector{WeakRefString{SQLCHAR}}, false),
+    SQL_VARCHAR        => (SQLCHAR, NullableVector{WeakRefString{SQLCHAR}}, false),
+    SQL_LONGVARCHAR    => (SQLCHAR, NullableVector{String}, true),
+    SQL_WCHAR          => (SQLWCHAR, NullableVector{WeakRefString{SQLWCHAR}}, false),
+    SQL_WVARCHAR       => (SQLWCHAR, NullableVector{WeakRefString{SQLWCHAR}}, false),
+    SQL_WLONGVARCHAR   => (SQLWCHAR, NullableVector{String}, true),
+    SQL_DECIMAL        => (SQLDOUBLE, NullableVector{SQLDOUBLE}, false),
+    SQL_NUMERIC        => (SQLDOUBLE, NullableVector{SQLDOUBLE}, false),
+    SQL_SMALLINT       => (SQLSMALLINT, NullableVector{SQLSMALLINT}, false),
+    SQL_INTEGER        => (SQLINTEGER,  NullableVector{SQLINTEGER}, false),
+    SQL_REAL           => (SQLREAL,   NullableVector{SQLREAL}, false),
+    SQL_FLOAT          => (SQLFLOAT,  NullableVector{SQLFLOAT}, false),
+    SQL_DOUBLE         => (SQLDOUBLE, NullableVector{SQLDOUBLE}, false),
+    SQL_BIT            => (Int8,  NullableVector{Int8}, false),
+    SQL_TINYINT        => (Int8,  NullableVector{Int8}, false),
+    SQL_BIGINT         => (Int64, NullableVector{Int64}, false),
+    SQL_BINARY         => (UInt8, NullableVector{Vector{UInt8}}, false),
+    SQL_VARBINARY      => (UInt8, NullableVector{Vector{UInt8}}, false),
+    SQL_LONGVARBINARY  => (UInt8, NullableVector{Vector{UInt8}}, true),
+    SQL_TYPE_DATE      => (SQLDate, NullableVector{SQLDate}, false),
+    SQL_TYPE_TIME      => (SQLTime, NullableVector{SQLTime}, false),
+    SQL_TYPE_TIMESTAMP => (SQLTimestamp, NullableVector{SQLTimestamp}, false),
+    SQL_SS_TIME2       => (SQLTime, NullableVector{SQLTime}, false),
+    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, NullableVector{SQLTimestamp}, false),
+    SQL_GUID           => (SQLGUID, NullableVector{SQLGUID}, false))
 
 if is_unix()
-    SQL2Julia[SQL_DECIMAL] = (SQLCHAR, Nullable{Dec64}, false)
-    SQL2Julia[SQL_NUMERIC] = (SQLCHAR, Nullable{Dec64}, false)
+    SQL2Julia[SQL_DECIMAL] = (SQLCHAR, NullableVector{Dec64}, false)
+    SQL2Julia[SQL_NUMERIC] = (SQLCHAR, NullableVector{Dec64}, false)
 end
 
 "Convenience mapping of SQL types to their string representation"

@@ -8,15 +8,15 @@ type Sink <: Data.Sink
 end
 
 # DataStreams interface
-function Sink{T}(source, ::Type{T}, append::Bool, dsn::DSN, table::AbstractString)
-    cols = size(source, 2)
-    sink = Sink(Data.schema(source), dsn, table, Vector{Any}(cols), Vector{Any}(cols))
+function Sink{T}(sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UInt8}, dsn::DSN, table::AbstractString)
+    cols = size(sch, 2)
+    sink = Sink(sch, dsn, table, Vector{Any}(cols), Vector{Any}(cols))
     !append && ODBC.execute!(dsn, "delete from $table")
     stmt = sink.dsn.stmt_ptr2
     ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
     return sink
 end
-function Sink{T}(sink, source, ::Type{T}, append::Bool)
+function Sink{T}(sink, sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UInt8})
     !append && ODBC.execute!(sink.dsn, "delete from $(sink.table)")
     stmt = sink.dsn.stmt_ptr2
     ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
@@ -47,7 +47,7 @@ prep!{T<:CategoricalArrays.CategoricalValue}(::Type{T}, A) = _prep!(T, A)
 prep!{T<:CategoricalArrays.CategoricalValue}(::Type{Nullable{T}}, A) = _prep!(T, A)
 
 function _prep!{T}(::Type{T}, column)
-    maxlen = maximum(clength, column)
+    maxlen = maximum(ODBC.clength, column)
     maxlen = typeof(maxlen) <: Nullable ? get(maxlen) : maxlen
     data = zeros(UInt8, maxlen * length(column))
     ind = 1
@@ -59,45 +59,41 @@ function _prep!{T}(::Type{T}, column)
     return data, maxlen
 end
 
-function prep!{T}(source, ::Type{T}, col, columns, indcols)
-    column = Data.getcolumn(source, T, col)
-    columns[col], maxlen = prep!(T, column)
+function prep!{T}(column::T, col, columns, indcols)
+    columns[col], maxlen = prep!(eltype(T), column)
     indcols[col] = ODBC.API.SQLLEN[clength(x) for x in column]
     return length(column), maxlen
 end
 
 getCtype{T}(::Type{T}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 getCtype{T}(::Type{Nullable{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype{T}(::Type{Vector{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype{T}(::Type{NullableVector{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 
-function Data.streamcolumn!{T}(sink::ODBC.Sink, source, ::Type{T}, col, row)
+function Data.stream!{T}(sink::ODBC.Sink, ::Type{Data.Column}, column::T, row, col, cols)
     stmt = sink.dsn.stmt_ptr2
-    rows, len = prep!(source, T, col, sink.columns, sink.indcols)
+    rows, len = ODBC.prep!(column, col, sink.columns, sink.indcols)
     ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBindCols(stmt, col, getCtype(T), sink.columns[col], len, sink.indcols[col])
-    if col == size(source, 2)
+    if col == cols
         ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rows, ODBC.API.SQL_IS_UINTEGER)
         ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBulkOperations(stmt, ODBC.API.SQL_ADD)
     end
     return rows
 end
 
-function load{T}(dsn::DSN, table::AbstractString, ::Type{T}, args...; append::Bool=false)
-    source = T(args...)
-    cols = size(source, 2)
-    sink = Sink(Data.schema(source), dsn, table, Vector{Any}(cols), Vector{Any}(cols))
-    Data.stream!(source, sink, append)
+function load{T}(dsn::DSN, table::AbstractString, ::Type{T}, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}())
+    sink = Data.stream!(T(args...), ODBC.Sink, append, transforms, dsn, table)
     Data.close!(sink)
     return sink
 end
-function load(dsn::DSN, table::AbstractString, source; append::Bool=false)
-    cols = size(source, 2)
-    sink = Sink(Data.schema(source), dsn, table, Vector{Any}(cols), Vector{Any}(cols))
-    Data.stream!(source, sink, append)
+function load(dsn::DSN, table::AbstractString, source; append::Bool=false, transforms::Dict=Dict{Int,Function}())
+    sink = Data.stream!(source, ODBC.Sink, append, transforms, dsn, table)
     Data.close!(sink)
     return sink
 end
 
-load{T}(sink::Sink, ::Type{T}, args...; append::Bool=false) = (sink = Data.stream!(T(args...), sink, append); Data.close!(sink); return sink)
-load(sink::Sink, source; append::Bool=false) = (sink = Data.stream!(source, sink, append); Data.close!(sink); return sink)
+load{T}(sink::Sink, ::Type{T}, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}()) = (sink = Data.stream!(T(args...), sink, append, transforms); Data.close!(sink); return sink)
+load(sink::Sink, source; append::Bool=false, transforms::Dict=Dict{Int,Function}()) = (sink = Data.stream!(source, sink, append, transforms); Data.close!(sink); return sink)
 
 # function Data.stream!(source, ::Type{Data.Column}, sink::ODBC.Sink, append::Bool=false)
 #     Data.types(source) == Data.types(sink) || throw(ArgumentError("schema mismatch: \n$(Data.schema(source))\nvs.\n$(Data.schema(sink))"))

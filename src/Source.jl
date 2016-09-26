@@ -150,12 +150,12 @@ function Source(dsn::DSN, query::AbstractString; noquery::Bool=false)
             ODBC.API.SQLBindCols(stmt, x, ODBC.API.SQL2C[ctypes[x]], pointer(boundcols[x]), elsize, indcols[x])
         end
     end
-    schema = Data.Schema(cnames, juliatypes, rows,
+    schema = Data.Schema(Data.Column, cnames, juliatypes, rows,
         Dict("types"=>[ODBC.API.SQL_TYPES[c] for c in ctypes], "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
     rowsfetched = Ref{ODBC.API.SQLLEN}() # will be populated by call to SQLFetchScroll
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROWS_FETCHED_PTR, rowsfetched, ODBC.API.SQL_NTS)
     types = [ODBC.API.SQL2C[ctypes[x]] for x = 1:cols]
-    source = ODBC.Source(schema, dsn, query, columns, 100, rowsfetched, 0, boundcols, indcols, csizes, types, [longtexts[x] ? ODBC.API.Long{eltype(T)} : eltype(T) for (x, T) in enumerate(juliatypes)])
+    source = ODBC.Source(schema, dsn, query, columns, 100, rowsfetched, 0, boundcols, indcols, csizes, types, [longtexts[x] ? ODBC.API.Long{eltype(eltype(T))} : eltype(eltype(T)) for (x, T) in enumerate(juliatypes)])
     rows != 0 && fetch!(source)
     return source
 end
@@ -311,7 +311,7 @@ function Data.getfield{T}(source::ODBC.Source, ::Type{Nullable{T}}, row, col)
     return val
 end
 
-function Data.getcolumn{T}(source::ODBC.Source, ::Type{Nullable{T}}, col)
+function Data.getcolumn{T}(source::ODBC.Source, ::Type{NullableVector{T}}, col)
     dest = source.columns[col]::NullableVector{T}
     if col == length(source.columns) && !Data.isdone(source)
         ODBC.fetch!(source)
@@ -319,22 +319,20 @@ function Data.getcolumn{T}(source::ODBC.Source, ::Type{Nullable{T}}, col)
     return dest
 end
 
-function query(dsn::DSN, sql::AbstractString, sink=DataFrame, args...; append::Bool=false)
-    source = Source(dsn, sql)
-    sink = Data.stream!(source, sink, append, args...)
+function query(dsn::DSN, sql::AbstractString, sink=DataFrame, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}())
+    sink = Data.stream!(Source(dsn, sql), sink, append, transforms, args...)
     Data.close!(sink)
     return sink
 end
 
-function query{T}(dsn::DSN, sql::AbstractString, sink::T; append::Bool=false)
-    source = Source(dsn, sql)
-    sink = Data.stream!(source, sink, append)
+function query{T}(dsn::DSN, sql::AbstractString, sink::T; append::Bool=false, transforms::Dict=Dict{Int,Function}())
+    sink = Data.stream!(Source(dsn, sql), sink, append, transforms)
     Data.close!(sink)
     return sink
 end
 
-query(source::ODBC.Source, sink=DataFrame, args...; append::Bool=false) = (sink = Data.stream!(source, sink, append, args...); Data.close!(sink); return sink)
-query{T}(source::ODBC.Source, sink::T; append::Bool=false) = (sink = Data.stream!(source, sink, append); Data.close!(sink); return sink)
+query(source::ODBC.Source, sink=DataFrame, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}()) = (sink = Data.stream!(source, sink, append, transforms, args...); Data.close!(sink); return sink)
+query{T}(source::ODBC.Source, sink::T; append::Bool=false, transforms::Dict=Dict{Int,Function}()) = (sink = Data.stream!(source, sink, append, transforms); Data.close!(sink); return sink)
 
 "Convenience string macro for executing an SQL statement against a DSN."
 macro sql_str(s,dsn)

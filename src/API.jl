@@ -24,7 +24,7 @@ Contents
 """
 module API
 
-using WeakRefStrings
+using NullableArrays, WeakRefStrings
 
 if VERSION < v"0.5.0-dev+4267"
     if OS_NAME == :Windows
