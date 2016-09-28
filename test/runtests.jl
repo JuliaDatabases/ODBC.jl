@@ -7,16 +7,15 @@ using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings, CSV, SQLite, Fea
 
 @show run(`odbcinst -q -d`)
 
-db = "ODBC-MySQL"
-Username = "root"
-Password = ""
-
 run(`uname -a`)
 run(`mysqlshow -uroot`)
 
 conn_string = "Driver={MySQL ODBC Driver};SERVER=127.0.0.1;Port=3306;Database=mysql;USER=root;PASSWORD=;Option=3"
-dsn = ODBC.DSN(conn_string)
-# dsn = ODBC.DSN(db, Username, Password)
+if haskey(ENV, "TRAVIS")
+    dsn = ODBC.DSN("ODBC-MySQL", "root", "")
+else
+    dsn = ODBC.DSN("Driver={MySQL ODBC Driver};SERVER=127.0.0.1;Port=3306;Database=mysql;USER=root;PASSWORD=;Option=3")
+end
 
 # Check some basic queries
 dbs = ODBC.query(dsn, "show databases")
