@@ -8,13 +8,11 @@ using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings, CSV, SQLite, Fea
 @show run(`odbcinst -q -d`)
 
 run(`uname -a`)
-run(`mysqlshow -uroot`)
 
-conn_string = "Driver={MySQL ODBC Driver};SERVER=127.0.0.1;Port=3306;Database=mysql;USER=root;PASSWORD=;Option=3"
 if haskey(ENV, "TRAVIS")
     dsn = ODBC.DSN("ODBC-MySQL", "root", "")
 else
-    dsn = ODBC.DSN("Driver={MySQL ODBC Driver};SERVER=127.0.0.1;Port=3306;Database=mysql;USER=root;PASSWORD=;Option=3")
+    dsn = ODBC.DSN("Driver={MySQL ODBC Driver};SERVER=127.0.0.1;Port=3306;Database=mysql;USER=root;PASSWORD=mypassword;Option=3")
 end
 
 # Check some basic queries
@@ -89,7 +87,7 @@ ODBC.execute!(dsn, "insert test1 VALUES
 source = ODBC.Source(dsn, "select * from test1")
 data = Data.stream!(source, DataFrame)
 @test size(data) == (1,27)
-@test Data.types(data) == map(x->Nullable{x},
+@test Data.types(data, Data.Field) == map(x->Nullable{x},
 [Int64,
  Int8,
  is_windows() ? Float64 : DecFP.Dec64,
@@ -105,8 +103,8 @@ data = Data.stream!(source, DataFrame)
  ODBC.API.SQLTimestamp,
  ODBC.API.SQLTime,
  Int16,
- WeakRefString{UInt16},
- WeakRefString{UInt16},
+ WeakRefString{UInt8},
+ WeakRefString{UInt8},
  Array{UInt8,1},
  Array{UInt8,1},
  Array{UInt8,1},

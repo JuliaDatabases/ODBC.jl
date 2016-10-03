@@ -1,5 +1,5 @@
-julia 0.4.1
-DataStreams 0.0.14
+julia 0.5
+DataStreams 0.0.16
 DataFrames
 NullableArrays 0.0.9
 CategoricalArrays 0.0.5
