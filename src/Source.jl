@@ -150,7 +150,7 @@ function Source(dsn::DSN, query::AbstractString; noquery::Bool=false)
             ODBC.API.SQLBindCols(stmt, x, ODBC.API.SQL2C[ctypes[x]], pointer(boundcols[x]), elsize, indcols[x])
         end
     end
-    schema = Data.Schema(Data.Column, cnames, juliatypes, rows,
+    schema = Data.Schema(cnames, juliatypes, rows,
         Dict("types"=>[ODBC.API.SQL_TYPES[c] for c in ctypes], "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
     rowsfetched = Ref{ODBC.API.SQLLEN}() # will be populated by call to SQLFetchScroll
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROWS_FETCHED_PTR, rowsfetched, ODBC.API.SQL_NTS)
@@ -296,13 +296,15 @@ function cast!{T}(::Type{ODBC.API.Long{T}}, source, col)
     source.columns[col] = NullableArray{T,1}([T(d)], [isnull])
 end
 
+# DataStreams interface
+Data.schema(source::ODBC.Source, ::Type{Data.Column}) = source.schema
 "Checks if an `ODBC.Source` has finished fetching results from an executed query string"
 Data.isdone(source::ODBC.Source, x=1, y=1) = source.status != ODBC.API.SQL_SUCCESS && source.status != ODBC.API.SQL_SUCCESS_WITH_INFO
 
 Data.streamtype{T<:ODBC.Source}(::Type{T}, ::Type{Data.Column}) = true
 Data.streamtype{T<:ODBC.Source}(::Type{T}, ::Type{Data.Field}) = true
 
-function Data.getfield{T}(source::ODBC.Source, ::Type{Nullable{T}}, row, col)
+function Data.streamfrom{T}(source::ODBC.Source, ::Type{Data.Field}, ::Type{Nullable{T}}, row, col)
     val = source.columns[col][row - source.rowoffset]::Nullable{T}
     if col == length(source.columns) && (row - source.rowoffset) == length(source.columns[col]) && !Data.isdone(source)
         ODBC.fetch!(source)
@@ -311,7 +313,7 @@ function Data.getfield{T}(source::ODBC.Source, ::Type{Nullable{T}}, row, col)
     return val
 end
 
-function Data.getcolumn{T}(source::ODBC.Source, ::Type{NullableVector{T}}, col)
+function Data.streamfrom{T}(source::ODBC.Source, ::Type{Data.Column}, ::Type{NullableVector{T}}, col)
     dest = source.columns[col]::NullableVector{T}
     if col == length(source.columns) && !Data.isdone(source)
         ODBC.fetch!(source)

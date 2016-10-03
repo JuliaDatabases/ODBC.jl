@@ -257,6 +257,9 @@ end
 Base.show(io::IO,x::SQLDate) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))")
 SQLDate(x::Date) = SQLDate(Dates.yearmonthday(x)...)
 SQLDate() = SQLDate(0,0,0)
+import Base: ==
+==(x::SQLDate, y::Date) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
+==(y::Date, x::SQLDate) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
 
 immutable SQLTime
     hour::Int16
@@ -285,6 +288,10 @@ function SQLTimestamp(x::DateTime)
     return SQLTimestamp(y, m, d, h, mm, s, frac)
 end
 SQLTimestamp() = SQLTimestamp(0,0,0,0,0,0,0)
+==(x::SQLTimestamp, y::Date) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
+                               x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
+==(y::Date, x::SQLTimestamp) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
+                               x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
 
 const SQL_MAX_NUMERIC_LEN = 16
 immutable SQLNumeric

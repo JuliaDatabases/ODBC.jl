@@ -1,18 +1,17 @@
 
 type Sink <: Data.Sink
-    schema::Data.Schema
     dsn::DSN
     table::String
     columns::Vector{Any}
     indcols::Vector{Any}
 end
 
-Sink(dsn::DSN, table::AbstractString, sch::Data.Schema=Data.Schema(); append::Bool=false) = sink = Sink(sch, dsn, table, [], [])
+Sink(dsn::DSN, table::AbstractString; append::Bool=false) = Sink(dsn, table, [], [])
 
 # DataStreams interface
 function Sink{T}(sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UInt8}, dsn::DSN, table::AbstractString)
     cols = size(sch, 2)
-    sink = Sink(sch, dsn, table, Vector{Any}(cols), Vector{Any}(cols))
+    sink = Sink(dsn, table, Vector{Any}(cols), Vector{Any}(cols))
     !append && ODBC.execute!(dsn, "delete from $table")
     stmt = sink.dsn.stmt_ptr2
     ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
@@ -22,7 +21,6 @@ function Sink{T}(sink, sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UI
     cols = size(sch, 2)
     resize!(sink.columns, cols)
     resize!(sink.indcols, cols)
-    sink.schema = sch
     !append && ODBC.execute!(sink.dsn, "delete from $(sink.table)")
     stmt = sink.dsn.stmt_ptr2
     ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
@@ -33,8 +31,8 @@ Data.streamtypes{T<:ODBC.Sink}(::Type{T}) = [Data.Column]
 
 prep!{T}(::Type{T}, A) = A, 0
 prep!{T}(::Type{Nullable{T}}, A) = A.values, 0
-prep!(::Union{Type{Date},Type{Nullable{Date}}}, A) = ODBC.API.SQLDate[isnull(x) ? ODBC.API.SQLDate() : ODBC.API.SQLDate(x) for x in A], 0
-prep!(::Union{Type{DateTime},Type{Nullable{DateTime}}}, A) = ODBC.API.SQLTimestamp[isnull(x) ? ODBC.API.SQLTimestamp() : ODBC.API.SQLTimestamp(x) for x in A], 0
+prep!(::Union{Type{Date},Type{Nullable{Date}}}, A) = ODBC.API.SQLDate[isnull(x) ? ODBC.API.SQLDate() : ODBC.API.SQLDate(get(x)) for x in A], 0
+prep!(::Union{Type{DateTime},Type{Nullable{DateTime}}}, A) = ODBC.API.SQLTimestamp[isnull(x) ? ODBC.API.SQLTimestamp() : ODBC.API.SQLTimestamp(get(x)) for x in A], 0
 if is_unix()
 prep!(::Union{Type{Dec64},Type{Nullable{Dec64}}}, A) = Float64[isnull(x) ? 0.0 : Float64(get(x)) for x in A], 0
 end
@@ -76,11 +74,11 @@ getCtype{T}(::Type{Nullable{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 getCtype{T}(::Type{Vector{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 getCtype{T}(::Type{NullableVector{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 
-function Data.stream!{T}(sink::ODBC.Sink, ::Type{Data.Column}, column::T, row, col, cols)
+function Data.streamto!{T}(sink::ODBC.Sink, ::Type{Data.Column}, column::T, row, col, sch)
     stmt = sink.dsn.stmt_ptr2
     rows, len = ODBC.prep!(column, col, sink.columns, sink.indcols)
     ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBindCols(stmt, col, getCtype(T), sink.columns[col], len, sink.indcols[col])
-    if col == cols
+    if col == size(sch, 2)
         ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rows, ODBC.API.SQL_IS_UINTEGER)
         ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBulkOperations(stmt, ODBC.API.SQL_ADD)
     end
