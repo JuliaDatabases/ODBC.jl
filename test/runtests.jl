@@ -211,7 +211,7 @@ ODBC.execute!(stmt, [101, "Steve", "McQueen", 1.0, 100.0, Date(2016,1,1), DateTi
 ODBC.execute!(stmt, [102, "Dean", "Martin", 1.5, 10.1, Date(2016,1,2), DateTime(2016,1,2)])
 
 df = ODBC.query(dsn, "select * from test3")
-@test size(df) == (202,7)
+@test size(df) == (2,7)
 @test get(df.columns[1][end-1]) == 101
 @test get(df.columns[1][end]) == 102
 @test get(df.columns[2][end-1]) == "Steve"
