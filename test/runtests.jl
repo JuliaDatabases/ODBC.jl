@@ -9,11 +9,8 @@ using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings, CSV, SQLite, Fea
 
 run(`uname -a`)
 
-if haskey(ENV, "TRAVIS")
-    dsn = ODBC.DSN("ODBC-MySQL", "root", "")
-else
-    dsn = ODBC.DSN("Driver={MySQL ODBC Driver};SERVER=127.0.0.1;Port=3306;Database=mysql;USER=root;PASSWORD=mypassword;Option=3")
-end
+dsn = ODBC.DSN("Driver=MySQL;uid=root")
+dsn = ODBC.DSN("MySQL-test", "root", "")
 
 # Check some basic queries
 dbs = ODBC.query(dsn, "show databases")

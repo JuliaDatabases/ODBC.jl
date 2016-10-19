@@ -1,5 +1,16 @@
 language: julia
 
+sudo: false
+
+addons:
+  apt:
+    packages:
+      - unixodbc
+      - unixodbc-dev
+      - libmyodbc
+      - libsqliteodbc
+      - odbc-postgresql
+
 os:
   - linux
 
@@ -9,12 +20,12 @@ julia:
 
 services:
   - mysql
+  - postgresql
 
 before_install:
-  - sudo apt-get update
-  - sudo apt-get install unixodbc unixodbc-dev
-  - sudo odbcinst -i -d -f /usr/share/libmyodbc/odbcinst.ini
-  - sudo odbcinst -i -s -l -f ./test/odbc.ini
+  - cp ./test/.odbcinst.ini $HOME
+  - odbcinst -i -s -h -f ./test/mytest.odbc.ini
+  - odbcinst -i -s -h -f ./test/pgtest.odbc.ini
 
 notifications:
   email: false
