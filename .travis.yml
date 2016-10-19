@@ -1,7 +1,5 @@
 language: julia
 
-sudo: false
-
 addons:
   apt:
     packages:
