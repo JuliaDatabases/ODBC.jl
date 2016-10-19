@@ -186,7 +186,7 @@ CREATE TABLE test2
 );""")
 randoms = joinpath(dirname(@__FILE__), "randoms.csv")
 # randoms = joinpath(Pkg.dir("ODBC"), "test/randoms.csv")
-ODBC.execute!(dsn, "load data local infile '$randoms' into table test2
+ODBC.execute!(dsn, "load data infile '$randoms' into table test2
                     fields terminated by ',' lines terminated by '\n'
                     (id,first_name,last_name,salary,`hourly rate`,hiredate,`last clockin`)")
 
