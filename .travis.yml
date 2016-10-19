@@ -24,6 +24,7 @@ before_install:
   - cp ./test/.odbcinst.ini $HOME
   - odbcinst -i -s -h -f ./test/mytest.odbc.ini
   - odbcinst -i -s -h -f ./test/pgtest.odbc.ini
+  - mysql -e "SHOW VARIABLES LIKE 'local_infile';"
 
 notifications:
   email: false
