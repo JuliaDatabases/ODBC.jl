@@ -200,21 +200,10 @@ df = ODBC.query(dsn, "select * from test2")
 @test size(df) == (70000,7)
 @test df.columns[1].values == [1:70000...]
 @test df.columns[end][1] === Nullable(ODBC.API.SQLTimestamp(2002,1,17,21,32,0,0))
-println("passed. testing ODBC.Sink...")
+println("passed. testing prepared statement...")
 
 ODBC.execute!(dsn, "create table test3 as select * from test2 limit 0")
 ODBC.execute!(dsn, "delete from test3")
-ODBC.query(dsn, "select * from test2 limit 100", ODBC.Sink, dsn, "test3")
-
-df = ODBC.query(dsn, "select * from test3")
-@test size(df) == (100,7)
-@test df.columns[1].values == [1:100...]
-
-ODBC.load(dsn, "test3", df; append=true)
-df = ODBC.query(dsn, "select * from test3")
-@test size(df) == (200,7)
-@test df.columns[1].values == append!([1:100...], [1:100...])
-println("passed. testing prepared statement...")
 
 stmt = ODBC.prepare(dsn, "insert into test3 values(?,?,?,?,?,?,?)")
 ODBC.execute!(stmt, [101, "Steve", "McQueen", 1.0, 100.0, Date(2016,1,1), DateTime(2016,1,1)])
