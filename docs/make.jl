@@ -2,9 +2,16 @@ using Documenter, ODBC
 
 makedocs(
     modules = [ODBC],
+    format = :html,
+    sitename = "ODBC.jl",
+    pages = ["Home" => "index.md"]
 )
 
 deploydocs(
-    deps = Deps.pip("mkdocs", "mkdocs-material", "python-markdown-math"),
-    repo = "github.com/JuliaDB/ODBC.jl.git"
+    repo = "github.com/JuliaDB/ODBC.jl.git",
+    target = "build",
+    deps = nothing,
+    make = nothing,
+    julia = "0.5",
+    osname = "linux"
 )
