@@ -13,8 +13,10 @@ end
 function ODBCDriverConnect!(dbc::Ptr{Void}, conn_string, prompt::Bool)
     window_handle = C_NULL
     driver_prompt = prompt ? ODBC.API.SQL_DRIVER_PROMPT : ODBC.API.SQL_DRIVER_NOPROMPT
-    if is_windows() && prompt
-        window_handle = ccall((:GetForegroundWindow, :user32), Ptr{Void}, () )
+    if prompt
+        @static if is_windows()
+            window_handle = ccall((:GetForegroundWindow, :user32), Ptr{Void}, () )
+        end
     end
     out_conn = Block(ODBC.API.SQLWCHAR, BUFLEN)
     out_buff = Ref{Int16}()
