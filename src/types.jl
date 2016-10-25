@@ -260,6 +260,7 @@ SQLDate() = SQLDate(0,0,0)
 import Base: ==
 ==(x::SQLDate, y::Date) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
 ==(y::Date, x::SQLDate) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
+Base.Date(x::SQLDate) = Date(x.year, x.month, x.day)
 
 immutable SQLTime
     hour::Int16
@@ -292,6 +293,7 @@ SQLTimestamp() = SQLTimestamp(0,0,0,0,0,0,0)
                                x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
 ==(y::Date, x::SQLTimestamp) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
                                x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
+Base.DateTime(x::SQLTimestamp) = DateTime(x.year, x.month, x.day, x.hour, x.minute, x.second, x.fraction * 1000000)
 
 const SQL_MAX_NUMERIC_LEN = 16
 immutable SQLNumeric
