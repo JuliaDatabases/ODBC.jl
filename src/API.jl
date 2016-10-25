@@ -26,26 +26,6 @@ module API
 
 using NullableArrays, WeakRefStrings
 
-if VERSION < v"0.5.0-dev+4267"
-    if OS_NAME == :Windows
-        const KERNEL = :NT
-    else
-        const KERNEL = OS_NAME
-    end
-
-    @eval is_apple()   = $(KERNEL == :Darwin)
-    @eval is_linux()   = $(KERNEL == :Linux)
-    @eval is_bsd()     = $(KERNEL in (:FreeBSD, :OpenBSD, :NetBSD, :Darwin, :Apple))
-    @eval is_unix()    = $(is_linux() || is_bsd())
-    @eval is_windows() = $(KERNEL == :NT)
-else
-    const KERNEL = Sys.KERNEL
-end
-
-if !isdefined(Core, :String)
-    typealias String UTF8String
-end
-
 include("types.jl")
 
 #### Macros and Utility Functions ####

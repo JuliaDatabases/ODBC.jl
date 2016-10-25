@@ -2,56 +2,6 @@ module ODBC
 
 using DataStreams, DataFrames, NullableArrays, CategoricalArrays, WeakRefStrings
 
-if VERSION < v"0.5.0-dev+4267"
-    if OS_NAME == :Windows
-        const KERNEL = :NT
-    else
-        const KERNEL = OS_NAME
-    end
-
-    @eval is_apple()   = $(KERNEL == :Darwin)
-    @eval is_linux()   = $(KERNEL == :Linux)
-    @eval is_bsd()     = $(KERNEL in (:FreeBSD, :OpenBSD, :NetBSD, :Darwin, :Apple))
-    @eval is_unix()    = $(is_linux() || is_bsd())
-    @eval is_windows() = $(KERNEL == :NT)
-else
-    const KERNEL = Sys.KERNEL
-end
-
-if is_unix()
-    using DecFP
-end
-
-if !isdefined(Core, :String)
-    typealias String UTF8String
-end
-
-if !isdefined(Base, :unsafe_wrap)
-    unsafe_wrap{A<:Array}(::Type{A}, ptr, len, own) = pointer_to_array(ptr, len, own)
-end
-
-if !isdefined(Base, :transcode)
-    transcode(::Type{UInt8}, dat) = Base.encode_to_utf8(eltype(dat), dat, length(dat))
-end
-
-if !isdefined(Base, Symbol("@static"))
-     macro static(ex)
-        if isa(ex, Expr)
-            if ex.head === :if
-                cond = eval(current_module(), ex.args[1])
-                if cond
-                    return esc(ex.args[2])
-                elseif length(ex.args) == 3
-                    return esc(ex.args[3])
-                else
-                    return nothing
-                end
-            end
-        end
-        throw(ArgumentError("invalid @static macro"))
-    end
-end
-
 export Data, DataFrame
 
 include("API.jl")
