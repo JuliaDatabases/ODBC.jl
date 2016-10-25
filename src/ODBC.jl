@@ -113,7 +113,7 @@ Takes optional 2nd and 3rd arguments for `username` and `password`, respectively
 1st argument `dsn` can be either the name of a pre-defined ODBC DSN or a valid connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
 """
-function DSN(dsn::AbstractString, username::AbstractString=String(""), password::AbstractString=String(""); driver_prompt::Integer=ODBC.API.SQL_DRIVER_NOPROMPT)
+function DSN(dsn::AbstractString, username::AbstractString=String(""), password::AbstractString=String(""); prompt::Bool=true)
     dbc = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV)
     dsns = ODBC.listdsns()
     found = false
@@ -123,7 +123,7 @@ function DSN(dsn::AbstractString, username::AbstractString=String(""), password:
     if found
         @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLConnect(dbc, dsn, username, password)
     else
-        dsn = ODBCDriverConnect!(dbc, dsn, driver_prompt % UInt16)
+        dsn = ODBCDriverConnect!(dbc, dsn, prompt)
     end
     stmt = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dbc)
     stmt2 = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dbc)
