@@ -16,12 +16,12 @@ Lists valid ODBC drivers on the system which can be used manually in connection 
 Constructors:
 
 `ODBC.DSN(dsn, username, password) => ODBC.DSN`
-`ODBC.DSN(connection_string) => ODBC.DSN`
+`ODBC.DSN(connection_string; prompt::Bool=true) => ODBC.DSN`
 `ODBC.disconnect!(dsn::ODBC.DSN)`
 
 The first method attempts to connect to a pre-defined DSN that has been pre-configured through your system's ODBC admin console. Settings such as the ODBC driver, server address, port #, etc. are already configured, so all that is required is the username and password to connect.
 
-The second method takes a full connection string. Connection strings are vendor-specific, but follow the format of `key1=value1;key2=value2...` for various key-value pairs, typically including `Driver=X` and `Server=Y`. For help in figuring out how to build the right connection string for your system, see [connectionstrings.com](https://www.connectionstrings.com/).
+The second method takes a full connection string. Connection strings are vendor-specific, but follow the format of `key1=value1;key2=value2...` for various key-value pairs, typically including `Driver=X` and `Server=Y`. For help in figuring out how to build the right connection string for your system, see [connectionstrings.com](https://www.connectionstrings.com/). There is also a `prompt` keyword argument that indicates whether a driver-specific UI window should be shown if there are missing connection string key-value pairs needed for connection. If being run non-interactively, set `prompt=false`.
 
 `ODBC.disconnect!(dsn)` can also be used to disconnect.
 
@@ -68,7 +68,7 @@ Methods:
 `ODBC.load{T}(sink::Sink, ::Type{T}, args...; append::Bool=false)`
 `ODBC.load(sink::Sink, source; append::Bool=false)`
 
-`ODBC.load` is a sister method to `ODBC.query`, but instead of providing a robust way of *returning* results, it allows one to *send* data to a DB. 
+`ODBC.load` is a sister method to `ODBC.query`, but instead of providing a robust way of *returning* results, it allows one to *send* data to a DB.
 
 **Please note this is currently experimental and ODBC driver-dependent; meaning, an ODBC driver must impelement certain low-level API methods to enable this feature. This is not a limitation of ODBC.jl itself, but the ODBC driver provided by the vendor. In the case this method doesn't work for loading data, please see the documentation around prepared statements.**
 
