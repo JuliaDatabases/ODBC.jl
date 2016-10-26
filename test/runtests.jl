@@ -235,7 +235,7 @@ println("passed.")
 
 workspace()
 
-using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings
+using Base.Test, ODBC, DataStreams, DataFrames, NullableArrays, WeakRefStrings
 
 dsn = ODBC.DSN("MySQL-test", "root", "")
 
