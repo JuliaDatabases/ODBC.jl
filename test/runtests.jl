@@ -344,6 +344,6 @@ odbcsource = Tester("ODBC.Source", ODBC.query, true, ODBC.Source, (dsn, "select 
 odbcsink = Tester("ODBC.Sink", ODBC.load, true, ODBC.Sink, (dsn, "randoms2"), scalartransforms, vt2, x->sinktodf(ODBC.query(dsn, "select * from $(x.table)")), (x,y)->nothing)
 
 DataStreamsIntegrationTests.teststream([odbcsource], [dfsink]; rows=99)
-DataStreamsIntegrationTests.teststream([dfsource], [odbcsink]; rows=99)
+# DataStreamsIntegrationTests.teststream([dfsource], [odbcsink]; rows=99)
 
 ODBC.disconnect!(dsn)
