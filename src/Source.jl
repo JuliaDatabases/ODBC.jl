@@ -344,14 +344,14 @@ function Data.streamfrom{T}(source::ODBC.Source, ::Type{Data.Column}, ::Type{Nul
     return dest
 end
 
-function query(dsn::DSN, sql::AbstractString, sink=DataFrame, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}())
-    sink = Data.stream!(Source(dsn, sql), sink, append, transforms, args...)
+function query(dsn::DSN, sql::AbstractString, sink=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false, transforms::Dict=Dict{Int,Function}())
+    sink = Data.stream!(Source(dsn, sql; weakrefstrings=weakrefstrings), sink, append, transforms, args...)
     Data.close!(sink)
     return sink
 end
 
-function query{T}(dsn::DSN, sql::AbstractString, sink::T; append::Bool=false, transforms::Dict=Dict{Int,Function}())
-    sink = Data.stream!(Source(dsn, sql), sink, append, transforms)
+function query{T}(dsn::DSN, sql::AbstractString, sink::T; weakrefstrings::Bool=true, append::Bool=false, transforms::Dict=Dict{Int,Function}())
+    sink = Data.stream!(Source(dsn, sql; weakrefstrings=weakrefstrings), sink, append, transforms)
     Data.close!(sink)
     return sink
 end
