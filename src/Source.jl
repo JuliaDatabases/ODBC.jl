@@ -100,7 +100,7 @@ end
 `ODBC.Source` constructs a valid `Data.Source` type that executes an SQL `query` string for the `dsn` ODBC DSN.
 Results are checked for and an `ODBC.ResultBlock` is allocated to prepare for fetching the resultset.
 """
-function Source(dsn::DSN, query::AbstractString; noquery::Bool=false)
+function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noquery::Bool=false)
     stmt = dsn.stmt_ptr
     noquery || ODBC.ODBCFreeStmt!(stmt)
     noquery || (ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query))
@@ -128,6 +128,9 @@ function Source(dsn::DSN, query::AbstractString; noquery::Bool=false)
         alloctypes[x], juliatypes[x], longtexts[x] = ODBC.API.SQL2Julia[t]
         longtext |= longtexts[x]
     end
+    if !weakrefstrings
+        juliatypes = DataType[eltype(eltype(i)) <: WeakRefString ? NullableVector{String} : i for i in juliatypes]
+    end
     # Determine fetch strategy
     # rows might be -1 (dbms doesn't return total rows in resultset), 0 (empty resultset), or 1+
     if longtext
@@ -143,7 +146,6 @@ function Source(dsn::DSN, query::AbstractString; noquery::Bool=false)
     boundcols = Array{Any}(cols)
     indcols = Array{Vector{ODBC.API.SQLLEN}}(cols)
     for x = 1:cols
-        # columns[x] = NullableVector{juliatypes[x]}()
         if longtexts[x]
             boundcols[x], indcols[x] = alloctypes[x][], ODBC.API.SQLLEN[]
         else
@@ -250,6 +252,25 @@ bytes2codeunits(::Type{UInt32}, bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA,
 codeunits2bytes(::Type{UInt8},  bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes))
 codeunits2bytes(::Type{UInt16}, bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes * 2))
 codeunits2bytes(::Type{UInt32}, bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes * 4))
+
+function cast!(::Type{String}, source, col)
+    len = source.rowsfetched[]
+    data = source.boundcols[col]
+    T = eltype(data)
+    isnull = Vector{Bool}(len)
+    cur = 1
+    elsize = source.sizes[col] + 1
+    values = Vector{String}(len)
+    @inbounds for i in 1:len
+        indic = source.indcols[col][i]
+        isnull[i] = indic == ODBC.API.SQL_NULL_DATA
+        length = ODBC.bytes2codeunits(T, max(indic, 0))
+        values[i] = length == 0 ? "" : String(transcode(UInt8, data[cur:(cur + length - 1)]))
+        cur += elsize
+    end
+    source.columns[col] = NullableArray{String,1}(values, isnull)
+    return
+end
 
 function cast!{T}(::Type{WeakRefString{T}}, source, col)
     len = source.rowsfetched[]
