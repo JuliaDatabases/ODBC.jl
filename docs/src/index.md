@@ -16,7 +16,9 @@ Lists valid ODBC drivers on the system which can be used manually in connection 
 Constructors:
 
 `ODBC.DSN(dsn, username, password) => ODBC.DSN`
+
 `ODBC.DSN(connection_string; prompt::Bool=true) => ODBC.DSN`
+
 `ODBC.disconnect!(dsn::ODBC.DSN)`
 
 The first method attempts to connect to a pre-defined DSN that has been pre-configured through your system's ODBC admin console. Settings such as the ODBC driver, server address, port #, etc. are already configured, so all that is required is the username and password to connect.
@@ -29,12 +31,16 @@ The second method takes a full connection string. Connection strings are vendor-
 
 Methods:
 
-`ODBC.query(dsn::ODBC.DSN, sql::AbstractString, sink=DataFrame, args...; append::Bool=false)`
-`ODBC.query{T}(dsn::DSN, sql::AbstractString, sink::T; append::Bool=false)`
+`ODBC.query(dsn::ODBC.DSN, sql::AbstractString, sink=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false)`
+
+`ODBC.query{T}(dsn::DSN, sql::AbstractString, sink::T; weakrefstrings::Bool=true, append::Bool=false)`
+
 `ODBC.query(source::ODBC.Source, sink=DataFrame, args...; append::Bool=false)`
+
 `ODBC.query{T}(source::ODBC.Source, sink::T; append::Bool=false)`
 
-`ODBC.query` is a high-level method for sending an SQL statement to a system and returning the results. As is shown, a valid `dsn::ODBC.DSN` and SQL statement `sql` combo can be sent, as well as an already-constructed `source::ODBC.Source`. By default, the results will be returned in a [`DataFrame`](http://juliastats.github.io/DataFrames.jl/latest/), but a variety of options exist for returning results, including `CSV.Sink`, `SQLite.Sink`, or `Feather.Sink`. `ODBC.query` actually utilizes the `DataStreams.jl` framework, so any valid [`Data.Sink`](http://juliadata.github.io/DataStreams.jl/latest/#datasink-interface) can be used to return results. The `append=false` keyword specifies whether the results should be *added to* any existing data in the `Data.Sink`, or if the resultset should fully replace any existing data.
+
+`ODBC.query` is a high-level method for sending an SQL statement to a system and returning the results. As is shown, a valid `dsn::ODBC.DSN` and SQL statement `sql` combo can be sent, as well as an already-constructed `source::ODBC.Source`. By default, the results will be returned in a [`DataFrame`](http://juliastats.github.io/DataFrames.jl/latest/), but a variety of options exist for returning results, including `CSV.Sink`, `SQLite.Sink`, or `Feather.Sink`. `ODBC.query` actually utilizes the `DataStreams.jl` framework, so any valid [`Data.Sink`](http://juliadata.github.io/DataStreams.jl/latest/#datasink-interface) can be used to return results. The `append=false` keyword specifies whether the results should be *added to* any existing data in the `Data.Sink`, or if the resultset should fully replace any existing data. The `weakrefstrings` argument indicates whether `WeakRefString`s should be used by default for efficiency.
 
 Examples:
 
@@ -64,8 +70,11 @@ feather = ODBC.query(dsn, "select * from cool_table", Feather.Sink, "cool_table.
 
 Methods:
 `ODBC.load{T}(dsn::DSN, table::AbstractString, ::Type{T}, args...; append::Bool=false)`
+
 `ODBC.load(dsn::DSN, table::AbstractString, source; append::Bool=false)`
+
 `ODBC.load{T}(sink::Sink, ::Type{T}, args...; append::Bool=false)`
+
 `ODBC.load(sink::Sink, source; append::Bool=false)`
 
 `ODBC.load` is a sister method to `ODBC.query`, but instead of providing a robust way of *returning* results, it allows one to *send* data to a DB.
@@ -134,8 +143,11 @@ end
 Methods:
 
 `ODBC.execute!(dsn::ODBC.DSN, querystring::String)`
+
 `ODBC.execute!(stmt::ODBC.Statement)`
+
 `ODBC.execute!(stmt::ODBC.Statement, values)`
+
 
 `ODBC.execute!` provides a method for executing a statement against a DB without returning any results. Certain SQL statements known as "DDL" statements are used to modify objects in a DB and don't have results to return anyway. While `ODBC.query` can still be used for these types of statements, `ODBC.execute!` is much more efficient. This method is also used to execute prepared statements, as noted in the documentation for `ODBC.prepare`.
 
