@@ -5,7 +5,7 @@
 
 | **Documentation**                                                               | **PackageEvaluator**                                            | **Build Status**                                                                                |
 |:-------------------------------------------------------------------------------:|:---------------------------------------------------------------:|:-----------------------------------------------------------------------------------------------:|
-| [![][docs-stable-img]][docs-stable-url] [![][docs-latest-img]][docs-latest-url] | [![][pkg-0.4-img]][pkg-0.4-url] [![][pkg-0.5-img]][pkg-0.5-url] | [![][travis-img]][travis-url] [![][appveyor-img]][appveyor-url] [![][codecov-img]][codecov-url] |
+| [![][docs-stable-img]][docs-stable-url] [![][docs-latest-img]][docs-latest-url] | [![][pkg-0.5-img]][pkg-0.5-url] | [![][travis-img]][travis-url] [![][appveyor-img]][appveyor-url] [![][codecov-img]][codecov-url] |
 
 
 ## Installation
@@ -23,7 +23,7 @@ julia> Pkg.add("ODBC")
 
 ## Project Status
 
-The package is tested against Julia `0.4` and *current* `0.5` on Linux, OS X, and Windows.
+The package is tested against Julia `0.5` on Linux, OS X, and Windows.
 
 ## Contributing and Questions
 
@@ -49,7 +49,5 @@ Contributions are very welcome, as are feature requests and suggestions. Please 
 
 [issues-url]: https://github.com/JuliaDB/ODBC.jl/issues
 
-[pkg-0.4-img]: http://pkg.julialang.org/badges/ODBC_0.4.svg
-[pkg-0.4-url]: http://pkg.julialang.org/?pkg=ODBC
 [pkg-0.5-img]: http://pkg.julialang.org/badges/ODBC_0.5.svg
 [pkg-0.5-url]: http://pkg.julialang.org/?pkg=ODBC
