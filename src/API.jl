@@ -55,13 +55,13 @@ const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
 
 macro odbc(func,args,vals...)
     if is_windows()
-        quote
+        esc(quote
             ret = ccall( ($func, odbc_dm), stdcall, SQLRETURN, $args, $(vals...))
-        end
+        end)
     else
-        quote
+        esc(quote
             ret = ccall( ($func, odbc_dm),          SQLRETURN, $args, $(vals...))
-        end
+        end)
     end
 end
 

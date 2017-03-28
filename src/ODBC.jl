@@ -52,12 +52,12 @@ end
 #Macros to to check if a function returned a success value or not
 macro CHECK(handle, handletype, func)
     str = string(func)
-    quote
+    esc(quote
         ret = $func
         ret != ODBC.API.SQL_SUCCESS && ret != ODBC.API.SQL_SUCCESS_WITH_INFO && ODBCError($handle, $handletype) &&
             throw(ODBCError("$($str) failed; return code: $ret => $(ODBC.API.RETURN_VALUES[ret])"))
         nothing
-    end
+    end)
 end
 
 "List ODBC drivers that have been installed and registered"

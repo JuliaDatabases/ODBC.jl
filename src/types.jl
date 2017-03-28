@@ -18,30 +18,30 @@ end
 # Translation of sqltypes.h; C typealiases for SQL functions
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms716298(v=vs.85).aspx
 # http://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
-typealias SQLCHAR       UInt8
-typealias SQLSMALLINT   Cshort
-typealias SQLUSMALLINT  Cushort
+const SQLCHAR =       UInt8
+const SQLSMALLINT =   Cshort
+const SQLUSMALLINT =  Cushort
 
-typealias SQLSCHAR      Cchar
-typealias SQLDATE       Cuchar
-typealias SQLDECIMAL    Cuchar
-typealias SQLDOUBLE     Cdouble
-typealias SQLFLOAT      Cdouble
+const SQLSCHAR =      Cchar
+const SQLDATE =       Cuchar
+const SQLDECIMAL =    Cuchar
+const SQLDOUBLE =     Cdouble
+const SQLFLOAT =      Cdouble
 
-typealias SQLVARCHAR    Cuchar
-typealias SQLNUMERIC    Cuchar
-typealias SQLREAL       Cfloat
-typealias SQLTIME       Cuchar
-typealias SQLTIMESTAMP  Cuchar
+const SQLVARCHAR =    Cuchar
+const SQLNUMERIC =    Cuchar
+const SQLREAL =       Cfloat
+const SQLTIME =       Cuchar
+const SQLTIMESTAMP =  Cuchar
 
 if contains(odbc_dm,"iodbc")
-    typealias SQLWCHAR Cwchar_t
+    const SQLWCHAR = Cwchar_t
     if !isdefined(Base, :transcode)
         transcode(T, x) = wstring(x)
     end
 else
     # correct for windows + unixODBC
-    typealias SQLWCHAR Cushort
+    const SQLWCHAR = Cushort
     if !isdefined(Base, :transcode)
         transcode(T, x) = utf16(x)
     end
@@ -56,57 +56,57 @@ end
 # SQL_C_BOOKMARK	64 bits	32 bits
 # BOOKMARK	64 bits	32 bits
 
-typealias SQLINTEGER  Cint
-typealias SQLUINTEGER Cuint
-typealias SQLLEN Int
-typealias SQLULEN UInt
+const SQLINTEGER =  Cint
+const SQLUINTEGER = Cuint
+const SQLLEN = Int
+const SQLULEN = UInt
 
 # if WORD_SIZE == 64
-#     typealias SQLINTEGER    Cint
-#     typealias SQLUINTEGER   Cuint
+#     const SQLINTEGER =    Cint
+#     const SQLUINTEGER =   Cuint
 # else
-#     typealias SQLINTEGER    Clong
-#     typealias SQLUINTEGER   Culong
+#     const SQLINTEGER =    Clong
+#     const SQLUINTEGER =   Culong
 # end
 #
-# typealias SQLLEN        SQLINTEGER
-# typealias SQLULEN       SQLUINTEGER
-typealias SQLSETPOSIROW SQLUSMALLINT
+# const SQLLEN =        SQLINTEGER
+# const SQLULEN =       SQLUINTEGER
+const SQLSETPOSIROW = SQLUSMALLINT
 
-typealias SQLROWCOUNT   SQLULEN
-typealias SQLROWSETSIZE SQLULEN
-typealias SQLTRANSID    SQLULEN
-typealias SQLROWOFFSET  SQLLEN
-typealias SQLPOINTER    Ptr{Void}
-typealias SQLRETURN     SQLSMALLINT
-typealias SQLHANDLE     Ptr{Void}
-typealias SQLHENV       SQLHANDLE
-typealias SQLHDBC       SQLHANDLE
-typealias SQLHSTMT      SQLHANDLE
-typealias SQLHDESC      SQLHANDLE
-typealias ULONG         Cuint
-typealias PULONG        Ptr{ULONG}
-typealias USHORT        Cushort
-typealias PUSHORT       Ptr{USHORT}
-typealias UCHAR         Cuchar
-typealias PUCHAR        Ptr{Cuchar}
-typealias PSZ           Ptr{Cchar}
-typealias SCHAR         Cchar
-typealias SDWORD        Cint
-typealias SWORD         Cshort
-typealias UDWORD        Cuint
-typealias UWORD         Cushort
-typealias SLONG         Cint
-typealias SSHORT        Cshort
-typealias SDOUBLE       Cdouble
-typealias LDOUBLE       Cdouble
-typealias SFLOAT        Cfloat
-typealias PTR           Ptr{Void}
-typealias HENV          Ptr{Void}
-typealias HDBC          Ptr{Void}
-typealias HSTMT         Ptr{Void}
-typealias RETCODE       Cshort
-typealias SQLHWND       Ptr{Void}
+const SQLROWCOUNT =   SQLULEN
+const SQLROWSETSIZE = SQLULEN
+const SQLTRANSID =    SQLULEN
+const SQLROWOFFSET =  SQLLEN
+const SQLPOINTER =    Ptr{Void}
+const SQLRETURN =     SQLSMALLINT
+const SQLHANDLE =     Ptr{Void}
+const SQLHENV =       SQLHANDLE
+const SQLHDBC =       SQLHANDLE
+const SQLHSTMT =      SQLHANDLE
+const SQLHDESC =      SQLHANDLE
+const ULONG =         Cuint
+const PULONG =        Ptr{ULONG}
+const USHORT =        Cushort
+const PUSHORT =       Ptr{USHORT}
+const UCHAR =         Cuchar
+const PUCHAR =        Ptr{Cuchar}
+const PSZ =           Ptr{Cchar}
+const SCHAR =         Cchar
+const SDWORD =        Cint
+const SWORD =         Cshort
+const UDWORD =        Cuint
+const UWORD =         Cushort
+const SLONG =         Cint
+const SSHORT =        Cshort
+const SDOUBLE =       Cdouble
+const LDOUBLE =       Cdouble
+const SFLOAT =        Cfloat
+const PTR =           Ptr{Void}
+const HENV =          Ptr{Void}
+const HDBC =          Ptr{Void}
+const HSTMT =         Ptr{Void}
+const RETCODE =       Cshort
+const SQLHWND =       Ptr{Void}
 
 #################
 
