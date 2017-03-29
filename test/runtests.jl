@@ -328,7 +328,6 @@ end
 
 # ODBC
 randoms_small = joinpath(dirname(@__FILE__), "randoms_small.csv.odbc")
-# randoms_small = joinpath(Pkg.dir("ODBC"), "test/randoms_small.csv.odbc")
 ODBC.execute!(dsn, "drop database if exists datastreams;")
 ODBC.execute!(dsn, "create database datastreams;")
 ODBC.execute!(dsn, "use datastreams;")
