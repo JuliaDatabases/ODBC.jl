@@ -236,8 +236,9 @@ println("passed.")
 if VERSION < v"0.6.0"
     workspace()
     using Base.Test, ODBC, DataStreams, DataFrames, NullableArrays, WeakRefStrings
-    dsn = ODBC.DSN("MySQL-test", "root", "")
 end
+
+dsn = ODBC.DSN("MySQL-test", "root", "")
 
 # datastreams
 using DataStreamsIntegrationTests
@@ -345,16 +346,11 @@ odbcsink = Tester("ODBC.Sink", ODBC.load, true, ODBC.Sink, (dsn, "randoms2"), sc
 df = dfsink.sinktodf(odbcsource.highlevel(odbcsource.args..., dfsink.constructor, dfsink.args...))
 showall(df)
 println()
-@show eltype(df.columns[6])
-@show typeof(df[1, 6])
-@show df[1, 6]
-@show get(df[1, 6]) == Date(2002, 4, 9)
-@show get(df[1, 6]).year
-@show get(df[1, 6]).month
-@show get(df[1, 6]).day
-@show @which DataStreamsIntegrationTests.testnull(df[1, 6], Date(2002, 4, 9))
-@show DataStreamsIntegrationTests.testnull(df[1, 6], Date(2002, 4, 9))
-@show !isnull(df[1,6]) && get(df[1,6]) == Date(2002, 4, 9)
+@show Data.types(df, Data.Field)
+@show @which DataStreamsIntegrationTests.typeequal(Data.types(df, Data.Field)[6], Date)
+@show DataStreamsIntegrationTests.typeequal(Data.types(df, Data.Field)[6], Date)
+@show @which DataStreamsIntegrationTests.typeequal(Data.types(df, Data.Field)[7], DateTime)
+@show DataStreamsIntegrationTests.typeequal(Data.types(df, Data.Field)[7], DateTime)
 
 DataStreamsIntegrationTests.teststream([odbcsource], [dfsink]; rows=99)
 # DataStreamsIntegrationTests.teststream([dfsource], [odbcsink]; rows=99)

@@ -248,7 +248,7 @@ const SQL_C_TYPE_TIMESTAMP = Int16( 93)
 const SQL_C_GUID                      = Int16(-11)
 
 # Julia mapping C structs
-immutable SQLDate
+immutable SQLDate <: Dates.AbstractTime
     year::Int16
     month::Int16
     day::Int16
@@ -262,7 +262,7 @@ import Base: ==
 ==(y::Date, x::SQLDate) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
 Base.Date(x::SQLDate) = Date(x.year, x.month, x.day)
 
-immutable SQLTime
+immutable SQLTime <: Dates.AbstractTime
     hour::Int16
     minute::Int16
     second::Int16
@@ -271,7 +271,7 @@ end
 Base.show(io::IO,x::SQLTime) = print(io,"$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))")
 SQLTime() = SQLTime(0,0,0)
 
-immutable SQLTimestamp
+immutable SQLTimestamp <: Dates.AbstractTime
     year::Int16
     month::Int16
     day::Int16
