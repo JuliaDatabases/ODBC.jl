@@ -342,7 +342,7 @@ vt2["lastclockin"] = x->NullableArray(DateTime[isnull(i) ? DateTime() : DateTime
 odbcsource = Tester("ODBC.Source", ODBC.query, true, ODBC.Source, (dsn, "select * from randoms"), scalartransforms, vt2, x->x, ()->nothing)
 odbcsink = Tester("ODBC.Sink", ODBC.load, true, ODBC.Sink, (dsn, "randoms2"), scalartransforms, vt2, x->sinktodf(ODBC.query(dsn, "select * from $(x.table)")), (x,y)->nothing)
 
-df = sink.sinktodf(odbcsource.highlevel(odbcsource.args..., dfsink.constructor, dfsink.args...))
+df = dfsink.sinktodf(odbcsource.highlevel(odbcsource.args..., dfsink.constructor, dfsink.args...))
 showall(df)
 @show typeof(df[1, 6])
 @show df[1, 6]
