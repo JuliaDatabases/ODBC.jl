@@ -35,7 +35,7 @@ const SQLTIME =       Cuchar
 const SQLTIMESTAMP =  Cuchar
 
 if contains(odbc_dm,"iodbc")
-    const SQLWCHAR = Cwchar_t
+    const SQLWCHAR = UInt32
     if !isdefined(Base, :transcode)
         transcode(T, x) = wstring(x)
     end
