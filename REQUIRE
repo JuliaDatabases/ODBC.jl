@@ -4,4 +4,4 @@ DataFrames
 NullableArrays 0.0.9
 CategoricalArrays 0.0.5
 WeakRefStrings
-@unix DecFP
+DecFP 0.3.0
