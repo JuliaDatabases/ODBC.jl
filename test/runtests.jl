@@ -283,10 +283,10 @@ end
 DF2 = deepcopy(DF)
 function sinktodf(df::DataFrame)
     df2 = deepcopy(df)
-    if !(eltype(df2.columns[6]) <: Nullable{Date})
+    if !(eltype(df2.columns[6]) <: Nullable)
         df2.columns[6] =  map(x->isnull(x) ? Nullable{Date}() : Nullable(Date(x)), df2.columns[6])
     end
-    if !(eltype(df2.columns[7]) <: Nullable{DateTime})
+    if !(eltype(df2.columns[7]) <: Nullable)
         df2.columns[7] =  map(x->isnull(x) ? Nullable{DateTime}() : Nullable(DateTime(x)), df2.columns[7])
     end
     return df2
@@ -344,6 +344,8 @@ odbcsink = Tester("ODBC.Sink", ODBC.load, true, ODBC.Sink, (dsn, "randoms2"), sc
 
 df = dfsink.sinktodf(odbcsource.highlevel(odbcsource.args..., dfsink.constructor, dfsink.args...))
 showall(df)
+println()
+@show eltype(df.columns[6])
 @show typeof(df[1, 6])
 @show df[1, 6]
 @show get(df[1, 6]) == Date(2002, 4, 9)
