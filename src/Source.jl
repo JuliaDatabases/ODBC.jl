@@ -38,11 +38,11 @@ isnull(x) = false
 cast{T}(x::T) = x
 cast(x::Date) = ODBC.API.SQLDate(x)
 cast(x::DateTime) = ODBC.API.SQLTimestamp(x)
-cast(x::String) = WeakRefString(pointer(x.data), length(x))
+cast(x::String) = WeakRefString(pointer(Vector{UInt8}(x)), length(x))
 
 getpointer{T}(::Type{T}, A, i) = unsafe_load(Ptr{Ptr{Void}}(pointer(A, i)))
 getpointer{T}(::Type{WeakRefString{T}}, A, i) = convert(Ptr{Void}, A[i].ptr)
-getpointer(::Type{String}, A, i) = convert(Ptr{Void}, pointer(A[i].data))
+getpointer(::Type{String}, A, i) = convert(Ptr{Void}, pointer(Vector{UInt8}(A[i])))
 
 sqllength(x) = 1
 sqllength(x::AbstractString) = length(x)

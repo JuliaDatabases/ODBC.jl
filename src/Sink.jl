@@ -37,11 +37,11 @@ if is_unix()
 prep!(::Union{Type{Dec64},Type{Nullable{Dec64}}}, A) = Float64[isnull(x) ? 0.0 : Float64(get(x)) for x in A], 0
 end
 
-getptrlen(x::AbstractString) = pointer(x.data), length(x), UInt8[]
+getptrlen(x::AbstractString) = pointer(Vector{UIn8}(x)), length(x), UInt8[]
 getptrlen{T}(x::WeakRefString{T}) = convert(Ptr{UInt8}, x.ptr), codeunits2bytes(T, x.len), UInt8[]
 getptrlen{T}(x::Nullable{T}) = isnull(x) ? (convert(Ptr{UInt8}, C_NULL), 0, UInt8[]) : getptrlen(get(x))
 function getptrlen(x::CategoricalArrays.CategoricalValue)
-    ref = String(x).data
+    ref = Vector{UInt8}(String(x))
     return pointer(ref), length(ref), ref
 end
 
