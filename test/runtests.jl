@@ -346,6 +346,10 @@ df = ODBC.query(dsn, "select * from randoms")
 showall(df)
 @show typeof(df[1, 6])
 @show df[1, 6]
+@show get(df[1, 6]) == Date(2002, 4, 9)
+@show df[1, 6].year
+@show df[1, 6].month
+@show df[1, 6].day
 DataStreamsIntegrationTests.teststream([odbcsource], [dfsink]; rows=99)
 # DataStreamsIntegrationTests.teststream([dfsource], [odbcsink]; rows=99)
 
