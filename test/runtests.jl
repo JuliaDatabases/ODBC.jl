@@ -343,15 +343,6 @@ vt2["lastclockin"] = x->NullableArray(DateTime[isnull(i) ? DateTime() : DateTime
 odbcsource = Tester("ODBC.Source", ODBC.query, true, ODBC.Source, (dsn, "select * from randoms"), scalartransforms, vt2, x->x, ()->nothing)
 odbcsink = Tester("ODBC.Sink", ODBC.load, true, ODBC.Sink, (dsn, "randoms2"), scalartransforms, vt2, x->sinktodf(ODBC.query(dsn, "select * from $(x.table)")), (x,y)->nothing)
 
-df = dfsink.sinktodf(odbcsource.highlevel(odbcsource.args..., dfsink.constructor, dfsink.args...))
-showall(df)
-println()
-@show Data.types(df, Data.Field)
-@show @which DataStreamsIntegrationTests.typequal(Data.types(df, Data.Field)[6], Date)
-@show DataStreamsIntegrationTests.typequal(Data.types(df, Data.Field)[6], Date)
-@show @which DataStreamsIntegrationTests.typequal(Data.types(df, Data.Field)[7], DateTime)
-@show DataStreamsIntegrationTests.typequal(Data.types(df, Data.Field)[7], DateTime)
-
 DataStreamsIntegrationTests.teststream([odbcsource], [dfsink]; rows=99)
 # DataStreamsIntegrationTests.teststream([dfsource], [odbcsink]; rows=99)
 
