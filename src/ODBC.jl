@@ -180,3 +180,5 @@ function ODBCFreeStmt!(stmt)
 end
 
 end #ODBC module
+
+include("sqlreplmode.jl")

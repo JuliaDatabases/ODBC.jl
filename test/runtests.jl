@@ -233,9 +233,10 @@ ODBC.Source(dsn, "drop table if exists test3")
 
 println("passed.")
 
-workspace()
-
-using Base.Test, ODBC, DataStreams, DataFrames, NullableArrays, WeakRefStrings
+if VERSION < v"0.6.0"
+    workspace()
+    using Base.Test, ODBC, DataStreams, DataFrames, NullableArrays, WeakRefStrings
+end
 
 dsn = ODBC.DSN("MySQL-test", "root", "")
 
@@ -252,8 +253,8 @@ if typeof(DF[:hiredate]) <: NullableVector
     DF[:lastclockin] = NullableArray(DateTime[isnull(x) ? DateTime() : DateTime(get(x)) for x in DF[:lastclockin]], [isnull(x) for x in DF[:lastclockin]])
     stringdata = join(String[get(x) for x in strings])
     stringdata2 = join(String[get(x) for x in strings2])
-    DF.columns[2] = NullableArray{WeakRefString{UInt8},1}(Array(WeakRefString{UInt8}, size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata))
-    DF.columns[3] = NullableArray{WeakRefString{UInt8},1}(Array(WeakRefString{UInt8}, size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata2))
+    DF.columns[2] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata))
+    DF.columns[3] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata2))
     ind = ind2 = 1
     for i = 1:size(DF, 1)
         DF.columns[2][i] = Nullable(WeakRefString(pointer(stringdata, ind), length(get(strings[i])), ind))
@@ -270,8 +271,8 @@ else
     DF.columns[7] = NullableArray(DateTime[isna(x) ? DateTime() : DateTime(x) for x in DF[:lastclockin]], [isna(x) for x in DF[:lastclockin]])
     stringdata = join(String[isna(x) ? "" : x for x in strings])
     stringdata2 = join(String[isna(x) ? "" : x for x in strings2])
-    DF.columns[2] = NullableArray{WeakRefString{UInt8},1}(Array(WeakRefString{UInt8}, size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata))
-    DF.columns[3] = NullableArray{WeakRefString{UInt8},1}(Array(WeakRefString{UInt8}, size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata2))
+    DF.columns[2] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata))
+    DF.columns[3] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata2))
     ind = ind2 = 1
     for i = 1:size(DF, 1)
         DF.columns[2][i] = Nullable(WeakRefString(pointer(stringdata, ind), length(strings[i]), ind))
@@ -283,10 +284,10 @@ end
 DF2 = deepcopy(DF)
 function sinktodf(df::DataFrame)
     df2 = deepcopy(df)
-    if !(eltype(df2.columns[6]) <: Nullable{Date})
+    if !(eltype(df2.columns[6]) <: Nullable)
         df2.columns[6] =  map(x->isnull(x) ? Nullable{Date}() : Nullable(Date(x)), df2.columns[6])
     end
-    if !(eltype(df2.columns[7]) <: Nullable{DateTime})
+    if !(eltype(df2.columns[7]) <: Nullable)
         df2.columns[7] =  map(x->isnull(x) ? Nullable{DateTime}() : Nullable(DateTime(x)), df2.columns[7])
     end
     return df2
@@ -342,7 +343,6 @@ vt2["lastclockin"] = x->NullableArray(DateTime[isnull(i) ? DateTime() : DateTime
 odbcsource = Tester("ODBC.Source", ODBC.query, true, ODBC.Source, (dsn, "select * from randoms"), scalartransforms, vt2, x->x, ()->nothing)
 odbcsink = Tester("ODBC.Sink", ODBC.load, true, ODBC.Sink, (dsn, "randoms2"), scalartransforms, vt2, x->sinktodf(ODBC.query(dsn, "select * from $(x.table)")), (x,y)->nothing)
 
-showall(ODBC.query(dsn, "select * from randoms"))
 DataStreamsIntegrationTests.teststream([odbcsource], [dfsink]; rows=99)
 # DataStreamsIntegrationTests.teststream([dfsource], [odbcsink]; rows=99)
 

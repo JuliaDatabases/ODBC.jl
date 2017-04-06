@@ -1,3 +1,5 @@
+using DecFP
+
 # Link to ODBC Driver Manager (system-dependent)
 let
     global odbc_dm
@@ -35,7 +37,7 @@ const SQLTIME =       Cuchar
 const SQLTIMESTAMP =  Cuchar
 
 if contains(odbc_dm,"iodbc")
-    const SQLWCHAR = Cwchar_t
+    const SQLWCHAR = UInt32
     if !isdefined(Base, :transcode)
         transcode(T, x) = wstring(x)
     end
@@ -248,7 +250,7 @@ const SQL_C_TYPE_TIMESTAMP = Int16( 93)
 const SQL_C_GUID                      = Int16(-11)
 
 # Julia mapping C structs
-immutable SQLDate
+immutable SQLDate <: Dates.AbstractTime
     year::Int16
     month::Int16
     day::Int16
@@ -262,7 +264,7 @@ import Base: ==
 ==(y::Date, x::SQLDate) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
 Base.Date(x::SQLDate) = Date(x.year, x.month, x.day)
 
-immutable SQLTime
+immutable SQLTime <: Dates.AbstractTime
     hour::Int16
     minute::Int16
     second::Int16
@@ -271,7 +273,7 @@ end
 Base.show(io::IO,x::SQLTime) = print(io,"$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))")
 SQLTime() = SQLTime(0,0,0)
 
-immutable SQLTimestamp
+immutable SQLTimestamp <: Dates.AbstractTime
     year::Int16
     month::Int16
     day::Int16
@@ -289,9 +291,9 @@ function SQLTimestamp(x::DateTime)
     return SQLTimestamp(y, m, d, h, mm, s, frac)
 end
 SQLTimestamp() = SQLTimestamp(0,0,0,0,0,0,0)
-==(x::SQLTimestamp, y::Date) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
-                               x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
-==(y::Date, x::SQLTimestamp) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
+==(x::SQLTimestamp, y::DateTime) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
+                                   x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
+==(y::DateTime, x::SQLTimestamp) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
                                x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
 Base.DateTime(x::SQLTimestamp) = DateTime(x.year, x.month, x.day, x.hour, x.minute, x.second, x.fraction * 1000000)
 
@@ -356,16 +358,12 @@ const SQL2C = Dict(
     SQL_SS_TIMESTAMPOFFSET => SQL_C_TYPE_TIMESTAMP,
     SQL_GUID           => SQL_C_GUID)
 
-if is_windows()
-    SQL2C[SQL_DECIMAL] = SQL_C_DOUBLE
-    SQL2C[SQL_NUMERIC] = SQL_C_DOUBLE
-end
-
 const julia2SQL = Dict(
     String                => SQL_CHAR,
     WeakRefString{UInt8}  => SQL_CHAR,
     WeakRefString{UInt16} => SQL_WCHAR,
     WeakRefString{UInt32} => SQL_WCHAR,
+    Dec64                 => SQL_DOUBLE,
     Float16               => SQL_FLOAT,
     Float32               => SQL_FLOAT,
     Float64               => SQL_DOUBLE,
@@ -382,17 +380,12 @@ const julia2SQL = Dict(
     SQLTimestamp          => SQL_TYPE_TIMESTAMP
 )
 
-if is_unix()
-    #TODO: support SQL_NUMERIC/SQL_DECIMAL properly
-    using DecFP
-    julia2SQL[Dec64] = SQL_DOUBLE
-end
-
 const julia2C = Dict(
     String                => SQL_C_CHAR,
     WeakRefString{UInt8}  => SQL_C_CHAR,
     WeakRefString{UInt16} => SQL_C_WCHAR,
     WeakRefString{UInt32} => SQL_C_WCHAR,
+    Dec64                 => SQL_C_DOUBLE,
     Float16               => SQL_C_FLOAT,
     Float32               => SQL_C_FLOAT,
     Float64               => SQL_C_DOUBLE,
@@ -408,10 +401,6 @@ const julia2C = Dict(
     SQLTime               => SQL_C_TYPE_TIME,
     SQLTimestamp          => SQL_C_TYPE_TIMESTAMP
 )
-
-if is_unix()
-    julia2C[Dec64] = SQL_C_DOUBLE
-end
 
 """
 maps SQL types from the ODBC manager to Julia types;
@@ -429,8 +418,8 @@ const SQL2Julia = Dict(
     SQL_WCHAR          => (SQLWCHAR, NullableVector{WeakRefString{SQLWCHAR}}, false),
     SQL_WVARCHAR       => (SQLWCHAR, NullableVector{WeakRefString{SQLWCHAR}}, false),
     SQL_WLONGVARCHAR   => (SQLWCHAR, NullableVector{String}, true),
-    SQL_DECIMAL        => (SQLDOUBLE, NullableVector{SQLDOUBLE}, false),
-    SQL_NUMERIC        => (SQLDOUBLE, NullableVector{SQLDOUBLE}, false),
+    SQL_DECIMAL        => (SQLCHAR, NullableVector{Dec64}, false),
+    SQL_NUMERIC        => (SQLCHAR, NullableVector{Dec64}, false),
     SQL_SMALLINT       => (SQLSMALLINT, NullableVector{SQLSMALLINT}, false),
     SQL_INTEGER        => (SQLINTEGER,  NullableVector{SQLINTEGER}, false),
     SQL_REAL           => (SQLREAL,   NullableVector{SQLREAL}, false),
@@ -448,11 +437,6 @@ const SQL2Julia = Dict(
     SQL_SS_TIME2       => (SQLTime, NullableVector{SQLTime}, false),
     SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, NullableVector{SQLTimestamp}, false),
     SQL_GUID           => (SQLGUID, NullableVector{SQLGUID}, false))
-
-if is_unix()
-    SQL2Julia[SQL_DECIMAL] = (SQLCHAR, NullableVector{Dec64}, false)
-    SQL2Julia[SQL_NUMERIC] = (SQLCHAR, NullableVector{Dec64}, false)
-end
 
 "Convenience mapping of SQL types to their string representation"
 const SQL_TYPES = Dict(

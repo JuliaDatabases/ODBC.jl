@@ -204,7 +204,6 @@ function cast!{T}(::Type{T}, source, col)
 end
 
 # decimal/numeric and binary types
-if !is_windows()
 using DecFP
 const DECZERO = Dec64(0)
 
@@ -224,7 +223,6 @@ function cast!(::Type{Dec64}, source, col)
     end
     source.columns[col] = NullableArray{Dec64,1}(values, isnull)
     return
-end
 end
 
 cast(::Type{Vector{UInt8}}, arr, cur, ind) = arr[cur:(cur + max(ind, 0) - 1)]
