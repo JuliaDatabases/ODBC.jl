@@ -414,5 +414,5 @@ data = Data.stream!(source, DataFrame)
  ,WeakRefStrings.WeakRefString{UInt8}
  ,String
  ,WeakRefStrings.WeakRefString{UInt8}])
-@test data[1, :test_array] == "{1,2,3}"
+@test get(data[1, :test_array]) == "{1,2,3}"
 showall(data)
