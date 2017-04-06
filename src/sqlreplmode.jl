@@ -17,15 +17,15 @@ function return_callback(p::LineEdit.PromptState)
 end
 
 function evaluate_sql(s::String)
-    local res
+    global odbcdf
     global dsn
     try
-        res = ODBC.query(dsn, s)
+        odbcdf = ODBC.query(dsn, s)
     catch e
         print(STDOUT, "error during sql evaluation: ", e)
         return nothing
     end
-    println(STDOUT, res)
+    println(STDOUT, odbcdf)
 end
 
 function setup_repl(enabled::Bool)

@@ -182,3 +182,4 @@ end
 end #ODBC module
 
 include("sqlreplmode.jl")
+toggle_sql_repl()

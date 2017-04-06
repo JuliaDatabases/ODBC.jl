@@ -3,82 +3,17 @@ reload("ODBC")
 @show ODBC.listdrivers()
 @show ODBC.listdsns()
 
+using HTTP
+
+db = HTTP.get("http://api.postgression.com")
 dsn = ODBC.DSN("Driver={PostgreSQL};Server=")
 
 # Check some basic queries
-dbs = ODBC.query(dsn, "SELECT datname FROM pg_database WHERE datistemplate = false;")
-data = ODBC.query(dsn, "SELECT table_schema,table_name FROM information_schema.tables ORDER BY table_schema,table_name;")
 
 # setup a test database
 # ODBC.execute!(dsn, "drop database if exists testdb")
 # ODBC.execute!(dsn, "create database testdb")
-ODBC.execute!(dsn, "drop table if exists test1")
-ODBC.execute!(dsn, "create table test1
-                    (test_bigint bigint,
-                     test_decimal decimal,
-                     test_int integer,
-                     test_numeric numeric,
-                     test_smallint smallint,
-                     test_float real,
-                     test_real double precision,
-                     test_smallserial smallserial,
-                     test_serial serial,
-                     test_bigserial bigserial,
-                     test_money money,
-                     test_date date,
-                     test_timestamp timestamp,
-                     test_time time,
-                     test_char char(1),
-                     test_varchar varchar(16),
-                     test_bytea bytea,
-                     test_boolean boolean,
-                     test_text text
-                    )")
-data = ODBC.query(dsn, "select * from information_schema.columns where table_name = 'test1'")
-ODBC.execute!(dsn, "insert into test1 VALUES
-                    (1, -- bigint,
-                     1.2, -- decimal,
-                     2, -- integer,
-                     1.4, -- numeric,
-                     3, -- smallint,
-                     1.6, -- real,
-                     1.8, -- double precision,
-                     4, -- smallserial,
-                     5, -- serial,
-                     6, -- bigserial,
-                     2.0, -- money,
-                     '2016-01-01', -- date,
-                     '2016-01-01 01:01:01', -- timestamp,
-                     '01:01:01', -- time,
-                     'A', -- char(1),
-                     'hey there sailor', -- varchar(16),
-                     NULL, -- bytea,
-                     TRUE, -- boolean,
-                     'hey there abraham' -- text
-                    )")
-source = ODBC.Source(dsn, "select * from test1")
-data = Data.stream!(source, Data.Table)
-@test size(data) == (1,19)
-@test data.schema.types ==
-[Int64
- ,DecFP.Dec64
- ,Int32
- ,DecFP.Dec64
- ,Int16
- ,Float32
- ,Float64
- ,Int16
- ,Int32
- ,Int64
- ,Float64
- ,ODBC.API.SQLDate
- ,ODBC.API.SQLTimestamp
- ,ODBC.API.SQLTime
- ,Data.PointerString{UInt16}
- ,Data.PointerString{UInt16}
- ,Array{UInt8,1}
- ,Data.PointerString{UInt8}
- ,Data.PointerString{UInt16}]
+
 # @test data.data[1][1] === Nullable(Int64(1))
 # @test data.data[2][1] === Nullable(Int8(1))
 # @test data.data[3][1] === Nullable(ODBC.DecFP.Dec64(1))

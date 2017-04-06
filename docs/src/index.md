@@ -29,6 +29,10 @@ The second method takes a full connection string. Connection strings are vendor-
 
 ### `ODBC.query`
 
+`sql>` REPL mode:
+
+The ODBC.jl package ships an experimental REPL mode for convenience in rapid query execution. The REPL mode can be accessed by hitting the `]` character at an empty `julia>` prompt. The prompt will change to `sql>` and SQL queries can be entered directly and executed by pressing `enter`. Since the queries need an `ODBC.DSN` to execute against, the global variable `dsn` is used automatically, so it must be assigned before entering the `sql>` REPL mode. Query results are shown directly in the REPL, and the prompt will stay in `sql>` mode until `backspace` is pressed at an empty `sql>` prompt. The results of the last query can then be accessed back at the `julia>` prompt via the global `odbcdf` variable.
+
 Methods:
 
 `ODBC.query(dsn::ODBC.DSN, sql::AbstractString, sink=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false)`
