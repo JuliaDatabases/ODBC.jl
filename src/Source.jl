@@ -139,7 +139,7 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
         # rowset = min(rows, ODBC.API.MAXFETCHSIZE)
         allocsize = rowset = rows
     else
-        rowset = allocsize = ODBC.API.MAXFETCHSIZE
+        rowset = allocsize = 1
     end
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rowset, ODBC.API.SQL_IS_UINTEGER)
     columns = Array{Any}(cols)
