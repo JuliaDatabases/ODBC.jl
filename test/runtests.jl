@@ -408,9 +408,10 @@ data = Data.stream!(source, DataFrame)
  ,ODBC.API.SQLDate
  ,ODBC.API.SQLTimestamp
  ,ODBC.API.SQLTime
- ,WeakRefStrings.WeakRefString{UInt16}
- ,WeakRefStrings.WeakRefString{UInt16}
+ ,WeakRefStrings.WeakRefString{UInt8}
+ ,WeakRefStrings.WeakRefString{UInt8}
  ,Array{UInt8,1}
  ,WeakRefStrings.WeakRefString{UInt8}
- ,WeakRefStrings.WeakRefString{UInt16}
- ,WeakRefStrings.WeakRefString{UInt16}])
+ ,String
+ ,WeakRefStrings.WeakRefString{UInt8}])
+showall(data)
