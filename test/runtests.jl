@@ -391,7 +391,7 @@ ODBC.execute!(dsn, "insert into test1 VALUES
                      NULL, -- bytea,
                      TRUE, -- boolean,
                      'hey there abraham', -- text
-                     {1, 2, 3} -- integer array
+                     ARRAY[1, 2, 3] -- integer array
                     )")
 source = ODBC.Source(dsn, "select * from test1")
 data = Data.stream!(source, Data.Table)
