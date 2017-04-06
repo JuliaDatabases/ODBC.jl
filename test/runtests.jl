@@ -413,4 +413,4 @@ data = Data.stream!(source, DataFrame)
  ,Array{UInt8,1}
  ,WeakRefStrings.WeakRefString{UInt8}
  ,WeakRefStrings.WeakRefString{UInt16}
- ,WeakRefStrings.WeakRefString{UInt16}]
+ ,WeakRefStrings.WeakRefString{UInt16}])
