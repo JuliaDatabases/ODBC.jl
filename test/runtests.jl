@@ -1,4 +1,4 @@
-using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings
+using Base.Test, ODBC, DataStreams, DataFrames, NullableArrays, WeakRefStrings
 
 @show ODBC.listdrivers()
 @show ODBC.listdsns()
@@ -414,4 +414,5 @@ data = Data.stream!(source, DataFrame)
  ,WeakRefStrings.WeakRefString{UInt8}
  ,String
  ,WeakRefStrings.WeakRefString{UInt8}])
+@test data[1, :test_array] == "{1,2,3}"
 showall(data)
