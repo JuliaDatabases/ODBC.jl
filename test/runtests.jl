@@ -394,9 +394,9 @@ ODBC.execute!(dsn, "insert into test1 VALUES
                      ARRAY[1, 2, 3] -- integer array
                     )")
 source = ODBC.Source(dsn, "select * from test1")
-data = Data.stream!(source, Data.Table)
+data = Data.stream!(source, DataFrame)
 @test size(data) == (1,20)
-@test data.schema.types ==
+@test Data.types(data, Data.Field) == map(x->Nullable{x},
 [Int64
  ,DecFP.Dec64
  ,Int32
@@ -404,15 +404,13 @@ data = Data.stream!(source, Data.Table)
  ,Int16
  ,Float32
  ,Float64
- ,Int16
- ,Int32
- ,Int64
  ,Float64
  ,ODBC.API.SQLDate
  ,ODBC.API.SQLTimestamp
  ,ODBC.API.SQLTime
- ,Data.PointerString{UInt16}
- ,Data.PointerString{UInt16}
+ ,WeakRefStrings.WeakRefString{UInt16}
+ ,WeakRefStrings.WeakRefString{UInt16}
  ,Array{UInt8,1}
- ,Data.PointerString{UInt8}
- ,Data.PointerString{UInt16}]
+ ,WeakRefStrings.WeakRefString{UInt8}
+ ,WeakRefStrings.WeakRefString{UInt16}
+ ,WeakRefStrings.WeakRefString{UInt16}]]
