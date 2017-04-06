@@ -348,4 +348,77 @@ DataStreamsIntegrationTests.teststream([odbcsource], [dfsink]; rows=99)
 
 ODBC.disconnect!(dsn)
 
-@show dsn = ODBC.DSN("PgSQL-test", "postgres", "")
+# PostgreSQL
+dsn = ODBC.DSN("PgSQL-test", "postgres", "")
+dbs = ODBC.query(dsn, "SELECT datname FROM pg_database WHERE datistemplate = false;")
+data = ODBC.query(dsn, "SELECT table_schema,table_name FROM information_schema.tables ORDER BY table_schema,table_name;")
+ODBC.execute!(dsn, "drop table if exists test1")
+ODBC.execute!(dsn, "create table test1
+                    (test_bigint bigint,
+                     test_decimal decimal,
+                     test_int integer,
+                     test_numeric numeric,
+                     test_smallint smallint,
+                     test_float real,
+                     test_real double precision,
+                     test_smallserial smallserial,
+                     test_serial serial,
+                     test_bigserial bigserial,
+                     test_money money,
+                     test_date date,
+                     test_timestamp timestamp,
+                     test_time time,
+                     test_char char(1),
+                     test_varchar varchar(16),
+                     test_bytea bytea,
+                     test_boolean boolean,
+                     test_text text,
+                     test_array integer[]
+                    )")
+data = ODBC.query(dsn, "select * from information_schema.columns where table_name = 'test1'")
+showall(data)
+ODBC.execute!(dsn, "insert into test1 VALUES
+                    (1, -- bigint,
+                     1.2, -- decimal,
+                     2, -- integer,
+                     1.4, -- numeric,
+                     3, -- smallint,
+                     1.6, -- real,
+                     1.8, -- double precision,
+                     4, -- smallserial,
+                     5, -- serial,
+                     6, -- bigserial,
+                     2.0, -- money,
+                     '2016-01-01', -- date,
+                     '2016-01-01 01:01:01', -- timestamp,
+                     '01:01:01', -- time,
+                     'A', -- char(1),
+                     'hey there sailor', -- varchar(16),
+                     NULL, -- bytea,
+                     TRUE, -- boolean,
+                     'hey there abraham', -- text
+                     {1, 2, 3} -- integer array
+                    )")
+source = ODBC.Source(dsn, "select * from test1")
+data = Data.stream!(source, Data.Table)
+@test size(data) == (1,20)
+@test data.schema.types ==
+[Int64
+ ,DecFP.Dec64
+ ,Int32
+ ,DecFP.Dec64
+ ,Int16
+ ,Float32
+ ,Float64
+ ,Int16
+ ,Int32
+ ,Int64
+ ,Float64
+ ,ODBC.API.SQLDate
+ ,ODBC.API.SQLTimestamp
+ ,ODBC.API.SQLTime
+ ,Data.PointerString{UInt16}
+ ,Data.PointerString{UInt16}
+ ,Array{UInt8,1}
+ ,Data.PointerString{UInt8}
+ ,Data.PointerString{UInt16}]

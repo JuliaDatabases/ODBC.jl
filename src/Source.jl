@@ -125,6 +125,7 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
         cnames[x] = string(cname, len[])
         t = dt[]
         ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], null[]
+        @show t
         alloctypes[x], juliatypes[x], longtexts[x] = ODBC.API.SQL2Julia[t]
         longtext |= longtexts[x]
     end
