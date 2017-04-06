@@ -1,4 +1,4 @@
-using Base.Test, ODBC, DataStreams, DataFrames, WeakRefStrings
+using Base.Test, ODBC, DataStreams, DataFrames, NullableArrays, WeakRefStrings
 
 @show ODBC.listdrivers()
 @show ODBC.listdsns()
@@ -233,7 +233,7 @@ ODBC.Source(dsn, "drop table if exists test3")
 
 println("passed.")
 
-if VERSION < v"0.6.0"
+if VERSION < v"0.6.0-pre"
     workspace()
     using Base.Test, ODBC, DataStreams, DataFrames, NullableArrays, WeakRefStrings
 end
@@ -347,3 +347,72 @@ DataStreamsIntegrationTests.teststream([odbcsource], [dfsink]; rows=99)
 # DataStreamsIntegrationTests.teststream([dfsource], [odbcsink]; rows=99)
 
 ODBC.disconnect!(dsn)
+
+# PostgreSQL
+dsn = ODBC.DSN("PgSQL-test", "postgres", "")
+dbs = ODBC.query(dsn, "SELECT datname FROM pg_database WHERE datistemplate = false;")
+data = ODBC.query(dsn, "SELECT table_schema,table_name FROM information_schema.tables ORDER BY table_schema,table_name;")
+ODBC.execute!(dsn, "drop table if exists test1")
+ODBC.execute!(dsn, "create table test1
+                    (test_bigint bigint,
+                     test_decimal decimal,
+                     test_int integer,
+                     test_numeric numeric,
+                     test_smallint smallint,
+                     test_float real,
+                     test_real double precision,
+                     test_money money,
+                     test_date date,
+                     test_timestamp timestamp,
+                     test_time time,
+                     test_char char(1),
+                     test_varchar varchar(16),
+                     test_bytea bytea,
+                     test_boolean boolean,
+                     test_text text,
+                     test_array integer[]
+                    )")
+data = ODBC.query(dsn, "select * from information_schema.columns where table_name = 'test1'")
+showall(data)
+ODBC.execute!(dsn, "insert into test1 VALUES
+                    (1, -- bigint,
+                     1.2, -- decimal,
+                     2, -- integer,
+                     1.4, -- numeric,
+                     3, -- smallint,
+                     1.6, -- real,
+                     1.8, -- double precision,
+                     2.0, -- money,
+                     '2016-01-01', -- date,
+                     '2016-01-01 01:01:01', -- timestamp,
+                     '01:01:01', -- time,
+                     'A', -- char(1),
+                     'hey there sailor', -- varchar(16),
+                     NULL, -- bytea,
+                     TRUE, -- boolean,
+                     'hey there abraham', -- text
+                     ARRAY[1, 2, 3] -- integer array
+                    )")
+source = ODBC.Source(dsn, "select * from test1")
+data = Data.stream!(source, DataFrame)
+@test size(data) == (1,17)
+@test Data.types(data, Data.Field) == map(x->Nullable{x},
+[Int64
+ ,DecFP.Dec64
+ ,Int32
+ ,DecFP.Dec64
+ ,Int16
+ ,Float32
+ ,Float64
+ ,Float64
+ ,ODBC.API.SQLDate
+ ,ODBC.API.SQLTimestamp
+ ,ODBC.API.SQLTime
+ ,WeakRefStrings.WeakRefString{UInt8}
+ ,WeakRefStrings.WeakRefString{UInt8}
+ ,Array{UInt8,1}
+ ,WeakRefStrings.WeakRefString{UInt8}
+ ,String
+ ,WeakRefStrings.WeakRefString{UInt8}])
+@test get(data[1, :test_array]) == "{1,2,3}"
+showall(data)
