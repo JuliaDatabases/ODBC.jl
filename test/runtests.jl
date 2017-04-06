@@ -233,7 +233,7 @@ ODBC.Source(dsn, "drop table if exists test3")
 
 println("passed.")
 
-if VERSION < v"0.6.0"
+if VERSION < v"0.6.0-pre"
     workspace()
     using Base.Test, ODBC, DataStreams, DataFrames, NullableArrays, WeakRefStrings
 end
@@ -361,9 +361,6 @@ ODBC.execute!(dsn, "create table test1
                      test_smallint smallint,
                      test_float real,
                      test_real double precision,
-                     test_smallserial smallserial,
-                     test_serial serial,
-                     test_bigserial bigserial,
                      test_money money,
                      test_date date,
                      test_timestamp timestamp,
@@ -385,9 +382,6 @@ ODBC.execute!(dsn, "insert into test1 VALUES
                      3, -- smallint,
                      1.6, -- real,
                      1.8, -- double precision,
-                     4, -- smallserial,
-                     5, -- serial,
-                     6, -- bigserial,
                      2.0, -- money,
                      '2016-01-01', -- date,
                      '2016-01-01 01:01:01', -- timestamp,
