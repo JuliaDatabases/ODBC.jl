@@ -347,3 +347,5 @@ DataStreamsIntegrationTests.teststream([odbcsource], [dfsink]; rows=99)
 # DataStreamsIntegrationTests.teststream([dfsource], [odbcsink]; rows=99)
 
 ODBC.disconnect!(dsn)
+
+@show dsn = ODBC.DSN("PgSQL-test", "postgres", "")
