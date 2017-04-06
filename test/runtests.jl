@@ -395,7 +395,7 @@ ODBC.execute!(dsn, "insert into test1 VALUES
                     )")
 source = ODBC.Source(dsn, "select * from test1")
 data = Data.stream!(source, DataFrame)
-@test size(data) == (1,20)
+@test size(data) == (1,17)
 @test Data.types(data, Data.Field) == map(x->Nullable{x},
 [Int64
  ,DecFP.Dec64
