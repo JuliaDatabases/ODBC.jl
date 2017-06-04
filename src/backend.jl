@@ -153,7 +153,7 @@ function Data.getcolumn{T}(source::ODBC.Source, ::Type{T}, i)
     ccall(:memcpy, Void, (Ptr{T}, Ptr{T}, Csize_t), pointer(dest.values), rb.columns[i].ptr, len * sizeof(T))
     booleanize!(rb.indcols[i], dest.isnull, len)
     if i == source.cols && !Data.isdone(source, 1, 1)
-        source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr, ODBC.API.SQL_FETCH_NEXT, 0)
+        source.status = ODBC.API.SQLFetchScroll(source.stmt, ODBC.API.SQL_FETCH_NEXT, 0)
     end
     return dest
 end
@@ -182,7 +182,7 @@ function Data.getcolumn(source::ODBC.Source, ::Type{Dec64}, i)
         cur += elsize
     end
     if i == source.cols && !Data.isdone(source, 1, 1)
-        source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr, ODBC.API.SQL_FETCH_NEXT, 0)
+        source.status = ODBC.API.SQLFetchScroll(source.stmt, ODBC.API.SQL_FETCH_NEXT, 0)
     end
     return dest
 end
@@ -216,7 +216,7 @@ function Data.getcolumn{T<:Union{Vector{UInt8},AbstractString}}(source::ODBC.Sou
         ind += elsize
     end
     if i == source.cols && !Data.isdone(source, 1, 1)
-        source.status = ODBC.API.SQLFetchScroll(source.dsn.stmt_ptr, ODBC.API.SQL_FETCH_NEXT, 0)
+        source.status = ODBC.API.SQLFetchScroll(source.stmt, ODBC.API.SQL_FETCH_NEXT, 0)
     end
     return NullableArray{T,1}(values, isnull, parent)
 end

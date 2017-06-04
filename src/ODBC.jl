@@ -150,6 +150,7 @@ end
 type Source <: Data.Source
     schema::Data.Schema
     dsn::DSN
+    stmt::Ptr{Void}
     query::String
     columns::Vector{Any}
     status::Int
