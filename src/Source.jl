@@ -402,7 +402,6 @@ function cast!{T}(::Type{ODBC.API.Long{T}}, source::Source, col::Integer)
     ind = Ref{ODBC.API.SQLLEN}()
     res = ODBC.API.SQLGetData(stmt, col, source.ctypes[col], pointer(buf), length(buf), ind)
     isnull = ind[] == ODBC.API.SQL_NULL_DATA
-    ind[] == ODBC.API.SQL_NO_TOTAL && warn("Could not determine length of data")
     while !isnull
         len = ind[]
         oldlen = length(data)
