@@ -35,16 +35,26 @@ The ODBC.jl package ships an experimental REPL mode for convenience in rapid que
 
 Methods:
 
-`ODBC.query(dsn::ODBC.DSN, sql::AbstractString, sink=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false)`
+`ODBC.query(dsn::ODBC.DSN, sql::AbstractString, sink::Any=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false)`
 
-`ODBC.query{T}(dsn::DSN, sql::AbstractString, sink::T; weakrefstrings::Bool=true, append::Bool=false)`
+`ODBC.query(statement::Statement, sink::Any=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false)`
 
-`ODBC.query(source::ODBC.Source, sink=DataFrame, args...; append::Bool=false)`
+`ODBC.query(source::ODBC.Source, sink::Any=DataFrame, args...; append::Bool=false)`
 
-`ODBC.query{T}(source::ODBC.Source, sink::T; append::Bool=false)`
-
-
-`ODBC.query` is a high-level method for sending an SQL statement to a system and returning the results. As is shown, a valid `dsn::ODBC.DSN` and SQL statement `sql` combo can be sent, as well as an already-constructed `source::ODBC.Source`. By default, the results will be returned in a [`DataFrame`](http://juliastats.github.io/DataFrames.jl/latest/), but a variety of options exist for returning results, including `CSV.Sink`, `SQLite.Sink`, or `Feather.Sink`. `ODBC.query` actually utilizes the `DataStreams.jl` framework, so any valid [`Data.Sink`](http://juliadata.github.io/DataStreams.jl/latest/#datasink-interface) can be used to return results. The `append=false` keyword specifies whether the results should be *added to* any existing data in the `Data.Sink`, or if the resultset should fully replace any existing data. The `weakrefstrings` argument indicates whether `WeakRefString`s should be used by default for efficiency.
+`ODBC.query` is a high-level method for sending an SQL statement to a system and
+returning the results. As is shown, a valid `dsn::ODBC.DSN` and SQL statement
+`sql` combo can be sent, or a prepared `statement::ODBC.Statement`, as well as
+an already-constructed `source::ODBC.Source`. By default, the results will be
+returned in a [`DataFrame`](http://juliastats.github.io/DataFrames.jl/latest/),
+but a variety of options exist for returning results, including `CSV.Sink`,
+`SQLite.Sink`, or `Feather.Sink`. `ODBC.query` actually utilizes the
+`DataStreams.jl` framework, so any
+valid
+[`Data.Sink`](http://juliadata.github.io/DataStreams.jl/latest/#datasink-interface) can
+be used to return results. The `append=false` keyword specifies whether the
+results should be *added to* any existing data in the `Data.Sink`, or if the
+resultset should fully replace any existing data. The `weakrefstrings` argument
+indicates whether `WeakRefString`s should be used by default for efficiency.
 
 Examples:
 
@@ -53,6 +63,10 @@ dsn = ODBC.DSN(valid_dsn)
 
 # return result as a DataFrame
 df = ODBC.query(dsn, "select * from cool_table")
+
+# use a prepared statement instead
+statement = ODBC.prepare(dsn, "select * from cool_table")
+df2 = ODBC.query(statement)
 
 # return result as a csv file
 using CSV
@@ -124,7 +138,14 @@ Methods:
 
 `ODBC.prepare(dsn::ODBC.DSN, querystring::String) => ODBC.Statement`
 
-Prepare an SQL statement `querystring` against the DB and return it as an `ODBC.Statement`. This `ODBC.Statement` can then be executed once, or repeatedly in a more efficient manner than `ODBC.execute!(dsn, querystring)`. Prepared statements can also support parameter place-holders that can be filled in dynamically before executing; this is a common strategy for bulk-loading data or other statements that need to be bulk-executed with changing simple parameters before each execution. Consult your DB/vendor-specific SQL syntax for the exact specifications for parameters.
+Prepare an SQL statement `querystring` against the DB and return it as an
+`ODBC.Statement`. This `ODBC.Statement` can then be executed once, or repeatedly
+in a more efficient manner than `ODBC.execute!(dsn, querystring)` or
+`ODBC.query(dsn, querystring)`. Prepared statements can also support parameter
+place-holders that can be filled in dynamically before executing; this is a
+common strategy for bulk-loading data or other statements that need to be
+bulk-executed with changing simple parameters before each execution. Consult
+your DB/vendor-specific SQL syntax for the exact specifications for parameters.
 
 Examples:
 
@@ -138,6 +159,17 @@ df = DataFrame(col1=[1,2,3], col2=[4.0, 5.0, 6.0], col3=["hey", "there", "sailor
 for row = 1:size(df, 1)
     # each time we execute the `stmt`, we pass another row to be bound to the parameters
     ODBC.execute!(stmt, [df[row, x] for x = 1:size(df, 2)])
+end
+
+# prepare a statement and execute it, getting new ids back
+ODBC.execute!(dsn, "CREATE TABLE sailors (id SERIAL PRIMARY KEY, name VARCHAR)")
+
+id_stmt = ODBC.prepare(dsn, "INSERT INTO sailors (name) VALUES (?) RETURNING id")
+
+sailors = ["Black Beard", "James Cook", "Ferdinand Magellan"]
+sailor_ids = similar(sailors, Int)
+for (i, sailor) in enumerate(sailors)
+    sailor_ids[i] = get(ODBC.query(id_stmt, [sailor])[1, 1])
 end
 ```
 
@@ -162,4 +194,14 @@ Constructors:
 
 `ODBC.Source(dsn::ODBC.DSN, querystring::String) => ODBC.Source`
 
-`ODBC.Source` is an implementation of a `Data.Source` in the [DataStreams.jl](http://juliadata.github.io/DataStreams.jl/latest/#datasource-interface) framework. It takes a valid DB connection `dsn` and executes a properly formatted SQL query string `querystring` and makes preparations for returning a resultset.
+`ODBC.Source(statement::Statement) => ODBC.Source`
+
+`ODBC.Source(statement::Statement, values) => ODBC.Source`
+
+`ODBC.Source` is an implementation of a `Data.Source` in
+the
+[DataStreams.jl](http://juliadata.github.io/DataStreams.jl/latest/#datasource-interface) framework.
+It takes a valid DB connection `dsn` and executes a properly formatted SQL query
+string `querystring` and makes preparations for returning a resultset.
+Alternatively, it can take a prepared statement and optional values and prepares
+to return a resultset.
