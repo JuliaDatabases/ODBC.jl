@@ -60,8 +60,8 @@ macro CHECK(handle, handletype, func)
     end)
 end
 
-Base.@deprecate listdrivers drivers
-Base.@deprecate listdsns dsns
+Base.@deprecate listdrivers ODBC.drivers
+Base.@deprecate listdsns ODBC.dsns
 
 "List ODBC drivers that have been installed and registered"
 function drivers()
@@ -177,9 +177,9 @@ end
 # used to 'clear' a statement of bound columns, resultsets,
 # and other bound parameters in preparation for a subsequent query
 function ODBCFreeStmt!(stmt)
-    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_CLOSE)
-    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_UNBIND)
-    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_RESET_PARAMS)
+    ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_CLOSE)
+    ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_UNBIND)
+    ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_RESET_PARAMS)
 end
 
 end #ODBC module

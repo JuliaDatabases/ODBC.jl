@@ -308,6 +308,7 @@ Data.schema(source::ODBC.Source) = source.schema
 "Checks if an `ODBC.Source` has finished fetching results from an executed query string"
 Data.isdone(source::ODBC.Source, x=1, y=1) = source.status != ODBC.API.SQL_SUCCESS && source.status != ODBC.API.SQL_SUCCESS_WITH_INFO
 function Data.reset!(source::ODBC.Source)
+    stmt = source.dsn.stmt_ptr
     source.status = ODBC.API.SQLFetchScroll(stmt, ODBC.API.SQL_FETCH_FIRST, 0)
     source.rowoffset = 0
     return
