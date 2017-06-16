@@ -1,6 +1,6 @@
 import Base: LineEdit, REPL
 
-type SQLCompletionProvider <: LineEdit.CompletionProvider
+mutable struct SQLCompletionProvider <: LineEdit.CompletionProvider
     l::REPL.LineEditREPL
 end
 

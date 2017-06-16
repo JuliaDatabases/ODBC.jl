@@ -1,7 +1,7 @@
-using Base.Test, ODBC, DataStreams, DataFrames, NullableArrays, WeakRefStrings
+using Base.Test, ODBC, DataStreams, Nulls, WeakRefStrings
 
-@show ODBC.listdrivers()
-@show ODBC.listdsns()
+@show ODBC.drivers()
+@show ODBC.dsns()
 
 @show ODBC.API.odbc_dm
 
@@ -9,8 +9,12 @@ using Base.Test, ODBC, DataStreams, DataFrames, NullableArrays, WeakRefStrings
 
 run(`uname -a`)
 
-dsn = ODBC.DSN("Driver=MySQL;uid=root")
-dsn = ODBC.DSN("MySQL-test", "root", "")
+props = open(f->Dict(split(ln, ':') for ln in eachline(f)) , "/Users/jacobquinn/.tug/application.properties")
+RIG, server, port = map(strip, split(props["environment.subdomain"], '.'))[1], strip(props["routing.services.mysql.host"]), strip(props["routing.services.mysql.port"])
+dsn = ODBC.DSN("Driver={MySQL ODBC Driver}; user=domo; password=popchart; server=$server; port=$port;")
+
+# dsn = ODBC.DSN("Driver=MySQL;uid=root")
+# dsn = ODBC.DSN("MySQL-test", "root", "")
 
 # Check some basic queries
 dbs = ODBC.query(dsn, "show databases")
@@ -52,7 +56,7 @@ ODBC.execute!(dsn, "create table test1
                      test_mediumtext mediumtext,
                      test_longtext longtext
                     )")
-data = ODBC.query(dsn, "select * from information_schema.columns where table_name = 'test1'")
+data = ODBC.query(dsn, "select * from information_schema where table_name = 'test1'")
 ODBC.execute!(dsn, "insert test1 VALUES
                     (1, -- bigint
                      1, -- bit
@@ -83,63 +87,63 @@ ODBC.execute!(dsn, "insert test1 VALUES
                      'hey there hank' -- longtext
                     )")
 source = ODBC.Source(dsn, "select * from test1")
-data = Data.stream!(source, DataFrame)
-@test size(data) == (1,27)
-@test Data.types(data, Data.Field) == map(x->Nullable{x},
-[Int64,
- Int8,
- is_windows() ? Float64 : DecFP.Dec64,
- Int32,
- is_windows() ? Float64 : DecFP.Dec64,
- Int16,
- Int32,
- Int8,
- Float32,
- Float64,
- ODBC.API.SQLDate,
- ODBC.API.SQLTimestamp,
- ODBC.API.SQLTimestamp,
- ODBC.API.SQLTime,
- Int16,
- WeakRefString{UInt16},
- WeakRefString{UInt16},
- Array{UInt8,1},
- Array{UInt8,1},
- Array{UInt8,1},
- Array{UInt8,1},
- Array{UInt8,1},
- Array{UInt8,1},
- String,
- String,
- String,
- String])
-@test data.columns[1][1] === Nullable(Int64(1))
-@test data.columns[2][1] === Nullable(Int8(1))
-@test data.columns[3][1] === Nullable(is_windows() ? 1.0 : ODBC.DecFP.Dec64(1))
-@test data.columns[4][1] === Nullable(Int32(1))
-@test data.columns[5][1] === Nullable(is_windows() ? 1.0 : ODBC.DecFP.Dec64(1))
-@test data.columns[6][1] === Nullable(Int16(1))
-@test data.columns[7][1] === Nullable(Int32(1))
-@test data.columns[8][1] === Nullable(Int8(1))
-@test data.columns[9][1] === Nullable(Float32(1.2))
-@test data.columns[10][1] === Nullable(Float64(1.2))
-@test data.columns[11][1] === Nullable(ODBC.API.SQLDate(2016,1,1))
-@test data.columns[12][1] === Nullable(ODBC.API.SQLTimestamp(2016,1,1,1,1,1,0))
-@test data.columns[13][1] === Nullable(ODBC.API.SQLTimestamp(2016,1,1,1,1,1,0))
-@test data.columns[14][1] === Nullable(ODBC.API.SQLTime(1,1,1))
-@test data.columns[15][1] === Nullable(Int16(2016))
-@test string(get(data.columns[16][1])) == "A"
-@test string(get(data.columns[17][1])) == "hey there sailor"
-@test get(data.columns[18][1]) == UInt8[0x31,0x32]
-@test isnull(data.columns[19][1])
-@test get(data.columns[20][1]) == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x61,0x62,0x72,0x61,0x68,0x61,0x6d]
-@test get(data.columns[21][1]) == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x62,0x69,0x6c,0x6c]
-@test get(data.columns[22][1]) == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x63,0x68,0x61,0x72,0x6c,0x69,0x65]
-@test get(data.columns[23][1]) == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x64,0x61,0x6e]
-@test string(get(data.columns[24][1])) == "hey there ephraim"
-@test string(get(data.columns[25][1])) == "hey there frank"
-@test string(get(data.columns[26][1])) == "hey there george"
-@test string(get(data.columns[27][1])) == "hey there hank"
+data = ODBC.query(source)
+@test size(Data.schema(data)) == (1,27)
+@test Data.types(Data.schema(data)) == (
+ ?Int64,
+ ?Int8,
+ ?DecFP.Dec64,
+ ?Int32,
+ ?DecFP.Dec64,
+ ?Int16,
+ ?Int32,
+ ?Int8,
+ ?Float32,
+ ?Float64,
+ ?ODBC.API.SQLDate,
+ ?ODBC.API.SQLTimestamp,
+ ?ODBC.API.SQLTimestamp,
+ ?ODBC.API.SQLTime,
+ ?Int16,
+ ?WeakRefString{UInt16},
+ ?WeakRefString{UInt16},
+ ?Array{UInt8,1},
+ ?Array{UInt8,1},
+ ?Array{UInt8,1},
+ ?Array{UInt8,1},
+ ?Array{UInt8,1},
+ ?Array{UInt8,1},
+ ?String,
+ ?String,
+ ?String,
+ ?String)
+@test data[1][1] === Int64(1)
+@test data[2][1] === Int8(1)
+@test data[3][1] === DecFP.Dec64(1)
+@test data[4][1] === Int32(1)
+@test data[5][1] === DecFP.Dec64(1)
+@test data[6][1] === Int16(1)
+@test data[7][1] === Int32(1)
+@test data[8][1] === Int8(1)
+@test data[9][1] === Float32(1.2)
+@test data[10][1] === Float64(1.2)
+@test data[11][1] === ODBC.API.SQLDate(2016,1,1)
+@test data[12][1] === ODBC.API.SQLTimestamp(2016,1,1,1,1,1,0)
+@test data[13][1] === ODBC.API.SQLTimestamp(2016,1,1,1,1,1,0)
+@test data[14][1] === ODBC.API.SQLTime(1,1,1)
+@test data[15][1] === Int16(2016)
+@test string(data[16][1]) == "A"
+@test string(data[17][1]) == "hey there sailor"
+@test data[18][1] == UInt8[0x31,0x32]
+@test isnull(data[19][1])
+@test data[20][1] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x61,0x62,0x72,0x61,0x68,0x61,0x6d]
+@test data[21][1] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x62,0x69,0x6c,0x6c]
+@test data[22][1] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x63,0x68,0x61,0x72,0x6c,0x69,0x65]
+@test data[23][1] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x64,0x61,0x6e]
+@test string(data[24][1]) == "hey there ephraim"
+@test string(data[25][1]) == "hey there frank"
+@test string(data[26][1]) == "hey there george"
+@test string(data[27][1]) == "hey there hank"
 
 ODBC.execute!(dsn, "insert test1 VALUES
                     (1, -- bigint
@@ -171,7 +175,7 @@ ODBC.execute!(dsn, "insert test1 VALUES
                      'hey there hank' -- longtext
                     )")
 data = ODBC.query(dsn, "select * from test1")
-@test size(data) == (2,27)
+@test size(Data.schema(data)) == (2,27)
 println("passed. testing large query...")
 
 ODBC.execute!(dsn, "drop table if exists test2")
@@ -193,13 +197,13 @@ ODBC.execute!(dsn, "load data infile '$randoms' into table test2
                     (id,first_name,last_name,salary,`hourly rate`,hiredate,`last clockin`)")
 
 data = ODBC.query(dsn, "select count(*) from test2")
-@test size(data) == (1,1)
-@test data.columns[1][1] === Nullable(70000)
+@test size(Data.schema(data)) == (1,1)
+@test data[1][1] === 70000
 
 df = ODBC.query(dsn, "select * from test2")
-@test size(df) == (70000,7)
-@test df.columns[1].values == [1:70000...]
-@test df.columns[end][1] === Nullable(ODBC.API.SQLTimestamp(2002,1,17,21,32,0,0))
+@test size(Data.schema(df)) == (70000,7)
+@test df[1] == collect(1:70000)
+@test df[end][1] === ODBC.API.SQLTimestamp(2002,1,17,21,32,0,0)
 println("passed. testing prepared statement...")
 
 ODBC.execute!(dsn, "create table test3 as select * from test2 limit 0")
@@ -211,21 +215,21 @@ ODBC.execute!(stmt, [101, "Steve", "McQueen", 1.0, 100.0, Date(2016,1,1), DateTi
 ODBC.execute!(stmt, [102, "Dean", "Martin", 1.5, 10.1, Date(2016,1,2), DateTime(2016,1,2)])
 
 df = ODBC.query(dsn, "select * from test3")
-@test size(df) == (2,7)
-@test get(df.columns[1][end-1]) == 101
-@test get(df.columns[1][end]) == 102
-@test get(df.columns[2][end-1]) == "Steve"
-@test get(df.columns[2][end]) == "Dean"
-@test get(df.columns[3][end-1]) == "McQueen"
-@test get(df.columns[3][end]) == "Martin"
-@test get(df.columns[4][end-1]) == (is_windows() ? 1.0 : DecFP.Dec64(1))
-@test get(df.columns[4][end]) == (is_windows() ? 2.0 : DecFP.Dec64(2))
-@test get(df.columns[5][end-1]) == 100.0
-@test get(df.columns[5][end]) == 10.1
-@test get(df.columns[6][end-1]) == ODBC.API.SQLDate(2016,1,1)
-@test get(df.columns[6][end]) == ODBC.API.SQLDate(2016,1,2)
-@test get(df.columns[7][end-1]) == ODBC.API.SQLTimestamp(2016,1,1,0,0,0,0)
-@test get(df.columns[7][end]) == ODBC.API.SQLTimestamp(2016,1,2,0,0,0,0)
+@test size(Data.schema(df)) == (2,7)
+@test df[1][end-1] == 101
+@test df[1][end] == 102
+@test df[2][end-1] == "Steve"
+@test df[2][end] == "Dean"
+@test df[3][end-1] == "McQueen"
+@test df[3][end] == "Martin"
+@test df[4][end-1] == DecFP.Dec64(1))
+@test df[4][end] == DecFP.Dec64(2))
+@test df[5][end-1] == 100.0
+@test df[5][end] == 10.1
+@test df[6][end-1] == ODBC.API.SQLDate(2016,1,1)
+@test df[6][end] == ODBC.API.SQLDate(2016,1,2)
+@test df[7][end-1] == ODBC.API.SQLTimestamp(2016,1,1,0,0,0,0)
+@test df[7][end] == ODBC.API.SQLTimestamp(2016,1,2,0,0,0,0)
 
 ODBC.execute!(dsn, "drop table if exists test1")
 ODBC.Source(dsn, "drop table if exists test2")
@@ -233,118 +237,113 @@ ODBC.Source(dsn, "drop table if exists test3")
 
 println("passed.")
 
-if VERSION < v"0.6.0-pre"
-    workspace()
-    using Base.Test, ODBC, DataStreams, DataFrames, NullableArrays, WeakRefStrings
-end
-
 dsn = ODBC.DSN("MySQL-test", "root", "")
 
 # datastreams
-using DataStreamsIntegrationTests
-
-# DataFrames
-FILE = joinpath(DSTESTDIR, "randoms_small.csv")
-DF = readtable(FILE)
-strings = DF[2]
-strings2 = DF[3]
-if typeof(DF[:hiredate]) <: NullableVector
-    DF[:hiredate] = NullableArray(Date[isnull(x) ? Date() : Date(get(x)) for x in DF[:hiredate]], [isnull(x) for x in DF[:hiredate]])
-    DF[:lastclockin] = NullableArray(DateTime[isnull(x) ? DateTime() : DateTime(get(x)) for x in DF[:lastclockin]], [isnull(x) for x in DF[:lastclockin]])
-    stringdata = join(String[get(x) for x in strings])
-    stringdata2 = join(String[get(x) for x in strings2])
-    DF.columns[2] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata))
-    DF.columns[3] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata2))
-    ind = ind2 = 1
-    for i = 1:size(DF, 1)
-        DF.columns[2][i] = Nullable(WeakRefString(pointer(stringdata, ind), length(get(strings[i])), ind))
-        DF.columns[3][i] = Nullable(WeakRefString(pointer(stringdata2, ind2), length(get(strings2[i])), ind2))
-        ind += length(get(strings[i]))
-        ind2 += length(get(strings2[i]))
-    end
-else
-    for i = 1:5
-        T = eltype(DF.columns[i])
-        DF.columns[i] = NullableArray(T[isna(x) ? (T <: String ? "" : zero(T)) : x for x in DF.columns[i]], [isna(x) for x in DF.columns[i]])
-    end
-    DF.columns[6] = NullableArray(Date[isna(x) ? Date() : Date(x) for x in DF[:hiredate]], [isna(x) for x in DF[:hiredate]])
-    DF.columns[7] = NullableArray(DateTime[isna(x) ? DateTime() : DateTime(x) for x in DF[:lastclockin]], [isna(x) for x in DF[:lastclockin]])
-    stringdata = join(String[isna(x) ? "" : x for x in strings])
-    stringdata2 = join(String[isna(x) ? "" : x for x in strings2])
-    DF.columns[2] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata))
-    DF.columns[3] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata2))
-    ind = ind2 = 1
-    for i = 1:size(DF, 1)
-        DF.columns[2][i] = Nullable(WeakRefString(pointer(stringdata, ind), length(strings[i]), ind))
-        DF.columns[3][i] = Nullable(WeakRefString(pointer(stringdata2, ind2), length(strings2[i]), ind2))
-        ind += length(strings[i])
-        ind2 += length(strings2[i])
-    end
-end
-DF2 = deepcopy(DF)
-function sinktodf(df::DataFrame)
-    df2 = deepcopy(df)
-    if !(eltype(df2.columns[6]) <: Nullable)
-        df2.columns[6] =  map(x->isnull(x) ? Nullable{Date}() : Nullable(Date(x)), df2.columns[6])
-    end
-    if !(eltype(df2.columns[7]) <: Nullable)
-        df2.columns[7] =  map(x->isnull(x) ? Nullable{DateTime}() : Nullable(DateTime(x)), df2.columns[7])
-    end
-    return df2
-end
-dfsource = Tester("DataFrame", x->x, false, DataFrame, (:DF,), scalartransforms, vectortransforms, x->x, x->nothing)
-dfsink = Tester("DataFrame", x->x, false, DataFrame, (:DF2,), scalartransforms, vectortransforms, sinktodf, x->nothing)
-function DataFrames.DataFrame(sym::Symbol; append::Bool=false)
-    return @eval $sym
-end
-function DataFrames.DataFrame(sch::Data.Schema, ::Type{Data.Column}, append::Bool, ref::Vector{UInt8}, sym::Symbol)
-    return DataFrame(DataFrame(sym), sch, Data.Column, append, ref)
-end
-
-function ODBC.Sink{T}(sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UInt8}, dsn::ODBC.DSN, table::AbstractString)
-    cols = size(sch, 2)
-    ###
-    transform_types = [Int, String, Int, Float64, Float64, Date, DateTime]
-    types = Data.types(sch)
-    table = all([DataStreamsIntegrationTests.typequal(eltype(types[i]), transform_types[i]) for i = 1:length(types)]) ? "randoms3" : table
-    sink = ODBC.Sink(dsn, table, Vector{Any}(cols), Vector{Any}(cols))
-    !append && ODBC.execute!(dsn, "delete from $table")
-    stmt = sink.dsn.stmt_ptr2
-    ODBC.execute!(sink.dsn, "select * from $table", stmt)
-    return sink
-end
-function ODBC.Sink{T}(sink, sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UInt8})
-    cols = size(sch, 2)
-    ###
-    transform_types = [Int, String, Int, Float64, Float64, Date, DateTime]
-    types = Data.types(sch)
-    sink.table = all([DataStreamsIntegrationTests.typequal(eltype(types[i]), transform_types[i]) for i = 1:length(types)]) ? "randoms3" : sink.table
-    resize!(sink.columns, cols)
-    resize!(sink.indcols, cols)
-    !append && ODBC.execute!(sink.dsn, "delete from $(sink.table)")
-    stmt = sink.dsn.stmt_ptr2
-    ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
-    return sink
-end
-
-# ODBC
-randoms_small = joinpath(dirname(@__FILE__), "randoms_small.csv.odbc")
-ODBC.execute!(dsn, "drop database if exists datastreams;")
-ODBC.execute!(dsn, "create database datastreams;")
-ODBC.execute!(dsn, "use datastreams;")
-ODBC.execute!(dsn, "drop table if exists randoms;")
-ODBC.execute!(dsn, "CREATE TABLE randoms ( id bigint NOT NULL PRIMARY KEY, firstname VARCHAR(25), lastname VARCHAR(25), salary real DEFAULT NULL, hourlyrate real DEFAULT NULL, hiredate DATE, lastclockin DATETIME);")
-ODBC.execute!(dsn, "load data infile '$randoms_small' into table randoms fields terminated by ',' lines terminated by '\n' ignore 1 lines;")
-ODBC.execute!(dsn, "CREATE TABLE randoms2 ( id bigint NOT NULL, firstname VARCHAR(25), lastname VARCHAR(25), salary real DEFAULT NULL, hourlyrate real DEFAULT NULL, hiredate DATE, lastclockin DATETIME);")
-ODBC.execute!(dsn, "CREATE TABLE randoms3 ( id bigint NOT NULL, firstname VARCHAR(25), lastname bigint, salary real DEFAULT NULL, hourlyrate real DEFAULT NULL, hiredate DATE, lastclockin DATETIME);")
-vt2 = deepcopy(vectortransforms)
-vt2["hiredate"] = x->NullableArray(Date[isnull(i) ? Date() : Date(get(i)) for i in x])
-vt2["lastclockin"] = x->NullableArray(DateTime[isnull(i) ? DateTime() : DateTime(get(i)) for i in x])
-odbcsource = Tester("ODBC.Source", ODBC.query, true, ODBC.Source, (dsn, "select * from randoms"), scalartransforms, vt2, x->x, ()->nothing)
-odbcsink = Tester("ODBC.Sink", ODBC.load, true, ODBC.Sink, (dsn, "randoms2"), scalartransforms, vt2, x->sinktodf(ODBC.query(dsn, "select * from $(x.table)")), (x,y)->nothing)
-
-DataStreamsIntegrationTests.teststream([odbcsource], [dfsink]; rows=99)
-# DataStreamsIntegrationTests.teststream([dfsource], [odbcsink]; rows=99)
+# using DataStreamsIntegrationTests
+#
+# # DataFrames
+# FILE = joinpath(DSTESTDIR, "randoms_small.csv")
+# DF = readtable(FILE)
+# strings = DF[2]
+# strings2 = DF[3]
+# if typeof(DF[:hiredate]) <: NullableVector
+#     DF[:hiredate] = NullableArray(Date[isnull(x) ? Date() : Date(get(x)) for x in DF[:hiredate]], [isnull(x) for x in DF[:hiredate]])
+#     DF[:lastclockin] = NullableArray(DateTime[isnull(x) ? DateTime() : DateTime(get(x)) for x in DF[:lastclockin]], [isnull(x) for x in DF[:lastclockin]])
+#     stringdata = join(String[get(x) for x in strings])
+#     stringdata2 = join(String[get(x) for x in strings2])
+#     DF[2] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata))
+#     DF[3] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata2))
+#     ind = ind2 = 1
+#     for i = 1:size(DF, 1)
+#         DF[2][i] = WeakRefString(pointer(stringdata, ind), length(get(strings[i]), ind))
+#         DF[3][i] = WeakRefString(pointer(stringdata2, ind2), length(get(strings2[i]), ind2))
+#         ind += length(get(strings[i]))
+#         ind2 += length(get(strings2[i]))
+#     end
+# else
+#     for i = 1:5
+#         T = eltype(DF[i])
+#         DF[i] = NullableArray(T[isna(x) ? (T <: String ? "" : zero(T)) : x for x in DF[i]], [isna(x) for x in DF[i]])
+#     end
+#     DF[6] = NullableArray(Date[isna(x) ? Date() : Date(x) for x in DF[:hiredate]], [isna(x) for x in DF[:hiredate]])
+#     DF[7] = NullableArray(DateTime[isna(x) ? DateTime() : DateTime(x) for x in DF[:lastclockin]], [isna(x) for x in DF[:lastclockin]])
+#     stringdata = join(String[isna(x) ? "" : x for x in strings])
+#     stringdata2 = join(String[isna(x) ? "" : x for x in strings2])
+#     DF[2] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata))
+#     DF[3] = NullableArray{WeakRefString{UInt8},1}(Vector{WeakRefString{UInt8}}(size(DF, 1)), ones(Bool, size(DF, 1)), Vector{UInt8}(stringdata2))
+#     ind = ind2 = 1
+#     for i = 1:size(DF, 1)
+#         DF[2][i] = WeakRefString(pointer(stringdata, ind), length(strings[i]), ind)
+#         DF[3][i] = WeakRefString(pointer(stringdata2, ind2), length(strings2[i]), ind2)
+#         ind += length(strings[i])
+#         ind2 += length(strings2[i])
+#     end
+# end
+# DF2 = deepcopy(DF)
+# function sinktodf(df::DataFrame)
+#     df2 = deepcopy(df)
+#     if !(eltype(df2[6]) <: Nullable)
+#         df2[6] =  map(x->isnull(x) ? Nullable{Date}() : Date(x), df2[6])
+#     end
+#     if !(eltype(df2[7]) <: Nullable)
+#         df2[7] =  map(x->isnull(x) ? Nullable{DateTime}() : DateTime(x), df2[7])
+#     end
+#     return df2
+# end
+# dfsource = Tester("DataFrame", x->x, false, DataFrame, (:DF,), scalartransforms, vectortransforms, x->x, x->nothing)
+# dfsink = Tester("DataFrame", x->x, false, DataFrame, (:DF2,), scalartransforms, vectortransforms, sinktodf, x->nothing)
+# function DataFrames.DataFrame(sym::Symbol; append::Bool=false)
+#     return @eval $sym
+# end
+# function DataFrames.DataFrame(sch::Data.Schema, ::Type{Data.Column}, append::Bool, ref::Vector{UInt8}, sym::Symbol)
+#     return DataFrame(DataFrame(sym), sch, Data.Column, append, ref)
+# end
+#
+# function ODBC.Sink{T}(sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UInt8}, dsn::ODBC.DSN, table::AbstractString)
+#     cols = size(sch, 2)
+#     ###
+#     transform_types = [Int, String, Int, Float64, Float64, Date, DateTime]
+#     types = Data.types(sch)
+#     table = all([DataStreamsIntegrationTests.typequal(eltype(types[i]), transform_types[i]) for i = 1:length(types)]) ? "randoms3" : table
+#     sink = ODBC.Sink(dsn, table, Vector{Any}(cols), Vector{Any}(cols))
+#     !append && ODBC.execute!(dsn, "delete from $table")
+#     stmt = sink.dsn.stmt_ptr2
+#     ODBC.execute!(sink.dsn, "select * from $table", stmt)
+#     return sink
+# end
+# function ODBC.Sink{T}(sink, sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UInt8})
+#     cols = size(sch, 2)
+#     ###
+#     transform_types = [Int, String, Int, Float64, Float64, Date, DateTime]
+#     types = Data.types(sch)
+#     sink.table = all([DataStreamsIntegrationTests.typequal(eltype(types[i]), transform_types[i]) for i = 1:length(types)]) ? "randoms3" : sink.table
+#     resize!(sink, cols)
+#     resize!(sink.indcols, cols)
+#     !append && ODBC.execute!(sink.dsn, "delete from $(sink.table)")
+#     stmt = sink.dsn.stmt_ptr2
+#     ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
+#     return sink
+# end
+#
+# # ODBC
+# randoms_small = joinpath(dirname(@__FILE__), "randoms_small.csv.odbc")
+# ODBC.execute!(dsn, "drop database if exists datastreams;")
+# ODBC.execute!(dsn, "create database datastreams;")
+# ODBC.execute!(dsn, "use datastreams;")
+# ODBC.execute!(dsn, "drop table if exists randoms;")
+# ODBC.execute!(dsn, "CREATE TABLE randoms ( id bigint NOT NULL PRIMARY KEY, firstname VARCHAR(25), lastname VARCHAR(25), salary real DEFAULT NULL, hourlyrate real DEFAULT NULL, hiredate DATE, lastclockin DATETIME);")
+# ODBC.execute!(dsn, "load data infile '$randoms_small' into table randoms fields terminated by ',' lines terminated by '\n' ignore 1 lines;")
+# ODBC.execute!(dsn, "CREATE TABLE randoms2 ( id bigint NOT NULL, firstname VARCHAR(25), lastname VARCHAR(25), salary real DEFAULT NULL, hourlyrate real DEFAULT NULL, hiredate DATE, lastclockin DATETIME);")
+# ODBC.execute!(dsn, "CREATE TABLE randoms3 ( id bigint NOT NULL, firstname VARCHAR(25), lastname bigint, salary real DEFAULT NULL, hourlyrate real DEFAULT NULL, hiredate DATE, lastclockin DATETIME);")
+# vt2 = deepcopy(vectortransforms)
+# vt2["hiredate"] = x->NullableArray(Date[isnull(i) ? Date() : Date(get(i)) for i in x])
+# vt2["lastclockin"] = x->NullableArray(DateTime[isnull(i) ? DateTime() : DateTime(get(i)) for i in x])
+# odbcsource = Tester("ODBC.Source", ODBC.query, true, ODBC.Source, (dsn, "select * from randoms"), scalartransforms, vt2, x->x, ()->nothing)
+# odbcsink = Tester("ODBC.Sink", ODBC.load, true, ODBC.Sink, (dsn, "randoms2"), scalartransforms, vt2, x->sinktodf(ODBC.query(dsn, "select * from $(x.table)")), (x,y)->nothing)
+#
+# DataStreamsIntegrationTests.teststream([odbcsource], [dfsink]; rows=99)
+# # DataStreamsIntegrationTests.teststream([dfsource], [odbcsink]; rows=99)
 
 ODBC.disconnect!(dsn)
 
@@ -372,7 +371,7 @@ ODBC.execute!(dsn, "create table test1
                      test_text text,
                      test_array integer[]
                     )")
-data = ODBC.query(dsn, "select * from information_schema.columns where table_name = 'test1'")
+data = ODBC.query(dsn, "select * from information_schema where table_name = 'test1'")
 showall(data)
 ODBC.execute!(dsn, "insert into test1 VALUES
                     (1, -- bigint,
@@ -394,25 +393,25 @@ ODBC.execute!(dsn, "insert into test1 VALUES
                      ARRAY[1, 2, 3] -- integer array
                     )")
 source = ODBC.Source(dsn, "select * from test1")
-data = Data.stream!(source, DataFrame)
-@test size(data) == (1,17)
-@test Data.types(data, Data.Field) == map(x->Nullable{x},
-[Int64
- ,DecFP.Dec64
- ,Int32
- ,DecFP.Dec64
- ,Int16
- ,Float32
- ,Float64
- ,Float64
- ,ODBC.API.SQLDate
- ,ODBC.API.SQLTimestamp
- ,ODBC.API.SQLTime
- ,WeakRefStrings.WeakRefString{UInt8}
- ,WeakRefStrings.WeakRefString{UInt8}
- ,Array{UInt8,1}
- ,WeakRefStrings.WeakRefString{UInt8}
- ,String
- ,WeakRefStrings.WeakRefString{UInt8}])
-@test get(data[1, :test_array]) == "{1,2,3}"
+data = ODBC.query(source)
+@test size(Data.schema(data)) == (1,17)
+@test Data.types(data, Data.Field) == (
+  ?Int64
+ ,?DecFP.Dec64
+ ,?Int32
+ ,?DecFP.Dec64
+ ,?Int16
+ ,?Float32
+ ,?Float64
+ ,?Float64
+ ,?ODBC.API.SQLDate
+ ,?ODBC.API.SQLTimestamp
+ ,?ODBC.API.SQLTime
+ ,?WeakRefStrings.WeakRefString{UInt8}
+ ,?WeakRefStrings.WeakRefString{UInt8}
+ ,?Array{UInt8,1}
+ ,?WeakRefStrings.WeakRefString{UInt8}
+ ,?String
+ ,?WeakRefStrings.WeakRefString{UInt8})
+@test data.test_array[1] == "{1,2,3}"
 showall(data)

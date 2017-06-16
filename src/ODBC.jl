@@ -1,13 +1,13 @@
 module ODBC
 
-using DataStreams, DataFrames, NullableArrays, CategoricalArrays, WeakRefStrings
+using DataStreams, Nulls, CategoricalArrays, WeakRefStrings
 
 export Data, DataFrame
 
 include("API.jl")
 
 "just a block of memory; T is the element type, `len` is total # of **bytes** pointed to, and `elsize` is size of each element"
-type Block{T}
+mutable struct Block{T}
     ptr::Ptr{T}    # pointer to a block of memory
     len::Int       # total # of bytes in block
     elsize::Int    # size between elements in bytes
@@ -18,7 +18,7 @@ Block allocator:
     -Takes an element type, and number of elements to allocate in a linear block
     -Optionally specify an extra dimension of elements that make up each element (i.e. container types)
 """
-function Block{T}(::Type{T}, elements::Int, extradim::Integer=1)
+function Block(::Type{T}, elements::Int, extradim::Integer=1) where {T}
     len = sizeof(T) * elements * extradim
     block = Block{T}(convert(Ptr{T}, Libc.malloc(len)), len, sizeof(T) * extradim)
     finalizer(block, x->Libc.free(x.ptr))
@@ -28,7 +28,7 @@ end
 # used for getting messages back from ODBC driver manager; SQLDrivers, SQLError, etc.
 Base.string(block::Block, len::Integer) = String(transcode(UInt8, unsafe_wrap(Array, block.ptr, len, false)))
 
-type ODBCError <: Exception
+struct ODBCError <: Exception
     msg::String
 end
 
@@ -60,8 +60,11 @@ macro CHECK(handle, handletype, func)
     end)
 end
 
+Base.@deprecate listdrivers drivers
+Base.@deprecate listdsns dsns
+
 "List ODBC drivers that have been installed and registered"
-function listdrivers()
+function drivers()
     descriptions = String[]
     attributes   = String[]
     driver_desc = Block(ODBC.API.SQLWCHAR, BUFLEN)
@@ -78,7 +81,7 @@ function listdrivers()
 end
 
 "List ODBC DSNs, both user and system, that have been previously defined"
-function listdsns()
+function dsns()
     descriptions = String[]
     attributes   = String[]
     dsn_desc    = Block(ODBC.API.SQLWCHAR, BUFLEN)
@@ -98,7 +101,7 @@ end
 A DSN represents an established ODBC connection.
 It is passed to most other ODBC methods as a first argument
 """
-type DSN
+mutable struct DSN
     dsn::String
     dbc_ptr::Ptr{Void}
     stmt_ptr::Ptr{Void}
@@ -115,7 +118,7 @@ A great resource for building valid connection strings is [http://www.connection
 """
 function DSN(dsn::AbstractString, username::AbstractString=String(""), password::AbstractString=String(""); prompt::Bool=true)
     dbc = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV)
-    dsns = ODBC.listdsns()
+    dsns = ODBC.dsns()
     found = false
     for d in dsns[:,1]
         dsn == d && (found = true)
@@ -139,7 +142,7 @@ function disconnect!(conn::DSN)
     return nothing
 end
 
-type Statement
+mutable struct Statement
     dsn::DSN
     stmt::Ptr{Void}
     query::String
@@ -147,11 +150,11 @@ type Statement
 end
 
 "An `ODBC.Source` type executes a `query` string upon construction and prepares data for streaming to an appropriate `Data.Sink`"
-type Source <: Data.Source
+mutable struct Source{T} <: Data.Source
     schema::Data.Schema
     dsn::DSN
     query::String
-    columns::Vector{Any}
+    columns::T
     status::Int
     rowsfetched::Ref{ODBC.API.SQLLEN}
     rowoffset::Int
@@ -159,7 +162,7 @@ type Source <: Data.Source
     indcols::Vector{Vector{ODBC.API.SQLLEN}}
     sizes::Vector{ODBC.API.SQLULEN}
     ctypes::Vector{ODBC.API.SQLSMALLINT}
-    jltypes::Vector{DataType}
+    jltypes::Vector{Type}
 end
 
 Base.show(io::IO, source::Source) = print(io, "ODBC.Source:\n\tDSN: $(source.dsn)\n\tstatus: $(source.status)\n\tschema: $(source.schema)")

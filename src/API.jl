@@ -24,7 +24,7 @@ Contents
 """
 module API
 
-using NullableArrays, WeakRefStrings
+using Nulls, WeakRefStrings
 
 include("types.jl")
 
