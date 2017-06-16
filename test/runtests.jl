@@ -87,6 +87,7 @@ ODBC.execute!(dsn, "insert test1 VALUES
                      'hey there hank' -- longtext
                     )")
 source = ODBC.Source(dsn, "select * from test1")
+
 data = ODBC.query(source)
 @test size(Data.schema(data)) == (1,27)
 @test Data.types(Data.schema(data)) == (
