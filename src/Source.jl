@@ -317,7 +317,7 @@ end
 Data.streamtype(::Type{<:ODBC.Source}, ::Type{Data.Column}) = true
 Data.streamtype(::Type{<:ODBC.Source}, ::Type{Data.Field}) = true
 
-function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T, Null}}, row, ::Type{Val{col}}) where {T, col}
+function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T, Null}}, row, col) where {T}
     val = source.columns[col][row - source.rowoffset]::Union{T, Null}
     if col == length(source.columns) && (row - source.rowoffset) == source.rowsfetched[] && !Data.isdone(source)
         ODBC.fetch!(source)
@@ -326,7 +326,7 @@ function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T
     return val
 end
 
-function Data.streamfrom(source::ODBC.Source, ::Type{Data.Column}, ::Type{Union{T, Null}}, row, ::Type{Val{col}}) where {T, col}
+function Data.streamfrom(source::ODBC.Source, ::Type{Data.Column}, ::Type{Union{T, Null}}, row, col) where {T}
     dest = source.columns[col]
     if col == length(source.columns) && !Data.isdone(source)
         ODBC.fetch!(source)

@@ -300,17 +300,17 @@ function SQLFreeStmt(stmt::Ptr{Void},param::UInt16)
 end
 
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms713560(v=vs.85).aspx"
-function SQLSetDescField{T,N}(desc::Ptr{Void},i::Int16,field_id::Int16,value::Array{T,N},value_length::Array{Int,1})
+function SQLSetDescField{T,N}(desc::Ptr{Void},i::Int16,field_id::Int16,value::Array{T,N})
     @odbc(:SQLSetDescFieldW,
                 (Ptr{Void},Int16,Int16,Ptr{T},Int),
-                desc,field_id,value,value_length)
+                desc,i,field_id,value,length(value))
 end
 
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms716370(v=vs.85).aspx"
 function SQLGetDescField{T,N}(desc::Ptr{Void},i::Int16,attribute::Int16,value::Array{T,N},bytes_returned::Array{Int,1})
     @odbc(:SQLGetDescFieldW,
                 (Ptr{Void},Int16,Int16,Ptr{T},Int,Ptr{Int}),
-                desc,attribute,value,sizeof(T)*N,bytes_returned)
+                desc,i,attribute,value,sizeof(T)*N,bytes_returned)
 end
 
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms710921(v=vs.85).aspx"

@@ -71,7 +71,7 @@ getCtype{T}(::Type{Union{T, Null}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CH
 getCtype{T}(::Type{Vector{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 getCtype{T}(::Type{Vector{Union{T, Null}}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 
-function Data.streamto!(sink::ODBC.Sink, ::Type{Data.Column}, column::T, col::Int) where {T}
+function Data.streamto!(sink::ODBC.Sink, ::Type{Data.Column}, column::T, col) where {T}
     stmt = sink.dsn.stmt_ptr2
     rows, len = ODBC.prep!(column, col, sink.columns, sink.indcols)
     ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBindCols(stmt, col, getCtype(T), sink.columns[col], len, sink.indcols[col])
