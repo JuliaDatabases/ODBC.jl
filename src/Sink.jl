@@ -66,10 +66,10 @@ function prep!(column::T, col, columns, indcols) where {T}
     return length(column), maxlen
 end
 
-getCtype{T}(::Type{T}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
-getCtype{T}(::Type{Union{T, Null}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
-getCtype{T}(::Type{Vector{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
-getCtype{T}(::Type{Vector{Union{T, Null}}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype(::Type{T}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype(::Type{Union{T, Null}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype(::Type{Vector{T}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype(::Type{Vector{Union{T, Null}}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 
 function Data.streamto!(sink::ODBC.Sink, ::Type{Data.Column}, column::T, col) where {T}
     stmt = sink.dsn.stmt_ptr2

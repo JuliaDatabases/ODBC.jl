@@ -11,7 +11,7 @@ end
 
 # "Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin"
 function ODBCDriverConnect!(dbc::Ptr{Void}, conn_string, prompt::Bool)
-    @static if is_windows()
+    @static if Sys.iswindows()
         driver_prompt = prompt ? ODBC.API.SQL_DRIVER_PROMPT : ODBC.API.SQL_DRIVER_NOPROMPT
         window_handle = prompt ? ccall((:GetForegroundWindow, :user32), Ptr{Void}, () ) : C_NULL
     else
@@ -126,7 +126,7 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
         longtext |= longtexts[x]
     end
     if !weakrefstrings
-        foreach(i->juliatypes[i] <: ?WeakRefString && setindex!(juliatypes, ?String, i), 1:length(juliatypes))
+        foreach(i->juliatypes[i] <: Union{WeakRefString, Null} && setindex!(juliatypes, Union{String, Null}, i), 1:length(juliatypes))
     end
     # Determine fetch strategy
     # rows might be -1 (dbms doesn't return total rows in resultset), 0 (empty resultset), or 1+
@@ -151,7 +151,7 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
         end
     end
     columns = ((allocate(T) for T in juliatypes)...)
-    schema = Data.Schema(cnames, juliatypes, rows,
+    schema = Data.Schema(juliatypes, cnames, rows,
         Dict("types"=>[ODBC.API.SQL_TYPES[c] for c in ctypes], "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
     rowsfetched = Ref{ODBC.API.SQLLEN}() # will be populated by call to SQLFetchScroll
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROWS_FETCHED_PTR, rowsfetched, ODBC.API.SQL_NTS)
@@ -163,7 +163,7 @@ end
 
 # primitive types
 allocate(::Type{T}) where {T} = Vector{T}(0)
-allocate(::Type{T}) where {T <: ?WeakRefString} = WeakRefStringArray(UInt8[], T, 0)
+allocate(::Type{T}) where {T <: Union{WeakRefString, Null}} = WeakRefStringArray(UInt8[], T, 0)
 
 #TODO: when Base Julia supports unboxed Union{T, Null} array allocating, we should just allocate Vector{T, Null}(rowset) and then set the nulls later
 internal_allocate(::Type{T}, rowset, size) where {T} = Vector{T}(rowset), sizeof(T)
@@ -182,7 +182,7 @@ function fetch!(source)
 end
 
 # primitive types
-function cast!{T}(::Type{T}, source, col)
+function cast!(::Type{T}, source, col) where {T}
     len = source.rowsfetched[]
     c = source.columns[col]
     resize!(c, len)
@@ -200,7 +200,7 @@ const DECZERO = Dec64(0)
 
 cast(::Type{Dec64}, arr, cur, ind) = ind <= 0 ? DECZERO : parse(Dec64, String(unsafe_wrap(Array, pointer(arr, cur), ind)))
 
-function cast!(::Type{?Dec64}, source, col)
+function cast!(::Type{Union{Dec64, Null}}, source, col)
     len = source.rowsfetched[]
     c = source.columns[col]
     resize!(c, len)
@@ -217,7 +217,7 @@ end
 
 cast(::Type{Vector{UInt8}}, arr, cur, ind) = arr[cur:(cur + max(ind, 0) - 1)]
 
-function cast!(::Type{?Vector{UInt8}}, source, col)
+function cast!(::Type{Union{Vector{UInt8}, Null}}, source, col)
     len = source.rowsfetched[]
     c = source.columns[col]
     resize!(c, len)
@@ -240,7 +240,7 @@ codeunits2bytes(::Type{UInt8},  bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA,
 codeunits2bytes(::Type{UInt16}, bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes * 2))
 codeunits2bytes(::Type{UInt32}, bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes * 4))
 
-function cast!(::Type{?String}, source, col)
+function cast!(::Type{Union{String, Null}}, source, col)
     len = source.rowsfetched[]
     c = source.columns[col]
     resize!(c, len)
@@ -258,7 +258,7 @@ function cast!(::Type{?String}, source, col)
     return
 end
 
-function cast!(::Type{?WeakRefString{T}}, source, col) where {T}
+function cast!(::Type{Union{WeakRefString{T}, Null}}, source, col) where {T}
     len = source.rowsfetched[]
     c = source.columns[col]
     resize!(c, len)
@@ -268,11 +268,11 @@ function cast!(::Type{?WeakRefString{T}}, source, col) where {T}
     cur = 1
     elsize = source.sizes[col] + 1
     inds = source.indcols[col]
-    EMPTY = WeakRefString{T}(Ptr{T}(0), 0, 0)
+    EMPTY = WeakRefString{T}(Ptr{T}(0), 0)
     @inbounds for i = 1:len
         ind = inds[i]
         length = ODBC.bytes2codeunits(T, max(ind, 0))
-        c[i] = ind == ODBC.API.SQL_NULL_DATA ? null : (length == 0 ? EMPTY : WeakRefString{T}(pointer(data, cur), length, cur))
+        c[i] = ind == ODBC.API.SQL_NULL_DATA ? null : (length == 0 ? EMPTY : WeakRefString{T}(pointer(data, cur), length))
         cur += elsize
     end
     return
