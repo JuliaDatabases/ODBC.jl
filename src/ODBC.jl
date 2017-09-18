@@ -1,8 +1,8 @@
 module ODBC
 
-using DataStreams, Nulls, CategoricalArrays, WeakRefStrings
+using DataStreams, Nulls, CategoricalArrays, WeakRefStrings, DataFrames
 
-export Data, DataFrame
+export Data, DataFrame, odbcdf
 
 include("API.jl")
 
@@ -110,28 +110,34 @@ end
 
 Base.show(io::IO,conn::DSN) = print(io, "ODBC.DSN($(conn.dsn))")
 
+const dsn = DSN("", C_NULL, C_NULL, C_NULL)
+
 """
 Construct a `DSN` type by connecting to a valid ODBC DSN or by specifying a valid connection string.
 Takes optional 2nd and 3rd arguments for `username` and `password`, respectively.
 1st argument `dsn` can be either the name of a pre-defined ODBC DSN or a valid connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
 """
-function DSN(dsn::AbstractString, username::AbstractString=String(""), password::AbstractString=String(""); prompt::Bool=true)
+function DSN(connectionstring::AbstractString, username::AbstractString=String(""), password::AbstractString=String(""); prompt::Bool=true)
     dbc = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV)
     dsns = ODBC.dsns()
     found = false
     for d in dsns[:,1]
-        dsn == d && (found = true)
+        connectionstring == d && (found = true)
     end
     if found
-        @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLConnect(dbc, dsn, username, password)
+        @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLConnect(dbc, connectionstring, username, password)
     else
-        dsn = ODBCDriverConnect!(dbc, dsn, prompt)
+        connectionstring = ODBCDriverConnect!(dbc, connectionstring, prompt)
     end
     stmt = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dbc)
     stmt2 = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dbc)
-    conn = DSN(dsn, dbc, stmt, stmt2)
-    return conn
+    global dsn
+    dsn.dsn = connectionstring
+    dsn.dbc_ptr = dbc
+    dsn.stmt_ptr = stmt
+    dsn.stmt_ptr2 = stmt2
+    return DSN(connectionstring, dbc, stmt, stmt2)
 end
 
 "disconnect a connected `DSN`"
@@ -169,9 +175,11 @@ Base.show(io::IO, source::Source) = print(io, "ODBC.Source:\n\tDSN: $(source.dsn
 
 include("Source.jl")
 include("Sink.jl")
+include("sqlreplmode.jl")
 
 function __init__()
     global const ENV = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
+    toggle_sql_repl()
 end
 
 # used to 'clear' a statement of bound columns, resultsets,
@@ -183,6 +191,3 @@ function ODBCFreeStmt!(stmt)
 end
 
 end #ODBC module
-
-include("sqlreplmode.jl")
-toggle_sql_repl()

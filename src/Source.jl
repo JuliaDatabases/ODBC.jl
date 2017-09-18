@@ -334,7 +334,7 @@ function Data.streamfrom(source::ODBC.Source, ::Type{Data.Column}, ::Type{Union{
     return dest
 end
 
-function query(dsn::DSN, sql::AbstractString, sink=NamedTuple, args...; weakrefstrings::Bool=true, append::Bool=false, transforms::Dict=Dict{Int,Function}())
+function query(dsn::DSN, sql::AbstractString, sink=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false, transforms::Dict=Dict{Int,Function}())
     sink = Data.stream!(Source(dsn, sql; weakrefstrings=weakrefstrings), sink, args; append=append, transforms=transforms)
     return Data.close!(sink)
 end
@@ -344,7 +344,7 @@ function query(dsn::DSN, sql::AbstractString, sink::T; weakrefstrings::Bool=true
     return Data.close!(sink)
 end
 
-query(source::ODBC.Source, sink=NamedTuple, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}()) = (sink = Data.stream!(source, sink, args...; append=append, transforms=transforms); return Data.close!(sink))
+query(source::ODBC.Source, sink=DataFrame, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}()) = (sink = Data.stream!(source, sink, args...; append=append, transforms=transforms); return Data.close!(sink))
 query(source::ODBC.Source, sink::T; append::Bool=false, transforms::Dict=Dict{Int,Function}()) where {T} = (sink = Data.stream!(source, sink; append=append, transforms=transforms); return Data.close!(sink))
 
 "Convenience string macro for executing an SQL statement against a DSN."

@@ -2,11 +2,11 @@
 
 The `ODBC.jl` package provides high-level julia functionality over the low-level ODBC API middleware. In particular, the package allows making connections with any database that has a valid ODBC driver, sending SQL queries to those databases, and streaming the results into a variety of data sinks.
 
-### `ODBC.listdsns()`
+### `ODBC.dsns()`
 
 Lists pre-configured DSN datasources available to the user. Note that DSNs are "bit-specific", meaning a 32-bit DSN setup with the 32-bit ODBC system admin console will only be accessible through 32-bit julia.
 
-### `ODBC.listdrivers`
+### `ODBC.drivers`
 
 Lists valid ODBC drivers on the system which can be used manually in connection strings in the form of `Driver={ODBC Driver Name};` as a key-value pair. Valid drivers are read from the system ODBC library, which can be seen by calling `ODBC.API.odbc_dm`. This library is "detected" automatically when the ODBC.jl package is loaded, but can also be set by calling `ODBC.API.setODBC("manual_odbc_lib")`.
 
@@ -25,26 +25,26 @@ The first method attempts to connect to a pre-defined DSN that has been pre-conf
 
 The second method takes a full connection string. Connection strings are vendor-specific, but follow the format of `key1=value1;key2=value2...` for various key-value pairs, typically including `Driver=X` and `Server=Y`. For help in figuring out how to build the right connection string for your system, see [connectionstrings.com](https://www.connectionstrings.com/). There is also a `prompt` keyword argument that indicates whether a driver-specific UI window should be shown if there are missing connection string key-value pairs needed for connection. If being run non-interactively, set `prompt=false`.
 
-`ODBC.disconnect!(dsn)` can also be used to disconnect.
+`ODBC.disconnect!(dsn)` can also be used to disconnect the database connection.
 
 ### `ODBC.query`
 
 `sql>` REPL mode:
 
-The ODBC.jl package ships an experimental REPL mode for convenience in rapid query execution. The REPL mode can be accessed by hitting the `]` character at an empty `julia>` prompt. The prompt will change to `sql>` and SQL queries can be entered directly and executed by pressing `enter`. Since the queries need an `ODBC.DSN` to execute against, the global variable `dsn` is used automatically, so it must be assigned before entering the `sql>` REPL mode. Query results are shown directly in the REPL, and the prompt will stay in `sql>` mode until `backspace` is pressed at an empty `sql>` prompt. The results of the last query can then be accessed back at the `julia>` prompt via the global `odbcdf` variable.
+The ODBC.jl package ships an experimental REPL mode for convenience in rapid query execution. The REPL mode can be accessed by hitting the `]` character at an empty `julia>` prompt. The prompt will change to `sql>` and SQL queries can be entered directly and executed by pressing `enter`. Since the queries need an `ODBC.DSN` to execute against, the most recently connected `ODBC.DSN` is used automatically, so a valid connection must have been created before entering the `sql>` REPL mode. Query results are shown directly in the REPL, and the prompt will stay in `sql>` mode until `backspace` is pressed at an empty `sql>` prompt. The results of the last query can then be accessed back at the `julia>` prompt via the global `odbcdf` variable.
 
 Methods:
 
 `ODBC.query(dsn::ODBC.DSN, sql::AbstractString, sink=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false)`
 
-`ODBC.query{T}(dsn::DSN, sql::AbstractString, sink::T; weakrefstrings::Bool=true, append::Bool=false)`
+`ODBC.query(dsn::DSN, sql::AbstractString, sink::T; weakrefstrings::Bool=true, append::Bool=false) where T`
 
 `ODBC.query(source::ODBC.Source, sink=DataFrame, args...; append::Bool=false)`
 
-`ODBC.query{T}(source::ODBC.Source, sink::T; append::Bool=false)`
+`ODBC.query(source::ODBC.Source, sink::T; append::Bool=false) where T`
 
 
-`ODBC.query` is a high-level method for sending an SQL statement to a system and returning the results. As is shown, a valid `dsn::ODBC.DSN` and SQL statement `sql` combo can be sent, as well as an already-constructed `source::ODBC.Source`. By default, the results will be returned in a [`DataFrame`](http://juliastats.github.io/DataFrames.jl/latest/), but a variety of options exist for returning results, including `CSV.Sink`, `SQLite.Sink`, or `Feather.Sink`. `ODBC.query` actually utilizes the `DataStreams.jl` framework, so any valid [`Data.Sink`](http://juliadata.github.io/DataStreams.jl/latest/#datasink-interface) can be used to return results. The `append=false` keyword specifies whether the results should be *added to* any existing data in the `Data.Sink`, or if the resultset should fully replace any existing data. The `weakrefstrings` argument indicates whether `WeakRefString`s should be used by default for efficiency.
+`ODBC.query` is a high-level method for sending an SQL statement to a system and returning the results. As is shown, a valid `dsn::ODBC.DSN` and SQL statement `sql` combo can be sent, as well as an already-constructed `source::ODBC.Source`. By default, the results will be returned in a [`DataFrame`](http://juliadata.github.io/DataFrames.jl/latest/), but a variety of options exist for returning results, including `CSV.Sink`, `SQLite.Sink`, or `Feather.Sink`. `ODBC.query` actually utilizes the `DataStreams.jl` framework, so any valid [`Data.Sink`](http://juliadata.github.io/DataStreams.jl/latest/#Data.Sink-Interface-1) can be used to return results. The `append=false` keyword specifies whether the results should be *added to* any existing data in the `Data.Sink`, or if the resultset should fully replace any existing data. The `weakrefstrings` argument indicates whether `WeakRefString`s should be used by default for efficiency.
 
 Examples:
 
@@ -73,11 +73,11 @@ feather = ODBC.query(dsn, "select * from cool_table", Feather.Sink, "cool_table.
 ### `ODBC.load`
 
 Methods:
-`ODBC.load{T}(dsn::DSN, table::AbstractString, ::Type{T}, args...; append::Bool=false)`
+`ODBC.load(dsn::DSN, table::AbstractString, ::Type{T}, args...; append::Bool=false) where T`
 
 `ODBC.load(dsn::DSN, table::AbstractString, source; append::Bool=false)`
 
-`ODBC.load{T}(sink::Sink, ::Type{T}, args...; append::Bool=false)`
+`ODBC.load(sink::Sink, ::Type{T}, args...; append::Bool=false) where T`
 
 `ODBC.load(sink::Sink, source; append::Bool=false)`
 
@@ -85,7 +85,7 @@ Methods:
 
 **Please note this is currently experimental and ODBC driver-dependent; meaning, an ODBC driver must impelement certain low-level API methods to enable this feature. This is not a limitation of ODBC.jl itself, but the ODBC driver provided by the vendor. In the case this method doesn't work for loading data, please see the documentation around prepared statements.**
 
-`ODBC.load` takes a valid DB connection `dsn` and the name of an *existing* table `table` to which to send data. Note that on-the-fly creation of a table is not currently supported. The data to send can be any valid [`Data.Source`](http://juliadata.github.io/DataStreams.jl/latest/#datasource-interface) object, from the `DataStreams.jl` framework, including a `DataFrame`, `CSV.Source`, `SQLite.Source`, `Feather.Source`, etc.
+`ODBC.load` takes a valid DB connection `dsn` and the name of an *existing* table `table` to which to send data. Note that on-the-fly creation of a table is not currently supported. The data to send can be any valid [`Data.Source`](http://juliadata.github.io/DataStreams.jl/latest/#Data.Source-Interface-1) object, from the `DataStreams.jl` framework, including a `DataFrame`, `CSV.Source`, `SQLite.Source`, `Feather.Source`, etc.
 
 Examples:
 
@@ -162,4 +162,4 @@ Constructors:
 
 `ODBC.Source(dsn::ODBC.DSN, querystring::String) => ODBC.Source`
 
-`ODBC.Source` is an implementation of a `Data.Source` in the [DataStreams.jl](http://juliadata.github.io/DataStreams.jl/latest/#datasource-interface) framework. It takes a valid DB connection `dsn` and executes a properly formatted SQL query string `querystring` and makes preparations for returning a resultset.
+`ODBC.Source` is an implementation of a `Data.Source` in the [DataStreams.jl](http://juliadata.github.io/DataStreams.jl/latest/#Data.Source-Interface-1) framework. It takes a valid DB connection `dsn` and executes a properly formatted SQL query string `querystring` and makes preparations for returning a resultset.
