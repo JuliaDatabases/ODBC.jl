@@ -52,7 +52,7 @@ clength(x::AbstractString) = length(x)
 clength(x::Vector{UInt8}) = length(x)
 clength(x::WeakRefString{T}) where {T} = codeunits2bytes(T, length(x))
 clength(x::CategoricalArrays.CategoricalValue) = length(String(x))
-clenth(x::Null) = ODBC.API.SQL_NULL_DATA
+clength(x::Null) = ODBC.API.SQL_NULL_DATA
 
 digits(x) = 0
 digits(x::ODBC.API.SQLTimestamp) = length(string(x.fraction * 1000000))
@@ -165,7 +165,6 @@ end
 allocate(::Type{T}) where {T} = Vector{T}(0)
 allocate(::Type{T}) where {T <: Union{WeakRefString, Null}} = WeakRefStringArray(UInt8[], T, 0)
 
-#TODO: when Base Julia supports unboxed Union{T, Null} array allocating, we should just allocate Vector{T, Null}(rowset) and then set the nulls later
 internal_allocate(::Type{T}, rowset, size) where {T} = Vector{T}(rowset), sizeof(T)
 # string/binary types
 internal_allocate(::Type{T}, rowset, size) where {T <: Union{UInt8, UInt16, UInt32}} = zeros(T, rowset * (size + 1)), sizeof(T) * (size + 1)
@@ -308,9 +307,10 @@ Data.schema(source::ODBC.Source) = source.schema
 "Checks if an `ODBC.Source` has finished fetching results from an executed query string"
 Data.isdone(source::ODBC.Source, x=1, y=1) = source.status != ODBC.API.SQL_SUCCESS && source.status != ODBC.API.SQL_SUCCESS_WITH_INFO
 function Data.reset!(source::ODBC.Source)
-    stmt = source.dsn.stmt_ptr
-    source.status = ODBC.API.SQLFetchScroll(stmt, ODBC.API.SQL_FETCH_FIRST, 0)
-    source.rowoffset = 0
+    throw(ArgumentError("Data.reset! not currently supported for ODBC.Source"))
+    # stmt = source.dsn.stmt_ptr
+    # source.status = ODBC.API.SQLFetchScroll(stmt, ODBC.API.SQL_FETCH_FIRST, 0)
+    # source.rowoffset = 0
     return
 end
 

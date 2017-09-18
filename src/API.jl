@@ -258,6 +258,9 @@ end
 const SQL_ATTR_ROW_STATUS_PTR = 25
 const SQL_ATTR_ROWS_FETCHED_PTR  = 26
 const SQL_ATTR_ROW_ARRAY_SIZE = 27
+const SQL_ATTR_CURSOR_TYPE = 6
+const SQL_CURSOR_DYNAMIC = UInt(2)
+const SQL_CURSOR_STATIC = UInt(3)
 #this sets the rowset size for ExtendedFetch and FetchScroll
 #Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
 #Status:
