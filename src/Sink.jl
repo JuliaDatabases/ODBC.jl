@@ -27,7 +27,7 @@ function Sink(sink, sch::Data.Schema, ::Type{T}; append::Bool=false, reference::
     return sink
 end
 
-Data.streamtypes(::Type{<:ODBC.Sink}) = [Data.Column]
+Data.streamtypes(::Type{ODBC.Sink}) = [Data.Column]
 
 prep!(T, A) = A, 0
 prep!(::Type{Union{T, Null}}, A) where {T} = T[ifelse(isnull(x), zero(T), x) for x in A]

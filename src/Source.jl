@@ -100,6 +100,8 @@ Results are checked for and an `ODBC.ResultBlock` is allocated to prepare for fe
 function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noquery::Bool=false)
     stmt = dsn.stmt_ptr
     noquery || ODBC.ODBCFreeStmt!(stmt)
+    supportsreset = ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_CURSOR_SCROLLABLE, ODBC.API.SQL_SCROLLABLE, ODBC.API.SQL_IS_INTEGER)
+    supportsreset &= ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_CURSOR_TYPE, ODBC.API.SQL_CURSOR_STATIC, ODBC.API.SQL_IS_INTEGER)
     noquery || (ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query))
     rows, cols = Ref{Int}(), Ref{Int16}()
     ODBC.API.SQLNumResultCols(stmt, cols)
@@ -156,7 +158,7 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
     rowsfetched = Ref{ODBC.API.SQLLEN}() # will be populated by call to SQLFetchScroll
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROWS_FETCHED_PTR, rowsfetched, ODBC.API.SQL_NTS)
     types = [ODBC.API.SQL2C[ctypes[x]] for x = 1:cols]
-    source = ODBC.Source(schema, dsn, query, columns, 100, rowsfetched, 0, boundcols, indcols, csizes, types, Type[longtexts[x] ? ODBC.API.Long{T} : T for (x, T) in enumerate(juliatypes)])
+    source = ODBC.Source(schema, dsn, query, columns, 100, rowsfetched, 0, boundcols, indcols, csizes, types, Type[longtexts[x] ? ODBC.API.Long{T} : T for (x, T) in enumerate(juliatypes)], supportsreset == 1)
     rows != 0 && fetch!(source)
     return source
 end
@@ -172,11 +174,11 @@ internal_allocate(::Type{T}, rowset, size) where {T <: Union{UInt8, UInt16, UInt
 function fetch!(source)
     stmt = source.dsn.stmt_ptr
     source.status = ODBC.API.SQLFetchScroll(stmt, ODBC.API.SQL_FETCH_NEXT, 0)
-    source.rowsfetched[] == 0 && return
-    types = source.jltypes
-    for col = 1:length(types)
-        ODBC.cast!(types[col], source, col)
-    end
+    # source.rowsfetched[] == 0 && return
+    # types = source.jltypes
+    # for col = 1:length(types)
+    #     ODBC.cast!(types[col], source, col)
+    # end
     return
 end
 
@@ -190,7 +192,7 @@ function cast!(::Type{T}, source, col) where {T}
     @simd for i = 1:len
         @inbounds c[i] = ifelse(ind[i] == ODBC.API.SQL_NULL_DATA, null, data[i])
     end
-    return
+    return c
 end
 
 # decimal/numeric and binary types
@@ -211,7 +213,7 @@ function cast!(::Type{Union{Dec64, Null}}, source, col)
         c[i] = ind == ODBC.API.SQL_NULL_DATA ? null : cast(Dec64, source.boundcols[col], cur, ind)
         cur += elsize
     end
-    return
+    return c
 end
 
 cast(::Type{Vector{UInt8}}, arr, cur, ind) = arr[cur:(cur + max(ind, 0) - 1)]
@@ -228,7 +230,7 @@ function cast!(::Type{Union{Vector{UInt8}, Null}}, source, col)
         c[i] = ind == ODBC.API.SQL_NULL_DATA ? null : cast(Vector{UInt8}, source.boundcols[col], cur, ind)
         cur += elsize
     end
-    return
+    return c
 end
 
 # string types
@@ -254,7 +256,7 @@ function cast!(::Type{Union{String, Null}}, source, col)
         c[i] = ind == ODBC.API.SQL_NULL_DATA ? null : (length == 0 ? "" : String(transcode(UInt8, data[cur:(cur + length - 1)])))
         cur += elsize
     end
-    return
+    return c
 end
 
 function cast!(::Type{Union{WeakRefString{T}, Null}}, source, col) where {T}
@@ -274,7 +276,7 @@ function cast!(::Type{Union{WeakRefString{T}, Null}}, source, col) where {T}
         c[i] = ind == ODBC.API.SQL_NULL_DATA ? null : (length == 0 ? EMPTY : WeakRefString{T}(pointer(data, cur), length))
         cur += elsize
     end
-    return
+    return c
 end
 
 # long types
@@ -299,7 +301,7 @@ function cast!(::Type{ODBC.API.Long{Union{T, Null}}}, source, col) where {T}
     c = source.columns[col]
     resize!(c, 1)
     c[1] = isnull ? null : T(transcode(UInt8, data))
-    return
+    return c
 end
 
 # DataStreams interface
@@ -307,27 +309,30 @@ Data.schema(source::ODBC.Source) = source.schema
 "Checks if an `ODBC.Source` has finished fetching results from an executed query string"
 Data.isdone(source::ODBC.Source, x=1, y=1) = source.status != ODBC.API.SQL_SUCCESS && source.status != ODBC.API.SQL_SUCCESS_WITH_INFO
 function Data.reset!(source::ODBC.Source)
-    throw(ArgumentError("Data.reset! not currently supported for ODBC.Source"))
-    # stmt = source.dsn.stmt_ptr
-    # source.status = ODBC.API.SQLFetchScroll(stmt, ODBC.API.SQL_FETCH_FIRST, 0)
-    # source.rowoffset = 0
+    source.supportsreset || throw(ArgumentError("Data.reset! not supported, probably due to the database vendor ODBC driver implementation"))
+    stmt = source.dsn.stmt_ptr
+    source.status = ODBC.API.SQLFetchScroll(stmt, ODBC.API.SQL_FETCH_FIRST, 0)
+    source.rowoffset = 0
     return
 end
 
-Data.streamtype(::Type{<:ODBC.Source}, ::Type{Data.Column}) = true
-Data.streamtype(::Type{<:ODBC.Source}, ::Type{Data.Field}) = true
+Data.streamtype(::Type{ODBC.Source}, ::Type{Data.Column}) = true
+Data.streamtype(::Type{ODBC.Source}, ::Type{Data.Field}) = true
 
 function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T, Null}}, row, col) where {T}
     val = source.columns[col][row - source.rowoffset]::Union{T, Null}
     if col == length(source.columns) && (row - source.rowoffset) == source.rowsfetched[] && !Data.isdone(source)
         ODBC.fetch!(source)
+        for i = 1:col
+            cast!(source.jltypes[i], source, i)
+        end
         source.rowoffset += source.rowsfetched[]
     end
     return val
 end
 
 function Data.streamfrom(source::ODBC.Source, ::Type{Data.Column}, ::Type{Union{T, Null}}, row, col) where {T}
-    dest = source.columns[col]
+    dest = cast!(source.jltypes[col], source, col)
     if col == length(source.columns) && !Data.isdone(source)
         ODBC.fetch!(source)
     end

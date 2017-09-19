@@ -169,6 +169,7 @@ mutable struct Source{T} <: Data.Source
     sizes::Vector{ODBC.API.SQLULEN}
     ctypes::Vector{ODBC.API.SQLSMALLINT}
     jltypes::Vector{Type}
+    supportsreset::Bool
 end
 
 Base.show(io::IO, source::Source) = print(io, "ODBC.Source:\n\tDSN: $(source.dsn)\n\tstatus: $(source.status)\n\tschema: $(source.schema)")
