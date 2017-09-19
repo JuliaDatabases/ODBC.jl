@@ -1,5 +1,5 @@
 
-type Sink <: Data.Sink
+mutable struct Sink <: Data.Sink
     dsn::DSN
     table::String
     columns::Vector{Any}
@@ -9,7 +9,7 @@ end
 Sink(dsn::DSN, table::AbstractString; append::Bool=false) = Sink(dsn, table, [], [])
 
 # DataStreams interface
-function Sink{T}(sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UInt8}, dsn::DSN, table::AbstractString)
+function Sink(sch::Data.Schema, ::Type{T}, dsn::DSN, table::AbstractString; append::Bool=false, reference::Vector{UInt8}=UInt8[]) where {T}
     cols = size(sch, 2)
     sink = Sink(dsn, table, Vector{Any}(cols), Vector{Any}(cols))
     !append && ODBC.execute!(dsn, "delete from $table")
@@ -17,7 +17,7 @@ function Sink{T}(sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UInt8}, 
     ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
     return sink
 end
-function Sink{T}(sink, sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UInt8})
+function Sink(sink, sch::Data.Schema, ::Type{T}; append::Bool=false, reference::Vector{UInt8}=UInt8[]) where {T}
     cols = size(sch, 2)
     resize!(sink.columns, cols)
     resize!(sink.indcols, cols)
@@ -27,32 +27,29 @@ function Sink{T}(sink, sch::Data.Schema, ::Type{T}, append::Bool, ref::Vector{UI
     return sink
 end
 
-Data.streamtypes{T<:ODBC.Sink}(::Type{T}) = [Data.Column]
+Data.streamtypes(::Type{ODBC.Sink}) = [Data.Column]
 
-prep!{T}(::Type{T}, A) = A, 0
-prep!{T}(::Type{Nullable{T}}, A) = A.values, 0
-prep!(::Union{Type{Date},Type{Nullable{Date}}}, A) = ODBC.API.SQLDate[isnull(x) ? ODBC.API.SQLDate() : ODBC.API.SQLDate(get(x)) for x in A], 0
-prep!(::Union{Type{DateTime},Type{Nullable{DateTime}}}, A) = ODBC.API.SQLTimestamp[isnull(x) ? ODBC.API.SQLTimestamp() : ODBC.API.SQLTimestamp(get(x)) for x in A], 0
-if is_unix()
-prep!(::Union{Type{Dec64},Type{Nullable{Dec64}}}, A) = Float64[isnull(x) ? 0.0 : Float64(get(x)) for x in A], 0
-end
+prep!(T, A) = A, 0
+prep!(::Type{Union{T, Null}}, A) where {T} = T[ifelse(isnull(x), zero(T), x) for x in A]
+prep!(::Type{Union{Date, Null}}, A) = ODBC.API.SQLDate[isnull(x) ? ODBC.API.SQLDate() : ODBC.API.SQLDate(x) for x in A], 0
+prep!(::Type{Union{DateTime, Null}}, A) = ODBC.API.SQLTimestamp[isnull(x) ? ODBC.API.SQLTimestamp() : ODBC.API.SQLTimestamp(x) for x in A], 0
+prep!(::Type{Union{Dec64, Null}}, A) = Float64[isnull(x) ? 0.0 : Float64(x) for x in A], 0
 
 getptrlen(x::AbstractString) = pointer(Vector{UIn8}(x)), length(x), UInt8[]
-getptrlen{T}(x::WeakRefString{T}) = convert(Ptr{UInt8}, x.ptr), codeunits2bytes(T, x.len), UInt8[]
-getptrlen{T}(x::Nullable{T}) = isnull(x) ? (convert(Ptr{UInt8}, C_NULL), 0, UInt8[]) : getptrlen(get(x))
+getptrlen(x::WeakRefString{T}) where {T} = convert(Ptr{UInt8}, x.ptr), codeunits2bytes(T, x.len), UInt8[]
+getptrlen(x::Null) = convert(Ptr{UInt8}, C_NULL), 0, UInt8[]
 function getptrlen(x::CategoricalArrays.CategoricalValue)
     ref = Vector{UInt8}(String(x))
     return pointer(ref), length(ref), ref
 end
 
-prep!{T<:AbstractString}(::Type{T}, A) = _prep!(T, A)
-prep!{T<:AbstractString}(::Type{Nullable{T}}, A) = _prep!(T, A)
-prep!{T<:CategoricalArrays.CategoricalValue}(::Type{T}, A) = _prep!(T, A)
-prep!{T<:CategoricalArrays.CategoricalValue}(::Type{Nullable{T}}, A) = _prep!(T, A)
+prep!(::Type{T}, A) where {T <: AbstractString} = _prep!(T, A)
+prep!(::Type{Union{T, Null}}, A) where {T <: AbstractString} = _prep!(T, A)
+prep!(::Type{T}, A) where {T <: CategoricalValue} = _prep!(T, A)
+prep!(::Type{Union{T, Null}}, A) where {T <: CategoricalValue} = _prep!(T, A)
 
-function _prep!{T}(::Type{T}, column)
+function _prep!(T, column)
     maxlen = maximum(ODBC.clength, column)
-    maxlen = typeof(maxlen) <: Nullable ? get(maxlen) : maxlen
     data = zeros(UInt8, maxlen * length(column))
     ind = 1
     for i = 1:length(column)
@@ -63,41 +60,39 @@ function _prep!{T}(::Type{T}, column)
     return data, maxlen
 end
 
-function prep!{T}(column::T, col, columns, indcols)
+function prep!(column::T, col, columns, indcols) where {T}
     columns[col], maxlen = prep!(eltype(T), column)
     indcols[col] = ODBC.API.SQLLEN[clength(x) for x in column]
     return length(column), maxlen
 end
 
-getCtype{T}(::Type{T}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
-getCtype{T}(::Type{Nullable{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
-getCtype{T}(::Type{Vector{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
-getCtype{T}(::Type{NullableVector{T}}) = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype(::Type{T}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype(::Type{Union{T, Null}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype(::Type{Vector{T}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype(::Type{Vector{Union{T, Null}}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 
-function Data.streamto!{T}(sink::ODBC.Sink, ::Type{Data.Column}, column::T, row, col, sch)
+function Data.streamto!(sink::ODBC.Sink, ::Type{Data.Column}, column::T, col) where {T}
     stmt = sink.dsn.stmt_ptr2
     rows, len = ODBC.prep!(column, col, sink.columns, sink.indcols)
     ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBindCols(stmt, col, getCtype(T), sink.columns[col], len, sink.indcols[col])
-    if col == size(sch, 2)
+    if col == length(sink.columns)
         ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rows, ODBC.API.SQL_IS_UINTEGER)
         ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBulkOperations(stmt, ODBC.API.SQL_ADD)
     end
     return rows
 end
 
-function load{T}(dsn::DSN, table::AbstractString, ::Type{T}, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}())
-    sink = Data.stream!(T(args...), ODBC.Sink, append, transforms, dsn, table)
-    Data.close!(sink)
-    return sink
+function load(dsn::DSN, table::AbstractString, ::Type{T}, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}()) where {T}
+    sink = Data.stream!(T(args...), ODBC.Sink, dsn, table; append=append, transforms=transforms)
+    return Data.close!(sink)
 end
 function load(dsn::DSN, table::AbstractString, source; append::Bool=false, transforms::Dict=Dict{Int,Function}())
-    sink = Data.stream!(source, ODBC.Sink, append, transforms, dsn, table)
-    Data.close!(sink)
-    return sink
+    sink = Data.stream!(source, ODBC.Sink, dsn, table; append=append, transforms=transforms)
+    return Data.close!(sink)
 end
 
-load{T}(sink::Sink, ::Type{T}, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}()) = (sink = Data.stream!(T(args...), sink, append, transforms); Data.close!(sink); return sink)
-load(sink::Sink, source; append::Bool=false, transforms::Dict=Dict{Int,Function}()) = (sink = Data.stream!(source, sink, append, transforms); Data.close!(sink); return sink)
+load(sink::Sink, ::Type{T}, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}()) where {T} = (sink = Data.stream!(T(args...), sink; append=append, transforms=transforms); return Data.close!(sink))
+load(sink::Sink, source; append::Bool=false, transforms::Dict=Dict{Int,Function}()) = (sink = Data.stream!(source, sink; append=append, transforms=transforms); return Data.close!(sink))
 
 # function Data.stream!(source, ::Type{Data.Column}, sink::ODBC.Sink, append::Bool=false)
 #     Data.types(source) == Data.types(sink) || throw(ArgumentError("schema mismatch: \n$(Data.schema(source))\nvs.\n$(Data.schema(sink))"))

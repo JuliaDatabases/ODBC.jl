@@ -1,13 +1,13 @@
 module ODBC
 
-using DataStreams, DataFrames, NullableArrays, CategoricalArrays, WeakRefStrings
+using DataStreams, Nulls, CategoricalArrays, WeakRefStrings, DataFrames
 
-export Data, DataFrame
+export Data, DataFrame, odbcdf
 
 include("API.jl")
 
 "just a block of memory; T is the element type, `len` is total # of **bytes** pointed to, and `elsize` is size of each element"
-type Block{T}
+mutable struct Block{T}
     ptr::Ptr{T}    # pointer to a block of memory
     len::Int       # total # of bytes in block
     elsize::Int    # size between elements in bytes
@@ -18,7 +18,7 @@ Block allocator:
     -Takes an element type, and number of elements to allocate in a linear block
     -Optionally specify an extra dimension of elements that make up each element (i.e. container types)
 """
-function Block{T}(::Type{T}, elements::Int, extradim::Integer=1)
+function Block(::Type{T}, elements::Int, extradim::Integer=1) where {T}
     len = sizeof(T) * elements * extradim
     block = Block{T}(convert(Ptr{T}, Libc.malloc(len)), len, sizeof(T) * extradim)
     finalizer(block, x->Libc.free(x.ptr))
@@ -28,7 +28,7 @@ end
 # used for getting messages back from ODBC driver manager; SQLDrivers, SQLError, etc.
 Base.string(block::Block, len::Integer) = String(transcode(UInt8, unsafe_wrap(Array, block.ptr, len, false)))
 
-type ODBCError <: Exception
+struct ODBCError <: Exception
     msg::String
 end
 
@@ -60,8 +60,11 @@ macro CHECK(handle, handletype, func)
     end)
 end
 
+Base.@deprecate listdrivers ODBC.drivers
+Base.@deprecate listdsns ODBC.dsns
+
 "List ODBC drivers that have been installed and registered"
-function listdrivers()
+function drivers()
     descriptions = String[]
     attributes   = String[]
     driver_desc = Block(ODBC.API.SQLWCHAR, BUFLEN)
@@ -78,7 +81,7 @@ function listdrivers()
 end
 
 "List ODBC DSNs, both user and system, that have been previously defined"
-function listdsns()
+function dsns()
     descriptions = String[]
     attributes   = String[]
     dsn_desc    = Block(ODBC.API.SQLWCHAR, BUFLEN)
@@ -98,7 +101,7 @@ end
 A DSN represents an established ODBC connection.
 It is passed to most other ODBC methods as a first argument
 """
-type DSN
+mutable struct DSN
     dsn::String
     dbc_ptr::Ptr{Void}
     stmt_ptr::Ptr{Void}
@@ -107,28 +110,34 @@ end
 
 Base.show(io::IO,conn::DSN) = print(io, "ODBC.DSN($(conn.dsn))")
 
+const dsn = DSN("", C_NULL, C_NULL, C_NULL)
+
 """
 Construct a `DSN` type by connecting to a valid ODBC DSN or by specifying a valid connection string.
 Takes optional 2nd and 3rd arguments for `username` and `password`, respectively.
 1st argument `dsn` can be either the name of a pre-defined ODBC DSN or a valid connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
 """
-function DSN(dsn::AbstractString, username::AbstractString=String(""), password::AbstractString=String(""); prompt::Bool=true)
+function DSN(connectionstring::AbstractString, username::AbstractString=String(""), password::AbstractString=String(""); prompt::Bool=true)
     dbc = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV)
-    dsns = ODBC.listdsns()
+    dsns = ODBC.dsns()
     found = false
     for d in dsns[:,1]
-        dsn == d && (found = true)
+        connectionstring == d && (found = true)
     end
     if found
-        @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLConnect(dbc, dsn, username, password)
+        @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLConnect(dbc, connectionstring, username, password)
     else
-        dsn = ODBCDriverConnect!(dbc, dsn, prompt)
+        connectionstring = ODBCDriverConnect!(dbc, connectionstring, prompt)
     end
     stmt = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dbc)
     stmt2 = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dbc)
-    conn = DSN(dsn, dbc, stmt, stmt2)
-    return conn
+    global dsn
+    dsn.dsn = connectionstring
+    dsn.dbc_ptr = dbc
+    dsn.stmt_ptr = stmt
+    dsn.stmt_ptr2 = stmt2
+    return DSN(connectionstring, dbc, stmt, stmt2)
 end
 
 "disconnect a connected `DSN`"
@@ -139,7 +148,7 @@ function disconnect!(conn::DSN)
     return nothing
 end
 
-type Statement
+mutable struct Statement
     dsn::DSN
     stmt::Ptr{Void}
     query::String
@@ -147,11 +156,11 @@ type Statement
 end
 
 "An `ODBC.Source` type executes a `query` string upon construction and prepares data for streaming to an appropriate `Data.Sink`"
-type Source <: Data.Source
+mutable struct Source{T} <: Data.Source
     schema::Data.Schema
     dsn::DSN
     query::String
-    columns::Vector{Any}
+    columns::T
     status::Int
     rowsfetched::Ref{ODBC.API.SQLLEN}
     rowoffset::Int
@@ -159,27 +168,27 @@ type Source <: Data.Source
     indcols::Vector{Vector{ODBC.API.SQLLEN}}
     sizes::Vector{ODBC.API.SQLULEN}
     ctypes::Vector{ODBC.API.SQLSMALLINT}
-    jltypes::Vector{DataType}
+    jltypes::Vector{Type}
+    supportsreset::Bool
 end
 
 Base.show(io::IO, source::Source) = print(io, "ODBC.Source:\n\tDSN: $(source.dsn)\n\tstatus: $(source.status)\n\tschema: $(source.schema)")
 
 include("Source.jl")
 include("Sink.jl")
+include("sqlreplmode.jl")
 
 function __init__()
     global const ENV = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
+    toggle_sql_repl()
 end
 
 # used to 'clear' a statement of bound columns, resultsets,
 # and other bound parameters in preparation for a subsequent query
 function ODBCFreeStmt!(stmt)
-    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_CLOSE)
-    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_UNBIND)
-    ODBC.API.SQLFreeStmt(stmt,ODBC.API.SQL_RESET_PARAMS)
+    ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_CLOSE)
+    ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_UNBIND)
+    ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_RESET_PARAMS)
 end
 
 end #ODBC module
-
-include("sqlreplmode.jl")
-toggle_sql_repl()

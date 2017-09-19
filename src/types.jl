@@ -1,12 +1,12 @@
-using DecFP
+using DecFP, Nulls
 
 # Link to ODBC Driver Manager (system-dependent)
 let
     global odbc_dm
-    if !isdefined(:odbc_dm)
-        is_linux()   && (lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"])
-        is_windows() && (lib_choices = ["odbc32"])
-        is_apple()   && (lib_choices = ["libodbc.2.dylib","libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"])
+    if !@isdefined odbc_dm
+        Sys.islinux()   && (lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"])
+        Sys.iswindows() && (lib_choices = ["odbc32"])
+        Sys.isapple()   && (lib_choices = ["libodbc.2.dylib","libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"])
         lib = Libdl.find_library(lib_choices)
         const odbc_dm = lib
     end
@@ -250,7 +250,7 @@ const SQL_C_TYPE_TIMESTAMP = Int16( 93)
 const SQL_C_GUID                      = Int16(-11)
 
 # Julia mapping C structs
-immutable SQLDate <: Dates.AbstractTime
+struct SQLDate <: Dates.AbstractTime
     year::Int16
     month::Int16
     day::Int16
@@ -264,7 +264,7 @@ import Base: ==
 ==(y::Date, x::SQLDate) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
 Base.Date(x::SQLDate) = Date(x.year, x.month, x.day)
 
-immutable SQLTime <: Dates.AbstractTime
+struct SQLTime <: Dates.AbstractTime
     hour::Int16
     minute::Int16
     second::Int16
@@ -273,7 +273,7 @@ end
 Base.show(io::IO,x::SQLTime) = print(io,"$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))")
 SQLTime() = SQLTime(0,0,0)
 
-immutable SQLTimestamp <: Dates.AbstractTime
+struct SQLTimestamp <: Dates.AbstractTime
     year::Int16
     month::Int16
     day::Int16
@@ -298,7 +298,7 @@ SQLTimestamp() = SQLTimestamp(0,0,0,0,0,0,0)
 Base.DateTime(x::SQLTimestamp) = DateTime(x.year, x.month, x.day, x.hour, x.minute, x.second, x.fraction * 1000000)
 
 const SQL_MAX_NUMERIC_LEN = 16
-immutable SQLNumeric
+struct SQLNumeric
     precision::SQLCHAR
     scale::SQLSCHAR
     sign::SQLCHAR
@@ -315,7 +315,7 @@ SQLNumeric() = SQLNumeric(0,0,0,(0,))
 #     WORD Data3;
 #     BYTE Data4[ 8 ];
 # } SQLGUID;
-immutable SQLGUID
+struct SQLGUID
     Data1::Cuint
     Data2::Cushort
     Data3::Cushort
@@ -323,7 +323,7 @@ immutable SQLGUID
 end
 
 # for representing SQL LONG types
-immutable Long{T} end
+struct Long{T} end
 
 """
 Dict for mapping SQL types to C types.
@@ -412,31 +412,31 @@ The 3rd `Bool` value indicates whether the column is a LONGTEXT or LONGBINARY SQ
 tend to require special result-handling rules.
 """
 const SQL2Julia = Dict(
-    SQL_CHAR           => (SQLCHAR, NullableVector{WeakRefString{SQLCHAR}}, false),
-    SQL_VARCHAR        => (SQLCHAR, NullableVector{WeakRefString{SQLCHAR}}, false),
-    SQL_LONGVARCHAR    => (SQLCHAR, NullableVector{String}, true),
-    SQL_WCHAR          => (SQLWCHAR, NullableVector{WeakRefString{SQLWCHAR}}, false),
-    SQL_WVARCHAR       => (SQLWCHAR, NullableVector{WeakRefString{SQLWCHAR}}, false),
-    SQL_WLONGVARCHAR   => (SQLWCHAR, NullableVector{String}, true),
-    SQL_DECIMAL        => (SQLCHAR, NullableVector{Dec64}, false),
-    SQL_NUMERIC        => (SQLCHAR, NullableVector{Dec64}, false),
-    SQL_SMALLINT       => (SQLSMALLINT, NullableVector{SQLSMALLINT}, false),
-    SQL_INTEGER        => (SQLINTEGER,  NullableVector{SQLINTEGER}, false),
-    SQL_REAL           => (SQLREAL,   NullableVector{SQLREAL}, false),
-    SQL_FLOAT          => (SQLFLOAT,  NullableVector{SQLFLOAT}, false),
-    SQL_DOUBLE         => (SQLDOUBLE, NullableVector{SQLDOUBLE}, false),
-    SQL_BIT            => (Int8,  NullableVector{Int8}, false),
-    SQL_TINYINT        => (Int8,  NullableVector{Int8}, false),
-    SQL_BIGINT         => (Int64, NullableVector{Int64}, false),
-    SQL_BINARY         => (UInt8, NullableVector{Vector{UInt8}}, false),
-    SQL_VARBINARY      => (UInt8, NullableVector{Vector{UInt8}}, false),
-    SQL_LONGVARBINARY  => (UInt8, NullableVector{Vector{UInt8}}, true),
-    SQL_TYPE_DATE      => (SQLDate, NullableVector{SQLDate}, false),
-    SQL_TYPE_TIME      => (SQLTime, NullableVector{SQLTime}, false),
-    SQL_TYPE_TIMESTAMP => (SQLTimestamp, NullableVector{SQLTimestamp}, false),
-    SQL_SS_TIME2       => (SQLTime, NullableVector{SQLTime}, false),
-    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, NullableVector{SQLTimestamp}, false),
-    SQL_GUID           => (SQLGUID, NullableVector{SQLGUID}, false))
+    SQL_CHAR           => (SQLCHAR, Union{WeakRefString{SQLCHAR}, Null}, false),
+    SQL_VARCHAR        => (SQLCHAR, Union{WeakRefString{SQLCHAR}, Null}, false),
+    SQL_LONGVARCHAR    => (SQLCHAR, Union{String, Null}, true),
+    SQL_WCHAR          => (SQLWCHAR, Union{WeakRefString{SQLWCHAR}, Null}, false),
+    SQL_WVARCHAR       => (SQLWCHAR, Union{WeakRefString{SQLWCHAR}, Null}, false),
+    SQL_WLONGVARCHAR   => (SQLWCHAR, Union{String, Null}, true),
+    SQL_DECIMAL        => (SQLCHAR, Union{Dec64, Null}, false),
+    SQL_NUMERIC        => (SQLCHAR, Union{Dec64, Null}, false),
+    SQL_SMALLINT       => (SQLSMALLINT, Union{SQLSMALLINT, Null}, false),
+    SQL_INTEGER        => (SQLINTEGER,  Union{SQLINTEGER, Null}, false),
+    SQL_REAL           => (SQLREAL,   Union{SQLREAL, Null}, false),
+    SQL_FLOAT          => (SQLFLOAT,  Union{SQLFLOAT, Null}, false),
+    SQL_DOUBLE         => (SQLDOUBLE, Union{SQLDOUBLE, Null}, false),
+    SQL_BIT            => (Int8,  Union{Int8, Null}, false),
+    SQL_TINYINT        => (Int8,  Union{Int8, Null}, false),
+    SQL_BIGINT         => (Int64, Union{Int64, Null}, false),
+    SQL_BINARY         => (UInt8, Union{Vector{UInt8}, Null}, false),
+    SQL_VARBINARY      => (UInt8, Union{Vector{UInt8}, Null}, false),
+    SQL_LONGVARBINARY  => (UInt8, Union{Vector{UInt8}, Null}, true),
+    SQL_TYPE_DATE      => (SQLDate, Union{SQLDate, Null}, false),
+    SQL_TYPE_TIME      => (SQLTime, Union{SQLTime, Null}, false),
+    SQL_TYPE_TIMESTAMP => (SQLTimestamp, Union{SQLTimestamp, Null}, false),
+    SQL_SS_TIME2       => (SQLTime, Union{SQLTime, Null}, false),
+    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, Union{SQLTimestamp, Null}, false),
+    SQL_GUID           => (SQLGUID, Union{SQLGUID, Null}, false))
 
 "Convenience mapping of SQL types to their string representation"
 const SQL_TYPES = Dict(

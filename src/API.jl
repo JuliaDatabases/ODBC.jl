@@ -24,7 +24,7 @@ Contents
 """
 module API
 
-using NullableArrays, WeakRefStrings
+using Nulls, WeakRefStrings
 
 include("types.jl")
 
@@ -54,7 +54,7 @@ const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
                            SQL_STILL_EXECUTING => "SQL_STILL_EXECUTING")
 
 macro odbc(func,args,vals...)
-    if is_windows()
+    if Sys.iswindows()
         esc(quote
             ret = ccall( ($func, odbc_dm), stdcall, SQLRETURN, $args, $(vals...))
         end)
@@ -143,7 +143,7 @@ const SQL_TRUE = 1
 const SQL_FALSE = 0
 
 #Status: Tested on Windows, Linux, Mac 32/64-bit
-function SQLSetEnvAttr{T<:Union{Int,UInt}}(env_handle::Ptr{Void}, attribute::Int, value::T)
+function SQLSetEnvAttr(env_handle::Ptr{Void}, attribute::Int, value::T) where {T<:Union{Int,UInt}}
     @odbc(:SQLSetEnvAttr,
                 (Ptr{Void}, Int, T, Int), env_handle, attribute, value, 0)
 end
@@ -245,7 +245,7 @@ const SQL_ATTR_CONNECTION_DEAD = 1209
 const SQL_CD_TRUE = 1
 const SQL_CD_FALSE = 0
 #Status:
-function SQLGetConnectAttr{T,N}(dbc::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1})
+function SQLGetConnectAttr(dbc::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
     @odbc(:SQLGetConnectAttrW,
                 (Ptr{Void},Int,Ptr{T},Int,Ptr{Int}),
                 dbc,attribute,value,sizeof(T)*N,bytes_returned)
@@ -258,6 +258,12 @@ end
 const SQL_ATTR_ROW_STATUS_PTR = 25
 const SQL_ATTR_ROWS_FETCHED_PTR  = 26
 const SQL_ATTR_ROW_ARRAY_SIZE = 27
+const SQL_ATTR_CURSOR_TYPE = 6
+const SQL_ATTR_CURSOR_SCROLLABLE = -1
+const SQL_NONSCROLLABLE = 0
+const SQL_SCROLLABLE = 1
+const SQL_CURSOR_DYNAMIC = UInt(2)
+const SQL_CURSOR_STATIC = UInt(3)
 #this sets the rowset size for ExtendedFetch and FetchScroll
 #Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
 #Status:
@@ -275,7 +281,7 @@ end
 
 
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms715438(v=vs.85).aspx"
-function SQLGetStmtAttr{T,N}(stmt::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1})
+function SQLGetStmtAttr(stmt::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
     @odbc(:SQLGetStmtAttrW,
                 (Ptr{Void},Int,Ptr{T},Int,Ptr{Int}),
                 stmt,attribute,value,sizeof(T)*N,bytes_returned)
@@ -300,17 +306,17 @@ function SQLFreeStmt(stmt::Ptr{Void},param::UInt16)
 end
 
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms713560(v=vs.85).aspx"
-function SQLSetDescField{T,N}(desc::Ptr{Void},i::Int16,field_id::Int16,value::Array{T,N},value_length::Array{Int,1})
+function SQLSetDescField(desc::Ptr{Void},i::Int16,field_id::Int16,value::Array{T,N}) where {T,N}
     @odbc(:SQLSetDescFieldW,
                 (Ptr{Void},Int16,Int16,Ptr{T},Int),
-                desc,field_id,value,value_length)
+                desc,i,field_id,value,length(value))
 end
 
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms716370(v=vs.85).aspx"
-function SQLGetDescField{T,N}(desc::Ptr{Void},i::Int16,attribute::Int16,value::Array{T,N},bytes_returned::Array{Int,1})
+function SQLGetDescField(desc::Ptr{Void},i::Int16,attribute::Int16,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
     @odbc(:SQLGetDescFieldW,
                 (Ptr{Void},Int16,Int16,Ptr{T},Int,Ptr{Int}),
-                desc,attribute,value,sizeof(T)*N,bytes_returned)
+                desc,i,attribute,value,sizeof(T)*N,bytes_returned)
 end
 
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms710921(v=vs.85).aspx"
@@ -387,7 +393,7 @@ end
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms711681(v=vs.85).aspx"
 #Description:
 #Status:
-function SQLGetInfo{T,N}(dbc::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1})
+function SQLGetInfo(dbc::Ptr{Void},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
     @odbc(:SQLGetInfoW,
                 (Ptr{Void},Int,Ptr{T},Int,Ptr{Int}),
                 dbc,attribute,value,sizeof(T)*N,bytes_returned)
@@ -417,7 +423,7 @@ function SQLGetTypeInfo(stmt::Ptr{Void},sqltype::Int16)
 end
 
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms713824(v=vs.85).aspx"
-function SQLPutData{T}(stmt::Ptr{Void},data::Array{T},data_length::Int)
+function SQLPutData(stmt::Ptr{Void},data::Array{T},data_length::Int) where {T}
     @odbc(:SQLPutData,
                 (Ptr{Void},Ptr{T},Int),
                 stmt,data,data_length)
@@ -588,7 +594,7 @@ const SQL_LOCK_NO_CHANGE = UInt16(0) #SQLSetPos
 const SQL_LOCK_EXCLUSIVE = UInt16(1) #SQLSetPos
 const SQL_LOCK_UNLOCK = UInt16(2) #SQLSetPos
 #Status
-function SQLSetPos{T}(stmt::Ptr{Void},rownumber::T,operation::UInt16,lock_type::UInt16)
+function SQLSetPos(stmt::Ptr{Void},rownumber::T,operation::UInt16,lock_type::UInt16) where {T}
     @odbc(:SQLSetPos,
                 (Ptr{Void},T,UInt16,UInt16),
                 stmt,rownumber,operation,lock_type)

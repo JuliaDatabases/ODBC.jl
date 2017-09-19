@@ -1,6 +1,6 @@
 import Base: LineEdit, REPL
 
-type SQLCompletionProvider <: LineEdit.CompletionProvider
+mutable struct SQLCompletionProvider <: LineEdit.CompletionProvider
     l::REPL.LineEditREPL
 end
 
@@ -22,7 +22,7 @@ function evaluate_sql(s::String)
     try
         odbcdf = ODBC.query(dsn, s)
     catch e
-        print(STDOUT, "error during sql evaluation: ", e)
+        println(STDOUT, "error during sql evaluation: ", e)
         return nothing
     end
     println(STDOUT, odbcdf)
@@ -53,7 +53,7 @@ function setup_repl(enabled::Bool)
                                  pass_empty = false)
     panel.complete = nothing
 
-    const sql_keymap = Dict{Any,Any}(
+    sql_keymap = Dict{Any,Any}(
         ']' =>
             function (s,args...)
                 if isempty(s) || position(LineEdit.buffer(s)) == 0
