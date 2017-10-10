@@ -1,4 +1,4 @@
-using DecFP, Nulls
+using DecFP, Nulls, WeakRefStrings
 
 # Link to ODBC Driver Manager (system-dependent)
 let

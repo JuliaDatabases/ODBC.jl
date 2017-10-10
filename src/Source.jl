@@ -35,7 +35,7 @@ end
 cast(x) = x
 cast(x::Date) = ODBC.API.SQLDate(x)
 cast(x::DateTime) = ODBC.API.SQLTimestamp(x)
-cast(x::String) = WeakRefString(pointer(Vector{UInt8}(x)), length(x))
+cast(x::String) = WeakRefString(pointer(x), sizeof(x))
 
 getpointer(::Type{T}, A, i) where {T} = unsafe_load(Ptr{Ptr{Void}}(pointer(A, i)))
 getpointer(::Type{WeakRefString{T}}, A, i) where {T} = convert(Ptr{Void}, A[i].ptr)
@@ -50,7 +50,7 @@ sqllength(x::Union{ODBC.API.SQLTime,ODBC.API.SQLTimestamp}) = length(string(x))
 clength(x) = 1
 clength(x::AbstractString) = length(x)
 clength(x::Vector{UInt8}) = length(x)
-clength(x::WeakRefString{T}) where {T} = codeunits2bytes(T, length(x))
+clength(x::WeakRefString{T}) where {T} = codeunits2bytes(T, x.len)
 clength(x::CategoricalArrays.CategoricalValue) = length(String(x))
 clength(x::Null) = ODBC.API.SQL_NULL_DATA
 
