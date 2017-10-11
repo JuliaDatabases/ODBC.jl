@@ -197,7 +197,6 @@ end
 
 # decimal/numeric and binary types
 using DecFP
-const DECZERO = Dec64(0)
 
 cast(::Type{Dec64}, arr, cur, ind) = ind <= 0 ? DECZERO : parse(Dec64, String(unsafe_wrap(Array, pointer(arr, cur), ind)))
 
