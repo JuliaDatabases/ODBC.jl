@@ -264,7 +264,7 @@ function cast!(::Type{Union{WeakRefString{T}, Null}}, source, col) where {T}
     resize!(c, len)
     empty!(c.data)
     data = copy(source.boundcols[col])
-    push!(c.data, reinterpret(UInt8, data, (sizeof(data),)))
+    push!(c.data, data)
     cur = 1
     elsize = source.sizes[col] + 1
     inds = source.indcols[col]
