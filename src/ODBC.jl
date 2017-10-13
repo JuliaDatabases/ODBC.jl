@@ -180,7 +180,7 @@ include("sqlreplmode.jl")
 
 function __init__()
     global const ENV = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
-    const DECZERO = Dec64(0)
+    global const DECZERO = Dec64(0)
     toggle_sql_repl()
 end
 
