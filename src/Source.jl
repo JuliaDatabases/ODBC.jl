@@ -165,7 +165,7 @@ end
 
 # primitive types
 allocate(::Type{T}) where {T} = Vector{T}(0)
-allocate(::Type{T}) where {T <: Union{WeakRefString, Null}} = WeakRefStringArray(UInt8[], T, 0)
+allocate(::Type{Union{Null, WeakRefString{T}}}) where {T} = WeakRefStringArray(UInt8[], Union{Null, WeakRefString{T}}, 0)
 
 internal_allocate(::Type{T}, rowset, size) where {T} = Vector{T}(rowset), sizeof(T)
 # string/binary types
