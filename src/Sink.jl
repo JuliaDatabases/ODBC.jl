@@ -30,23 +30,23 @@ end
 Data.streamtypes(::Type{ODBC.Sink}) = [Data.Column]
 
 prep!(T, A) = A, 0
-prep!(::Type{Union{T, Null}}, A) where {T} = T[ifelse(isnull(x), zero(T), x) for x in A]
-prep!(::Type{Union{Date, Null}}, A) = ODBC.API.SQLDate[isnull(x) ? ODBC.API.SQLDate() : ODBC.API.SQLDate(x) for x in A], 0
-prep!(::Type{Union{DateTime, Null}}, A) = ODBC.API.SQLTimestamp[isnull(x) ? ODBC.API.SQLTimestamp() : ODBC.API.SQLTimestamp(x) for x in A], 0
-prep!(::Type{Union{Dec64, Null}}, A) = Float64[isnull(x) ? 0.0 : Float64(x) for x in A], 0
+prep!(::Type{Union{T, Missing}}, A) where {T} = T[ifelse(isnull(x), zero(T), x) for x in A]
+prep!(::Type{Union{Date, Missing}}, A) = ODBC.API.SQLDate[isnull(x) ? ODBC.API.SQLDate() : ODBC.API.SQLDate(x) for x in A], 0
+prep!(::Type{Union{DateTime, Missing}}, A) = ODBC.API.SQLTimestamp[isnull(x) ? ODBC.API.SQLTimestamp() : ODBC.API.SQLTimestamp(x) for x in A], 0
+prep!(::Type{Union{Dec64, Missing}}, A) = Float64[isnull(x) ? 0.0 : Float64(x) for x in A], 0
 
 getptrlen(x::AbstractString) = pointer(Vector{UIn8}(x)), length(x), UInt8[]
 getptrlen(x::WeakRefString{T}) where {T} = convert(Ptr{UInt8}, x.ptr), codeunits2bytes(T, x.len), UInt8[]
-getptrlen(x::Null) = convert(Ptr{UInt8}, C_NULL), 0, UInt8[]
+getptrlen(x::Missing) = convert(Ptr{UInt8}, C_NULL), 0, UInt8[]
 function getptrlen(x::CategoricalArrays.CategoricalValue)
     ref = Vector{UInt8}(String(x))
     return pointer(ref), length(ref), ref
 end
 
 prep!(::Type{T}, A) where {T <: AbstractString} = _prep!(T, A)
-prep!(::Type{Union{T, Null}}, A) where {T <: AbstractString} = _prep!(T, A)
+prep!(::Type{Union{T, Missing}}, A) where {T <: AbstractString} = _prep!(T, A)
 prep!(::Type{T}, A) where {T <: CategoricalValue} = _prep!(T, A)
-prep!(::Type{Union{T, Null}}, A) where {T <: CategoricalValue} = _prep!(T, A)
+prep!(::Type{Union{T, Missing}}, A) where {T <: CategoricalValue} = _prep!(T, A)
 
 function _prep!(T, column)
     maxlen = maximum(ODBC.clength, column)
@@ -67,9 +67,9 @@ function prep!(column::T, col, columns, indcols) where {T}
 end
 
 getCtype(::Type{T}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
-getCtype(::Type{Union{T, Null}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype(::Type{Union{T, Missing}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 getCtype(::Type{Vector{T}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
-getCtype(::Type{Vector{Union{T, Null}}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
+getCtype(::Type{Vector{Union{T, Missing}}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 
 function Data.streamto!(sink::ODBC.Sink, ::Type{Data.Column}, column::T, col) where {T}
     stmt = sink.dsn.stmt_ptr2

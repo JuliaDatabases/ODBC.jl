@@ -1,4 +1,4 @@
-using DecFP, Nulls, WeakRefStrings
+using DecFP, Missings, WeakRefStrings
 
 # Link to ODBC Driver Manager (system-dependent)
 let
@@ -412,31 +412,31 @@ The 3rd `Bool` value indicates whether the column is a LONGTEXT or LONGBINARY SQ
 tend to require special result-handling rules.
 """
 const SQL2Julia = Dict(
-    SQL_CHAR           => (SQLCHAR, Union{WeakRefString{SQLCHAR}, Null}, false),
-    SQL_VARCHAR        => (SQLCHAR, Union{WeakRefString{SQLCHAR}, Null}, false),
-    SQL_LONGVARCHAR    => (SQLCHAR, Union{String, Null}, true),
-    SQL_WCHAR          => (SQLWCHAR, Union{WeakRefString{SQLWCHAR}, Null}, false),
-    SQL_WVARCHAR       => (SQLWCHAR, Union{WeakRefString{SQLWCHAR}, Null}, false),
-    SQL_WLONGVARCHAR   => (SQLWCHAR, Union{String, Null}, true),
-    SQL_DECIMAL        => (SQLCHAR, Union{Dec64, Null}, false),
-    SQL_NUMERIC        => (SQLCHAR, Union{Dec64, Null}, false),
-    SQL_SMALLINT       => (SQLSMALLINT, Union{SQLSMALLINT, Null}, false),
-    SQL_INTEGER        => (SQLINTEGER,  Union{SQLINTEGER, Null}, false),
-    SQL_REAL           => (SQLREAL,   Union{SQLREAL, Null}, false),
-    SQL_FLOAT          => (SQLFLOAT,  Union{SQLFLOAT, Null}, false),
-    SQL_DOUBLE         => (SQLDOUBLE, Union{SQLDOUBLE, Null}, false),
-    SQL_BIT            => (Int8,  Union{Int8, Null}, false),
-    SQL_TINYINT        => (Int8,  Union{Int8, Null}, false),
-    SQL_BIGINT         => (Int64, Union{Int64, Null}, false),
-    SQL_BINARY         => (UInt8, Union{Vector{UInt8}, Null}, false),
-    SQL_VARBINARY      => (UInt8, Union{Vector{UInt8}, Null}, false),
-    SQL_LONGVARBINARY  => (UInt8, Union{Vector{UInt8}, Null}, true),
-    SQL_TYPE_DATE      => (SQLDate, Union{SQLDate, Null}, false),
-    SQL_TYPE_TIME      => (SQLTime, Union{SQLTime, Null}, false),
-    SQL_TYPE_TIMESTAMP => (SQLTimestamp, Union{SQLTimestamp, Null}, false),
-    SQL_SS_TIME2       => (SQLTime, Union{SQLTime, Null}, false),
-    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, Union{SQLTimestamp, Null}, false),
-    SQL_GUID           => (SQLGUID, Union{SQLGUID, Null}, false))
+    SQL_CHAR           => (SQLCHAR, Union{WeakRefString{SQLCHAR}, Missing}, false),
+    SQL_VARCHAR        => (SQLCHAR, Union{WeakRefString{SQLCHAR}, Missing}, false),
+    SQL_LONGVARCHAR    => (SQLCHAR, Union{String, Missing}, true),
+    SQL_WCHAR          => (SQLWCHAR, Union{WeakRefString{SQLWCHAR}, Missing}, false),
+    SQL_WVARCHAR       => (SQLWCHAR, Union{WeakRefString{SQLWCHAR}, Missing}, false),
+    SQL_WLONGVARCHAR   => (SQLWCHAR, Union{String, Missing}, true),
+    SQL_DECIMAL        => (SQLCHAR, Union{Dec64, Missing}, false),
+    SQL_NUMERIC        => (SQLCHAR, Union{Dec64, Missing}, false),
+    SQL_SMALLINT       => (SQLSMALLINT, Union{SQLSMALLINT, Missing}, false),
+    SQL_INTEGER        => (SQLINTEGER,  Union{SQLINTEGER, Missing}, false),
+    SQL_REAL           => (SQLREAL,   Union{SQLREAL, Missing}, false),
+    SQL_FLOAT          => (SQLFLOAT,  Union{SQLFLOAT, Missing}, false),
+    SQL_DOUBLE         => (SQLDOUBLE, Union{SQLDOUBLE, Missing}, false),
+    SQL_BIT            => (Int8,  Union{Int8, Missing}, false),
+    SQL_TINYINT        => (Int8,  Union{Int8, Missing}, false),
+    SQL_BIGINT         => (Int64, Union{Int64, Missing}, false),
+    SQL_BINARY         => (UInt8, Union{Vector{UInt8}, Missing}, false),
+    SQL_VARBINARY      => (UInt8, Union{Vector{UInt8}, Missing}, false),
+    SQL_LONGVARBINARY  => (UInt8, Union{Vector{UInt8}, Missing}, true),
+    SQL_TYPE_DATE      => (SQLDate, Union{SQLDate, Missing}, false),
+    SQL_TYPE_TIME      => (SQLTime, Union{SQLTime, Missing}, false),
+    SQL_TYPE_TIMESTAMP => (SQLTimestamp, Union{SQLTimestamp, Missing}, false),
+    SQL_SS_TIME2       => (SQLTime, Union{SQLTime, Missing}, false),
+    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, Union{SQLTimestamp, Missing}, false),
+    SQL_GUID           => (SQLGUID, Union{SQLGUID, Missing}, false))
 
 "Convenience mapping of SQL types to their string representation"
 const SQL_TYPES = Dict(

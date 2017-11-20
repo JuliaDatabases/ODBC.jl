@@ -1,7 +1,7 @@
 __precompile__(true)
 module ODBC
 
-using DataStreams, Nulls, CategoricalArrays, WeakRefStrings, DataFrames
+using DataStreams, Missings, CategoricalArrays, WeakRefStrings, DataFrames
 
 export Data, DataFrame, odbcdf
 

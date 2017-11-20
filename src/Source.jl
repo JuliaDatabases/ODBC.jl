@@ -52,7 +52,7 @@ clength(x::AbstractString) = length(x)
 clength(x::Vector{UInt8}) = length(x)
 clength(x::WeakRefString{T}) where {T} = codeunits2bytes(T, x.len)
 clength(x::CategoricalArrays.CategoricalValue) = length(String(x))
-clength(x::Null) = ODBC.API.SQL_NULL_DATA
+clength(x::Missing) = ODBC.API.SQL_NULL_DATA
 
 digits(x) = 0
 digits(x::ODBC.API.SQLTimestamp) = length(string(x.fraction * 1000000))
@@ -117,18 +117,18 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
     longtext = false
     #Allocate space for and fetch the name, type, size, etc. for each column
     len, dt, csize = Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLULEN}()
-    digits, null = Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLSMALLINT}()
+    digits, missing = Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLSMALLINT}()
     cname = ODBC.Block(ODBC.API.SQLWCHAR, ODBC.BUFLEN)
     for x = 1:cols
-        ODBC.API.SQLDescribeCol(stmt, x, cname.ptr, ODBC.BUFLEN, len, dt, csize, digits, null)
+        ODBC.API.SQLDescribeCol(stmt, x, cname.ptr, ODBC.BUFLEN, len, dt, csize, digits, missing)
         cnames[x] = string(cname, len[])
         t = dt[]
-        ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], null[]
+        ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], missing[]
         alloctypes[x], juliatypes[x], longtexts[x] = ODBC.API.SQL2Julia[t]
         longtext |= longtexts[x]
     end
     if !weakrefstrings
-        foreach(i->juliatypes[i] <: Union{WeakRefString, Null} && setindex!(juliatypes, Union{String, Null}, i), 1:length(juliatypes))
+        foreach(i->juliatypes[i] <: Union{WeakRefString, Missing} && setindex!(juliatypes, Union{String, Missing}, i), 1:length(juliatypes))
     end
     # Determine fetch strategy
     # rows might be -1 (dbms doesn't return total rows in resultset), 0 (empty resultset), or 1+
@@ -165,7 +165,7 @@ end
 
 # primitive types
 allocate(::Type{T}) where {T} = Vector{T}(0)
-allocate(::Type{Union{Null, WeakRefString{T}}}) where {T} = WeakRefStringArray(UInt8[], Union{Null, WeakRefString{T}}, 0)
+allocate(::Type{Union{Missing, WeakRefString{T}}}) where {T} = WeakRefStringArray(UInt8[], Union{Missing, WeakRefString{T}}, 0)
 
 internal_allocate(::Type{T}, rowset, size) where {T} = Vector{T}(rowset), sizeof(T)
 # string/binary types
@@ -190,7 +190,7 @@ function cast!(::Type{T}, source, col) where {T}
     ind = source.indcols[col]
     data = source.boundcols[col]
     @simd for i = 1:len
-        @inbounds c[i] = ifelse(ind[i] == ODBC.API.SQL_NULL_DATA, null, data[i])
+        @inbounds c[i] = ifelse(ind[i] == ODBC.API.SQL_NULL_DATA, missing, data[i])
     end
     return c
 end
@@ -200,7 +200,7 @@ using DecFP
 
 cast(::Type{Dec64}, arr, cur, ind) = ind <= 0 ? DECZERO : parse(Dec64, String(unsafe_wrap(Array, pointer(arr, cur), ind)))
 
-function cast!(::Type{Union{Dec64, Null}}, source, col)
+function cast!(::Type{Union{Dec64, Missing}}, source, col)
     len = source.rowsfetched[]
     c = source.columns[col]
     resize!(c, len)
@@ -209,7 +209,7 @@ function cast!(::Type{Union{Dec64, Null}}, source, col)
     inds = source.indcols[col]
     @inbounds for i = 1:len
         ind = inds[i]
-        c[i] = ind == ODBC.API.SQL_NULL_DATA ? null : cast(Dec64, source.boundcols[col], cur, ind)
+        c[i] = ind == ODBC.API.SQL_NULL_DATA ? missing : cast(Dec64, source.boundcols[col], cur, ind)
         cur += elsize
     end
     return c
@@ -217,7 +217,7 @@ end
 
 cast(::Type{Vector{UInt8}}, arr, cur, ind) = arr[cur:(cur + max(ind, 0) - 1)]
 
-function cast!(::Type{Union{Vector{UInt8}, Null}}, source, col)
+function cast!(::Type{Union{Vector{UInt8}, Missing}}, source, col)
     len = source.rowsfetched[]
     c = source.columns[col]
     resize!(c, len)
@@ -226,7 +226,7 @@ function cast!(::Type{Union{Vector{UInt8}, Null}}, source, col)
     inds = source.indcols[col]
     @inbounds for i = 1:len
         ind = inds[i]
-        c[i] = ind == ODBC.API.SQL_NULL_DATA ? null : cast(Vector{UInt8}, source.boundcols[col], cur, ind)
+        c[i] = ind == ODBC.API.SQL_NULL_DATA ? missing : cast(Vector{UInt8}, source.boundcols[col], cur, ind)
         cur += elsize
     end
     return c
@@ -240,7 +240,7 @@ codeunits2bytes(::Type{UInt8},  bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA,
 codeunits2bytes(::Type{UInt16}, bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes * 2))
 codeunits2bytes(::Type{UInt32}, bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes * 4))
 
-function cast!(::Type{Union{String, Null}}, source, col)
+function cast!(::Type{Union{String, Missing}}, source, col)
     len = source.rowsfetched[]
     c = source.columns[col]
     resize!(c, len)
@@ -252,13 +252,13 @@ function cast!(::Type{Union{String, Null}}, source, col)
     @inbounds for i in 1:len
         ind = inds[i]
         length = ODBC.bytes2codeunits(T, max(ind, 0))
-        c[i] = ind == ODBC.API.SQL_NULL_DATA ? null : (length == 0 ? "" : String(transcode(UInt8, data[cur:(cur + length - 1)])))
+        c[i] = ind == ODBC.API.SQL_NULL_DATA ? missing : (length == 0 ? "" : String(transcode(UInt8, data[cur:(cur + length - 1)])))
         cur += elsize
     end
     return c
 end
 
-function cast!(::Type{Union{WeakRefString{T}, Null}}, source, col) where {T}
+function cast!(::Type{Union{WeakRefString{T}, Missing}}, source, col) where {T}
     len = source.rowsfetched[]
     c = source.columns[col]
     resize!(c, len)
@@ -272,7 +272,7 @@ function cast!(::Type{Union{WeakRefString{T}, Null}}, source, col) where {T}
     @inbounds for i = 1:len
         ind = inds[i]
         length = ODBC.bytes2codeunits(T, max(ind, 0))
-        c[i] = ind == ODBC.API.SQL_NULL_DATA ? null : (length == 0 ? EMPTY : WeakRefString{T}(pointer(data, cur), length))
+        c[i] = ind == ODBC.API.SQL_NULL_DATA ? missing : (length == 0 ? EMPTY : WeakRefString{T}(pointer(data, cur), length))
         cur += elsize
     end
     return c
@@ -281,7 +281,7 @@ end
 # long types
 const LONG_DATA_BUFFER_SIZE = 1024
 
-function cast!(::Type{ODBC.API.Long{Union{T, Null}}}, source, col) where {T}
+function cast!(::Type{ODBC.API.Long{Union{T, Missing}}}, source, col) where {T}
     stmt = source.dsn.stmt_ptr
     eT = eltype(source.boundcols[col])
     data = eT[]
@@ -299,7 +299,7 @@ function cast!(::Type{ODBC.API.Long{Union{T, Null}}}, source, col) where {T}
     end
     c = source.columns[col]
     resize!(c, 1)
-    c[1] = isnull ? null : T(transcode(UInt8, data))
+    c[1] = isnull ? missing : T(transcode(UInt8, data))
     return c
 end
 
@@ -318,8 +318,8 @@ end
 Data.streamtype(::Type{ODBC.Source}, ::Type{Data.Column}) = true
 Data.streamtype(::Type{ODBC.Source}, ::Type{Data.Field}) = true
 
-function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T, Null}}, row, col) where {T}
-    val = source.columns[col][row - source.rowoffset]::Union{T, Null}
+function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T, Missing}}, row, col) where {T}
+    val = source.columns[col][row - source.rowoffset]::Union{T, Missing}
     if col == length(source.columns) && (row - source.rowoffset) == source.rowsfetched[] && !Data.isdone(source)
         ODBC.fetch!(source)
         for i = 1:col
@@ -330,7 +330,7 @@ function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T
     return val
 end
 
-function Data.streamfrom(source::ODBC.Source, ::Type{Data.Column}, ::Type{Union{T, Null}}, row, col) where {T}
+function Data.streamfrom(source::ODBC.Source, ::Type{Data.Column}, ::Type{Union{T, Missing}}, row, col) where {T}
     dest = cast!(source.jltypes[col], source, col)
     if col == length(source.columns) && !Data.isdone(source)
         ODBC.fetch!(source)
