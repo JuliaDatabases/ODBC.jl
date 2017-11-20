@@ -30,10 +30,10 @@ end
 Data.streamtypes(::Type{ODBC.Sink}) = [Data.Column]
 
 prep!(T, A) = A, 0
-prep!(::Type{Union{T, Missing}}, A) where {T} = T[ifelse(isnull(x), zero(T), x) for x in A]
-prep!(::Type{Union{Date, Missing}}, A) = ODBC.API.SQLDate[isnull(x) ? ODBC.API.SQLDate() : ODBC.API.SQLDate(x) for x in A], 0
-prep!(::Type{Union{DateTime, Missing}}, A) = ODBC.API.SQLTimestamp[isnull(x) ? ODBC.API.SQLTimestamp() : ODBC.API.SQLTimestamp(x) for x in A], 0
-prep!(::Type{Union{Dec64, Missing}}, A) = Float64[isnull(x) ? 0.0 : Float64(x) for x in A], 0
+prep!(::Type{Union{T, Missing}}, A) where {T} = T[ifelse(ismissing(x), zero(T), x) for x in A]
+prep!(::Type{Union{Date, Missing}}, A) = ODBC.API.SQLDate[ismissing(x) ? ODBC.API.SQLDate() : ODBC.API.SQLDate(x) for x in A], 0
+prep!(::Type{Union{DateTime, Missing}}, A) = ODBC.API.SQLTimestamp[ismissing(x) ? ODBC.API.SQLTimestamp() : ODBC.API.SQLTimestamp(x) for x in A], 0
+prep!(::Type{Union{Dec64, Missing}}, A) = Float64[ismissing(x) ? 0.0 : Float64(x) for x in A], 0
 
 getptrlen(x::AbstractString) = pointer(Vector{UIn8}(x)), length(x), UInt8[]
 getptrlen(x::WeakRefString{T}) where {T} = convert(Ptr{UInt8}, x.ptr), codeunits2bytes(T, x.len), UInt8[]
