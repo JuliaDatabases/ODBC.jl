@@ -25,6 +25,7 @@ Contents
 module API
 
 using WeakRefStrings
+import Compat: @__MODULE__, Sys
 
 if VERSION < v"0.7.0-DEV.2575"
     const Dates = Base.Dates

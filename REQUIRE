@@ -5,4 +5,4 @@ CategoricalArrays 0.2
 WeakRefStrings 0.3.0
 DecFP 0.3.0
 Missings
-Compat 0.26
+Compat 0.27

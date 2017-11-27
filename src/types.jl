@@ -1,5 +1,4 @@
 using DecFP, Missings, WeakRefStrings
-import Compat: @__MODULE__
 
 # Link to ODBC Driver Manager (system-dependent)
 let
