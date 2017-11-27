@@ -33,8 +33,8 @@ function prepare(dsn::DSN, query::AbstractString)
 end
 
 cast(x) = x
-cast(x::Date) = ODBC.API.SQLDate(x)
-cast(x::DateTime) = ODBC.API.SQLTimestamp(x)
+cast(x::Dates.Date) = ODBC.API.SQLDate(x)
+cast(x::Dates.DateTime) = ODBC.API.SQLTimestamp(x)
 cast(x::String) = WeakRefString(pointer(x), sizeof(x))
 
 getpointer(::Type{T}, A, i) where {T} = unsafe_load(Ptr{Ptr{Void}}(pointer(A, i)))
@@ -63,7 +63,7 @@ function execute!(statement::Statement, values)
     pointers = Ptr[]
     types = map(typeof, values2)
     for (i, v) in enumerate(values2)
-        if isnull(v)
+        if ismissing(v)
             ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBindParameter(stmt, i, ODBC.API.SQL_PARAM_INPUT,
                 ODBC.API.SQL_C_CHAR, ODBC.API.SQL_CHAR, 0, 0, C_NULL, 0, Ref(ODBC.API.SQL_NULL_DATA))
         else
@@ -152,7 +152,7 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
             ODBC.API.SQLBindCols(stmt, x, ODBC.API.SQL2C[ctypes[x]], pointer(boundcols[x]), elsize, indcols[x])
         end
     end
-    columns = ((allocate(T) for T in juliatypes)...)
+    columns = ((allocate(T) for T in juliatypes)...,)
     schema = Data.Schema(juliatypes, cnames, rows,
         Dict("types"=>[ODBC.API.SQL_TYPES[c] for c in ctypes], "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
     rowsfetched = Ref{ODBC.API.SQLLEN}() # will be populated by call to SQLFetchScroll

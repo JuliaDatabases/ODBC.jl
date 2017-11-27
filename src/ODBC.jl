@@ -5,6 +5,12 @@ using DataStreams, Missings, CategoricalArrays, WeakRefStrings, DataFrames
 
 export Data, DataFrame, odbcdf
 
+if VERSION < v"0.7.0-DEV.2575"
+    const Dates = Base.Dates
+else
+    import Dates
+end
+
 include("API.jl")
 
 "just a block of memory; T is the element type, `len` is total # of **bytes** pointed to, and `elsize` is size of each element"

@@ -26,6 +26,12 @@ module API
 
 using WeakRefStrings
 
+if VERSION < v"0.7.0-DEV.2575"
+    const Dates = Base.Dates
+else
+    import Dates
+end
+
 include("types.jl")
 
 #### Macros and Utility Functions ####

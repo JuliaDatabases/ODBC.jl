@@ -257,12 +257,12 @@ struct SQLDate <: Dates.AbstractTime
 end
 
 Base.show(io::IO,x::SQLDate) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))")
-SQLDate(x::Date) = SQLDate(Dates.yearmonthday(x)...)
+SQLDate(x::Dates.Date) = SQLDate(Dates.yearmonthday(x)...)
 SQLDate() = SQLDate(0,0,0)
 import Base: ==
-==(x::SQLDate, y::Date) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
-==(y::Date, x::SQLDate) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
-Base.Date(x::SQLDate) = Date(x.year, x.month, x.day)
+==(x::SQLDate, y::Dates.Date) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
+==(y::Dates.Date, x::SQLDate) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
+Dates.Date(x::SQLDate) = Dates.Date(x.year, x.month, x.day)
 
 struct SQLTime <: Dates.AbstractTime
     hour::Int16
@@ -284,18 +284,18 @@ struct SQLTimestamp <: Dates.AbstractTime
 end
 
 Base.show(io::IO,x::SQLTimestamp) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))T$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))$(x.fraction == 0 ? "" : strip(@sprintf("%.9f",x.fraction/1e+9),'0'))")
-function SQLTimestamp(x::DateTime)
+function SQLTimestamp(x::Dates.DateTime)
     y, m, d = Dates.yearmonthday(x)
     h, mm, s = Dates.hour(x), Dates.minute(x), Dates.second(x)
     frac = div(Dates.millisecond(x), 1000000)
     return SQLTimestamp(y, m, d, h, mm, s, frac)
 end
 SQLTimestamp() = SQLTimestamp(0,0,0,0,0,0,0)
-==(x::SQLTimestamp, y::DateTime) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
+==(x::SQLTimestamp, y::Dates.DateTime) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
                                    x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
-==(y::DateTime, x::SQLTimestamp) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
+==(y::Dates.DateTime, x::SQLTimestamp) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
                                x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
-Base.DateTime(x::SQLTimestamp) = DateTime(x.year, x.month, x.day, x.hour, x.minute, x.second, x.fraction * 1000000)
+Dates.DateTime(x::SQLTimestamp) = Dates.DateTime(x.year, x.month, x.day, x.hour, x.minute, x.second, x.fraction * 1000000)
 
 const SQL_MAX_NUMERIC_LEN = 16
 struct SQLNumeric
@@ -373,8 +373,8 @@ const julia2SQL = Dict(
     Int64                 => SQL_BIGINT,
     Bool                  => SQL_BIT,
     Vector{UInt8}         => SQL_BINARY,
-    Date                  => SQL_TYPE_DATE,
-    DateTime              => SQL_TYPE_TIMESTAMP,
+    Dates.Date            => SQL_TYPE_DATE,
+    Dates.DateTime        => SQL_TYPE_TIMESTAMP,
     SQLDate               => SQL_TYPE_DATE,
     SQLTime               => SQL_TYPE_TIME,
     SQLTimestamp          => SQL_TYPE_TIMESTAMP
@@ -395,8 +395,8 @@ const julia2C = Dict(
     Int64                 => SQL_C_BIGINT,
     Bool                  => SQL_C_BIT,
     Vector{UInt8}         => SQL_C_BINARY,
-    Date                  => SQL_C_TYPE_DATE,
-    DateTime              => SQL_C_TYPE_TIMESTAMP,
+    Dates.Date            => SQL_C_TYPE_DATE,
+    Dates.DateTime        => SQL_C_TYPE_TIMESTAMP,
     SQLDate               => SQL_C_TYPE_DATE,
     SQLTime               => SQL_C_TYPE_TIME,
     SQLTimestamp          => SQL_C_TYPE_TIMESTAMP
