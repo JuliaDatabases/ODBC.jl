@@ -2,6 +2,7 @@ __precompile__(true)
 module ODBC
 
 using DataStreams, Missings, CategoricalArrays, WeakRefStrings, DataFrames
+import Compat: Sys
 
 export Data, DataFrame, odbcdf
 
