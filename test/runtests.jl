@@ -9,9 +9,13 @@ using Base.Test, ODBC, DataStreams, Missings, WeakRefStrings, DataFrames, DecFP
 
 run(`uname -a`)
 
-props = open(f->Dict(split(ln, ':') for ln in eachline(f)) , "/Users/jacobquinn/.tug/application.properties")
-RIG, server, port = map(strip, split(props["environment.subdomain"], '.'))[1], strip(props["routing.services.mysql.host"]), strip(props["routing.services.mysql.port"])
-dsn = ODBC.DSN("Driver={MySQL ODBC Driver}; user=domo; password=popchart; server=$server; port=$port;")
+dsn = if haskey(ENV, "ODBC_DSN")
+    ODBC.DSN(ENV["ODBC_DSN"])
+else
+    props = open(f->Dict(split(ln, ':') for ln in eachline(f)) , "/Users/jacobquinn/.tug/application.properties")
+    RIG, server, port = map(strip, split(props["environment.subdomain"], '.'))[1], strip(props["routing.services.mysql.host"]), strip(props["routing.services.mysql.port"])
+    ODBC.DSN("Driver={MySQL ODBC Driver}; user=domo; password=popchart; server=$server; port=$port;")
+end
 
 # dsn = ODBC.DSN("Driver=MySQL;uid=root")
 # dsn = ODBC.DSN("MySQL-test", "root", "")

@@ -22,6 +22,9 @@ services:
   - mysql
   - postgresql
 
+env:
+  - ODBC_DSN=MySQL-test
+
 before_install:
   - cp ./test/.odbcinst.ini $HOME
   - odbcinst -i -s -h -f ./test/mytest.odbc.ini
