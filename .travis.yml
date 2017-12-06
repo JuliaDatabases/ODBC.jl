@@ -18,6 +18,14 @@ julia:
   - 0.6
   - nightly
 
+env:
+  - ODBC_DSN=MySQL-test
+
+matrix:
+  fast_finish: true
+  allow_failures:
+    - julia: nightly
+
 services:
   - mysql
   - postgresql
@@ -26,6 +34,7 @@ before_install:
   - cp ./test/.odbcinst.ini $HOME
   - odbcinst -i -s -h -f ./test/mytest.odbc.ini
   - odbcinst -i -s -h -f ./test/pgtest.odbc.ini
+  - echo -e "\n[odbc]\nlocal-infile=1\n" >> $HOME/.my.cnf
 
 notifications:
   email: false
