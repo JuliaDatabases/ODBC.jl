@@ -115,7 +115,7 @@
         @test data[12][1] === ODBC.API.SQLDate(2016,1,1)
         @test data[13][1] === ODBC.API.SQLTimestamp(2016,1,1,1,1,1,0)
         @test data[14][1] === ODBC.API.SQLTimestamp(2016,1,1,1,1,1,0)
-        @test data[15][1] === ODBC.API.SQLTimestamp(2016,1,1,6,1,1,0)
+        @test_broken data[15][1] === ODBC.API.SQLTimestamp(2016,1,1,6,1,1,0)
         @test data[16][1] === ODBC.API.SQLTimestamp(2016,1,1,1,1,0,0)
         @test data[17][1] === ODBC.API.SQLTime(1,1,1)
         @test data[18][1] == "A"
