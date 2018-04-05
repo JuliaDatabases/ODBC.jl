@@ -139,8 +139,6 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
         allocsize = rowset = rows
     else
         rowset = allocsize = 1
-        # Set rows to 0 because -1 is an invalid number for the Data.Schema() rows parameter
-        rows = 0
     end
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rowset, ODBC.API.SQL_IS_UINTEGER)
     boundcols = Array{Any}(cols)
