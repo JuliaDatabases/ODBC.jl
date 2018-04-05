@@ -153,7 +153,7 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
         end
     end
     columns = ((allocate(T) for T in juliatypes)...,)
-    schema = Data.Schema(juliatypes, cnames, rows,
+    schema = Data.Schema(juliatypes, cnames, rows >= 0 ? rows : Missings.missing,
         Dict("types"=>[ODBC.API.SQL_TYPES[c] for c in ctypes], "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
     rowsfetched = Ref{ODBC.API.SQLLEN}() # will be populated by call to SQLFetchScroll
     ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROWS_FETCHED_PTR, rowsfetched, ODBC.API.SQL_NTS)
