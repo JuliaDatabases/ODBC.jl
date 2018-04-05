@@ -63,12 +63,12 @@
             Union{ODBC.API.SQLDate, Missing},
             Union{ODBC.API.SQLTimestamp, Missing},
             Union{ODBC.API.SQLTime, Missing},
-            Union{WeakRefStrings.WeakRefString{UInt8}, Missing},
-            Union{WeakRefStrings.WeakRefString{UInt8}, Missing},
-            Union{Array{UInt8,1}, Missing},
-            Union{WeakRefStrings.WeakRefString{UInt8}, Missing},
             Union{String, Missing},
-            Union{WeakRefStrings.WeakRefString{UInt8}, Missing},
+            Union{String, Missing},
+            Union{Array{UInt8,1}, Missing},
+            Union{String, Missing},
+            Union{String, Missing},
+            Union{String, Missing},
         )
         showall(data)
         ODBC.execute!(dsn, "drop table if exists test1")
