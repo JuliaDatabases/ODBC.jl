@@ -8,7 +8,7 @@ makedocs(
 )
 
 deploydocs(
-    repo = "github.com/JuliaDB/ODBC.jl.git",
+    repo = "github.com/JuliaDatabases/ODBC.jl.git",
     target = "build",
     deps = nothing,
     make = nothing,
