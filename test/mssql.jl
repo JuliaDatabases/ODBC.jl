@@ -76,30 +76,31 @@
         data = Data.stream!(source, Data.Table)
 
         @test size(Data.schema(data)) == (1,23)
-        @test Data.types(Data.schema(data)) ==
-        (Union{Int64, Missing},
-         Union{Int8, Missing},
-         Union{DecFP.Dec64, Missing},
-         Union{Int32, Missing},
-         Union{DecFP.Dec64, Missing},
-         Union{DecFP.Dec64, Missing},
-         Union{Int16, Missing},
-         Union{DecFP.Dec64, Missing},
-         Union{Int8, Missing},
-         Union{Float64, Missing},
-         Union{Float32, Missing},
-         Union{ODBC.API.SQLDate, Missing},
-         Union{ODBC.API.SQLTimestamp, Missing},
-         Union{ODBC.API.SQLTimestamp, Missing},
-         Union{ODBC.API.SQLTimestamp, Missing},
-         Union{ODBC.API.SQLTimestamp, Missing},
-         Union{ODBC.API.SQLTime, Missing},
-         Union{WeakRefString{UInt8}, Missing},
-         Union{WeakRefString{UInt8}, Missing},
-         Union{WeakRefString{UInt16}, Missing},
-         Union{WeakRefString{UInt16}, Missing},
-         Union{Array{UInt8,1}, Missing},
-         Union{Array{UInt8,1}, Missing})
+        @test Data.types(Data.schema(data)) == (
+            Union{Int64, Missing},
+            Union{Int8, Missing},
+            Union{DecFP.Dec64, Missing},
+            Union{Int32, Missing},
+            Union{DecFP.Dec64, Missing},
+            Union{DecFP.Dec64, Missing},
+            Union{Int16, Missing},
+            Union{DecFP.Dec64, Missing},
+            Union{Int8, Missing},
+            Union{Float64, Missing},
+            Union{Float32, Missing},
+            Union{ODBC.API.SQLDate, Missing},
+            Union{ODBC.API.SQLTimestamp, Missing},
+            Union{ODBC.API.SQLTimestamp, Missing},
+            Union{ODBC.API.SQLTimestamp, Missing},
+            Union{ODBC.API.SQLTimestamp, Missing},
+            Union{ODBC.API.SQLTime, Missing},
+            Union{WeakRefString{UInt8}, Missing},
+            Union{WeakRefString{UInt8}, Missing},
+            Union{WeakRefString{UInt16}, Missing},
+            Union{WeakRefString{UInt16}, Missing},
+            Union{Array{UInt8,1}, Missing},
+            Union{Array{UInt8,1}, Missing},
+        )
 
         @test data[1][1] === Int64(1)
         @test data[2][1] === Int8(1)
