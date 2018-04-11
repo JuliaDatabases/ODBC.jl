@@ -2,7 +2,7 @@ julia 0.6
 DataStreams 0.3.0
 DataFrames
 CategoricalArrays 0.2
-WeakRefStrings 0.3.0 0.4.1
+WeakRefStrings 0.4.1
 DecFP 0.3.0
 Missings
 Compat 0.27

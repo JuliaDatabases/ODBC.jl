@@ -44,6 +44,7 @@ getpointer(::Type{String}, A, i) = convert(Ptr{Void}, pointer(Vector{UInt8}(A[i]
 sqllength(x) = 1
 sqllength(x::AbstractString) = length(x)
 sqllength(x::Vector{UInt8}) = length(x)
+sqllength(x::WeakRefString) = x.len
 sqllength(x::ODBC.API.SQLDate) = 10
 sqllength(x::Union{ODBC.API.SQLTime,ODBC.API.SQLTimestamp}) = length(string(x))
 

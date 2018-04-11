@@ -52,23 +52,24 @@
         data = ODBC.query(source)
         @test size(Data.schema(data)) == (1,17)
         @test Data.types(Data.schema(data)) == (
-          Union{Int64, Missing}
-         ,Union{DecFP.Dec64, Missing}
-         ,Union{Int32, Missing}
-         ,Union{DecFP.Dec64, Missing}
-         ,Union{Int16, Missing}
-         ,Union{Float32, Missing}
-         ,Union{Float64, Missing}
-         ,Union{Float64, Missing}
-         ,Union{ODBC.API.SQLDate, Missing}
-         ,Union{ODBC.API.SQLTimestamp, Missing}
-         ,Union{ODBC.API.SQLTime, Missing}
-         ,Union{WeakRefStrings.WeakRefString{UInt8}, Missing}
-         ,Union{WeakRefStrings.WeakRefString{UInt8}, Missing}
-         ,Union{Array{UInt8,1}, Missing}
-         ,Union{WeakRefStrings.WeakRefString{UInt8}, Missing}
-         ,Union{String, Missing}
-         ,Union{WeakRefStrings.WeakRefString{UInt8}, Missing})
+            Union{Int64, Missing},
+            Union{DecFP.Dec64, Missing},
+            Union{Int32, Missing},
+            Union{DecFP.Dec64, Missing},
+            Union{Int16, Missing},
+            Union{Float32, Missing},
+            Union{Float64, Missing},
+            Union{Float64, Missing},
+            Union{ODBC.API.SQLDate, Missing},
+            Union{ODBC.API.SQLTimestamp, Missing},
+            Union{ODBC.API.SQLTime, Missing},
+            Union{String, Missing},
+            Union{String, Missing},
+            Union{Array{UInt8,1}, Missing},
+            Union{String, Missing},
+            Union{String, Missing},
+            Union{String, Missing},
+        )
         showall(data)
         ODBC.execute!(dsn, "drop table if exists test1")
     end
