@@ -127,17 +127,17 @@
         @test data[23][1] == UInt8[0x00, 0x01, 0xe2, 0x40]
 
         ODBC.execute!(dsn, "insert test1 VALUES
-                            (1, -- bigint
+                            (2, -- bigint
                              1, -- bit
-                             1.0, -- decimal
-                             1, -- int
-                             1.0, -- money
-                             1.0, -- numeric
-                             1, -- smallint
-                             1.0, -- smallmoney
-                             1, -- tinyint
-                             1.2, -- float
-                             1.2, -- real
+                             2.0, -- decimal
+                             2, -- int
+                             2.0, -- money
+                             2.0, -- numeric
+                             2, -- smallint
+                             2.0, -- smallmoney
+                             2, -- tinyint
+                             2.2, -- float
+                             2.2, -- real
                              '2016-01-01', -- date
                              '2016-01-01 01:01:01', -- datetime2
                              '2016-01-01 01:01:01', -- datetime
@@ -153,6 +153,57 @@
                             )")
         data = ODBC.query(dsn, "select * from test1")
         @test size(Data.schema(data)) == (2,23)
+        @test data[1][1] === Int64(1)
+        @test data[1][2] === Int64(2)
+
+        @testset "Streaming mssql data to CSV" begin
+            # Test exporting test1 to CSV
+            temp_filename = "mssql_test1.csv"
+            source = ODBC.Source(dsn, "select * from test1")
+            csv = CSV.Sink(temp_filename)
+            Data.stream!(source, csv)
+            Data.close!(csv)
+
+            open(temp_filename) do f
+                @test readline(f) == (
+                    "test_bigint,test_bit,test_decimal,test_int,test_money,test_numeric," *
+                    "test_smallint,test_smallmoney,test_tiny_int,test_float,test_real," *
+                    "test_date,test_datetime2,test_datetime,test_datetimeoffset," *
+                    "test_smalldatetime,test_time,test_char,test_varchar,test_nchar," *
+                    "test_nvarchar,test_binary,test_varbinary"
+                )
+                @test readline(f) == (
+                    "1,1,1.0,1,1.0,1.0,1,1.0,1,1.2,1.2,2016-01-01,2016-01-01T01:01:01," *
+                    "2016-01-01T01:01:01,2016-01-01T00:01:01,2016-01-01T01:01:00," *
+                    "01:01:01,A,hey there sailor,B,hey there sally,\"UInt8[0xe2, 0x40]\"," *
+                    "\"UInt8[0x00, 0x01, 0xe2, 0x40]\""
+                )
+                @test readline(f) == (
+                    "2,1,2.0,2,2.0,2.0,2,2.0,2,2.2,2.2,2016-01-01,2016-01-01T01:01:01," *
+                    "2016-01-01T01:01:01,2016-01-01T00:01:01,2016-01-01T01:01:00," *
+                    "01:01:01,A,hey there sailor,B,hey there sally,\"UInt8[0xe2, 0x40]\"," *
+                    "\"UInt8[0x00, 0x01, 0xe2, 0x40]\""
+                )
+            end
+            rm(temp_filename)
+        end
+
+        @testset "Exporting mssql data to SQLite" begin
+            # Test exporting test1 to SQLite
+            db = SQLite.DB()
+            source = ODBC.Source(dsn, "select * from test1")
+            sqlite = SQLite.Sink(db, "mssql_test1", Data.schema(source))
+            Data.stream!(source, sqlite)
+            Data.close!(sqlite)
+
+            data = SQLite.query(db, "select * from mssql_test1")
+            @test size(data) == (2,23)
+            @test data[1][1] === 1
+            @test data[10][1] === 1.2
+            @test data[12][1] === ODBC.API.SQLDate(2016,1,1)
+            @test data[23][1] == UInt8[0x00, 0x01, 0xe2, 0x40]
+        end
+
         ODBC.execute!(dsn, "drop table if exists test1")
     end
 

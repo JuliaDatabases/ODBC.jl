@@ -139,36 +139,100 @@
         @test string(data[27][1]) == "hey there hank"
 
         ODBC.execute!(dsn, "insert test1 VALUES
-                            (1, -- bigint
+                            (2, -- bigint
                              1, -- bit
-                             1.0, -- decimal
-                             1, -- int
-                             1.0, -- numeric
-                             1, -- smallint
-                             1, -- mediumint
-                             1, -- tinyint
-                             1.2, -- float
-                             1.2, -- double
+                             2.0, -- decimal
+                             2, -- int
+                             2.0, -- numeric
+                             2, -- smallint
+                             2, -- mediumint
+                             2, -- tinyint
+                             2.2, -- float
+                             2.2, -- double
                              '2016-01-01', -- date
                              '2016-01-01 01:01:01', -- datetime
                              '2016-01-01 01:01:01', -- timestamp
                              '01:01:01', -- time
                              2016, -- year
-                             'A', -- char(1)
+                             'B', -- char(1)
                              'hey there sailor', -- varchar
                              cast('12' as binary(2)), -- binary
                              NULL, -- varbinary
-                             'hey there abraham', -- tinyblob
-                             'hey there bill', -- blob
-                             'hey there charlie', -- mediumblob
-                             'hey there dan', -- longblob
-                             'hey there ephraim', -- tinytext
-                             'hey there frank', -- text
-                             'hey there george', -- mediumtext
-                             'hey there hank' -- longtext
+                             'hey there abraham2', -- tinyblob
+                             'hey there bill2', -- blob
+                             'hey there charlie2', -- mediumblob
+                             'hey there dan2', -- longblob
+                             'hey there ephraim2', -- tinytext
+                             'hey there frank2', -- text
+                             'hey there george2', -- mediumtext
+                             'hey there hank2' -- longtext
                             )")
         data = ODBC.query(dsn, "select * from test1")
         @test size(Data.schema(data)) == (2,27)
+        @test data[1][1] === Int64(1)
+        @test data[1][2] === Int64(2)
+
+        @testset "Streaming mysql data to CSV" begin
+            # Test exporting test1 to CSV
+            temp_filename = "mysql_test1.csv"
+            source = ODBC.Source(dsn, "select * from test1")
+            csv = CSV.Sink(temp_filename)
+            Data.stream!(source, csv)
+            Data.close!(csv)
+
+            open(temp_filename) do f
+                @test readline(f) == (
+                    "test_bigint,test_bit,test_decimal,test_int,test_numeric," *
+                    "test_smallint,test_mediumint,test_tiny_int,test_float,test_real," *
+                    "test_date,test_datetime,test_timestamp,test_time,test_year," *
+                    "test_char,test_varchar,test_binary,test_varbinary,test_tinyblob," *
+                    "test_blob,test_mediumblob,test_longblob,test_tinytext,test_text," *
+                    "test_mediumtext,test_longtext"
+                )
+                @test readline(f) == (
+                    "1,1,1.0,1,1.0,1,1,1,1.2,1.2,2016-01-01,2016-01-01T01:01:01," *
+                    "2016-01-01T01:01:01,01:01:01,2016,A,hey there sailor," *
+                    "\"UInt8[0x31, 0x32]\",,\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, 0x68, " *
+                    "0x65, 0x72, 0x65, 0x20, 0x61, 0x62, 0x72, 0x61, 0x68, 0x61, 0x6d]\"," *
+                    "\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, 0x68, 0x65, 0x72, 0x65, 0x20, " *
+                    "0x62, 0x69, 0x6c, 0x6c]\",\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, " *
+                    "0x68, 0x65, 0x72, 0x65, 0x20, 0x63, 0x68, 0x61, 0x72, 0x6c, 0x69, " *
+                    "0x65]\",\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, 0x68, 0x65, 0x72, " *
+                    "0x65, 0x20, 0x64, 0x61, 0x6e]\",hey there ephraim,hey there frank," *
+                    "hey there george,hey there hank"
+                )
+                @test readline(f) == (
+                    "2,1,2.0,2,2.0,2,2,2,2.2,2.2,2016-01-01,2016-01-01T01:01:01," *
+                    "2016-01-01T01:01:01,01:01:01,2016,B,hey there sailor," *
+                    "\"UInt8[0x31, 0x32]\",,\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, 0x68, " *
+                    "0x65, 0x72, 0x65, 0x20, 0x61, 0x62, 0x72, 0x61, 0x68, 0x61, 0x6d, " *
+                    "0x32]\",\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, 0x68, 0x65, 0x72, " *
+                    "0x65, 0x20, 0x62, 0x69, 0x6c, 0x6c, 0x32]\",\"UInt8[0x68, 0x65, " *
+                    "0x79, 0x20, 0x74, 0x68, 0x65, 0x72, 0x65, 0x20, 0x63, 0x68, 0x61, " *
+                    "0x72, 0x6c, 0x69, 0x65, 0x32]\",\"UInt8[0x68, 0x65, 0x79, 0x20, " *
+                    "0x74, 0x68, 0x65, 0x72, 0x65, 0x20, 0x64, 0x61, 0x6e, 0x32]\"," *
+                    "hey there ephraim2,hey there frank2,hey there george2,hey there hank2"
+                )
+            end
+            rm(temp_filename)
+        end
+
+        @testset "Exporting mysql data to SQLite" begin
+            # Test exporting test1 to SQLite
+            db = SQLite.DB()
+            source = ODBC.Source(dsn, "select * from test1")
+            sqlite = SQLite.Sink(db, "mysql_test1", Data.schema(source))
+            Data.stream!(source, sqlite)
+            Data.close!(sqlite)
+
+            data = SQLite.query(db, "select * from mysql_test1")
+            @test size(data) == (2,27)
+            @test data[1][1] === 1
+            @test data[10][1] === 1.2
+            @test data[11][1] === ODBC.API.SQLDate(2016,1,1)
+            @test data[27][1] == "hey there hank"
+        end
+
         ODBC.execute!(dsn, "drop table if exists test1")
     end
 
@@ -185,7 +249,7 @@
             hireDate DATE,
             `last clockin` DATETIME
         );""")
-        randoms = joinpath(dirname(@__FILE__), "randoms.csv")
+        randoms = joinpath(dirname(@__FILE__), "data/randoms.csv")
         ODBC.execute!(dsn, "load data local infile '$randoms' into table test2
                             fields terminated by ',' lines terminated by '\n'
                             (id,first_name,last_name,salary,`hourly rate`,hiredate,`last clockin`)")

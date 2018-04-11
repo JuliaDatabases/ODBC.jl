@@ -1,4 +1,4 @@
-using Base.Test, ODBC, DataStreams, Missings, WeakRefStrings, DataFrames, DecFP
+using Base.Test, ODBC, DataStreams, Missings, WeakRefStrings, DataFrames, DecFP, CSV, SQLite
 
 # You can also specify which database you want to test for as an environment variable:
 # ENV["ODBC_TEST_DRIVERS"] = "mysql"
@@ -7,10 +7,10 @@ const TEST_MYSQL = "mysql" in TEST_DRIVERS
 const TEST_POSTGRESQL = "postgresql" in TEST_DRIVERS
 const TEST_MSSQL = "mssql" in TEST_DRIVERS
 
-# To run these tests first run these statements from the command line in the tests directory:
-# odbcinst -i -s -h -f mysqltest.odbc.ini
-# odbcinst -i -s -h -f postgresqltest.odbc.ini
-# odbcinst -i -s -h -f mssqltest.odbc.ini
+# To run these tests first run these statements from the command line in the ODBC root directory:
+# odbcinst -i -s -h -f test/setup/mysqltest.odbc.ini
+# odbcinst -i -s -h -f test/setup/postgresqltest.odbc.ini
+# odbcinst -i -s -h -f test/setup/mssqltest.odbc.ini
 
 # You can modify the above files as needed to point to your mysql, postgres, or mssql
 # database and drivers, or to specify your username and password
