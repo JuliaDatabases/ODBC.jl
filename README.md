@@ -38,16 +38,16 @@ Contributions are very welcome, as are feature requests and suggestions. Please 
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
 [docs-stable-url]: http://juliadatabases.github.io/ODBC.jl/stable
 
-[travis-img]: https://travis-ci.org/JuliaDB/ODBC.jl.svg?branch=master
-[travis-url]: https://travis-ci.org/JuliaDB/ODBC.jl
+[travis-img]: https://travis-ci.org/JuliaDatabases/ODBC.jl.svg?branch=master
+[travis-url]: https://travis-ci.org/JuliaDatabases/ODBC.jl
 
 [appveyor-img]: https://ci.appveyor.com/api/projects/status/h227adt6ovd1u3sx/branch/master?svg=true
-[appveyor-url]: https://ci.appveyor.com/project/JuliaDB/documenter-jl/branch/master
+[appveyor-url]: https://ci.appveyor.com/project/JuliaDatabases/documenter-jl/branch/master
 
-[codecov-img]: https://codecov.io/gh/JuliaDB/ODBC.jl/branch/master/graph/badge.svg
-[codecov-url]: https://codecov.io/gh/JuliaDB/ODBC.jl
+[codecov-img]: https://codecov.io/gh/JuliaDatabases/ODBC.jl/branch/master/graph/badge.svg
+[codecov-url]: https://codecov.io/gh/JuliaDatabases/ODBC.jl
 
-[issues-url]: https://github.com/JuliaDB/ODBC.jl/issues
+[issues-url]: https://github.com/JuliaDatabases/ODBC.jl/issues
 
 [pkg-0.5-img]: http://pkg.julialang.org/badges/ODBC_0.5.svg
 [pkg-0.5-url]: http://pkg.julialang.org/?pkg=ODBC
