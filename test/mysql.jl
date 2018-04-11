@@ -215,6 +215,11 @@
                 )
             end
             rm(temp_filename)
+
+            # Test exporting test1 using ODBC.query
+            temp_filename = "mysql_test2.csv"
+            csv = ODBC.query(dsn, "select * from test1", CSV.Sink, temp_filename)
+            rm(temp_filename)
         end
 
         @testset "Exporting mysql data to SQLite" begin

@@ -347,7 +347,7 @@ function Data.streamfrom(source::ODBC.Source, ::Type{Data.Column}, ::Type{Union{
 end
 
 function query(dsn::DSN, sql::AbstractString, sink=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false, transforms::Dict=Dict{Int,Function}())
-    sink = Data.stream!(Source(dsn, sql; weakrefstrings=weakrefstrings), sink, args; append=append, transforms=transforms)
+    sink = Data.stream!(Source(dsn, sql; weakrefstrings=weakrefstrings), sink, args...; append=append, transforms=transforms)
     return Data.close!(sink)
 end
 

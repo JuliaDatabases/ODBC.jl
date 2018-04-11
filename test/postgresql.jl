@@ -96,6 +96,11 @@
                 )
             end
             rm(temp_filename)
+
+            # Test exporting test1 using ODBC.query
+            temp_filename = "postgres_test2.csv"
+            csv = ODBC.query(dsn, "select * from test1", CSV.Sink, temp_filename)
+            rm(temp_filename)
         end
 
         @testset "Exporting postgres data to SQLite" begin
