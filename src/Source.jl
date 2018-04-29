@@ -320,13 +320,20 @@ Data.streamtype(::Type{ODBC.Source}, ::Type{Data.Column}) = true
 Data.streamtype(::Type{ODBC.Source}, ::Type{Data.Field}) = true
 
 function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T, Missing}}, row, col) where {T}
-    val = source.columns[col][row - source.rowoffset]::Union{T, Missing}
+    val = if isempty(source.columns[col])
+        cast!(source.jltypes[col], source, col)[row - source.rowoffset]
+    else
+        source.columns[col][row - source.rowoffset]
+    end
+
     if col == length(source.columns) && (row - source.rowoffset) == source.rowsfetched[] && !Data.isdone(source)
         ODBC.fetch!(source)
-        for i = 1:col
-            cast!(source.jltypes[i], source, i)
+        if source.rowsfetched[] > 0
+            for i = 1:col
+                cast!(source.jltypes[i], source, i)
+            end
+            source.rowoffset += source.rowsfetched[]
         end
-        source.rowoffset += source.rowsfetched[]
     end
     return val
 end
@@ -340,7 +347,7 @@ function Data.streamfrom(source::ODBC.Source, ::Type{Data.Column}, ::Type{Union{
 end
 
 function query(dsn::DSN, sql::AbstractString, sink=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false, transforms::Dict=Dict{Int,Function}())
-    sink = Data.stream!(Source(dsn, sql; weakrefstrings=weakrefstrings), sink, args; append=append, transforms=transforms)
+    sink = Data.stream!(Source(dsn, sql; weakrefstrings=weakrefstrings), sink, args...; append=append, transforms=transforms)
     return Data.close!(sink)
 end
 

@@ -31,10 +31,10 @@ services:
   - postgresql
 
 before_install:
-  - cp ./test/.odbcinst.ini $HOME
-  - odbcinst -i -s -h -f ./test/mysqltest.odbc.ini
-  - odbcinst -i -s -h -f ./test/postgresqltest.odbc.ini
-  - odbcinst -i -s -h -f ./test/mssqltest.odbc.ini
+  - cp ./test/setup/.odbcinst.ini $HOME
+  - odbcinst -i -s -h -f ./test/setup/mysqltest.odbc.ini
+  - odbcinst -i -s -h -f ./test/setup/postgresqltest.odbc.ini
+  - odbcinst -i -s -h -f ./test/setup/mssqltest.odbc.ini
   - echo -e "\n[odbc]\nlocal-infile=1\n" >> $HOME/.my.cnf
 
 notifications:
