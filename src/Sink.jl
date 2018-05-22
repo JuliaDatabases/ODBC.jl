@@ -35,7 +35,7 @@ prep!(::Type{Union{Dates.Date, Missing}}, A) = ODBC.API.SQLDate[ismissing(x) ? O
 prep!(::Type{Union{Dates.DateTime, Missing}}, A) = ODBC.API.SQLTimestamp[ismissing(x) ? ODBC.API.SQLTimestamp() : ODBC.API.SQLTimestamp(x) for x in A], 0
 prep!(::Type{Union{Dec64, Missing}}, A) = Float64[ismissing(x) ? 0.0 : Float64(x) for x in A], 0
 
-getptrlen(x::AbstractString) = pointer(Vector{UIn8}(x)), length(x), UInt8[]
+getptrlen(x::AbstractString) = pointer(Vector{UInt8}(x)), length(x), UInt8[]
 getptrlen(x::WeakRefString{T}) where {T} = convert(Ptr{UInt8}, x.ptr), codeunits2bytes(T, x.len), UInt8[]
 getptrlen(x::Missing) = convert(Ptr{UInt8}, C_NULL), 0, UInt8[]
 function getptrlen(x::CategoricalArrays.CategoricalValue)
