@@ -316,8 +316,8 @@ function Data.reset!(source::ODBC.Source)
     return
 end
 
-Data.streamtype(::Type{ODBC.Source}, ::Type{Data.Column}) = true
-Data.streamtype(::Type{ODBC.Source}, ::Type{Data.Field}) = true
+Data.streamtype(::Type{<:ODBC.Source}, ::Type{Data.Column}) = true
+Data.streamtype(::Type{<:ODBC.Source}, ::Type{Data.Field}) = true
 
 function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T, Missing}}, row, col) where {T}
     val = if isempty(source.columns[col])
