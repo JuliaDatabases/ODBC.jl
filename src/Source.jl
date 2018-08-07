@@ -1,6 +1,6 @@
 # "Allocate ODBC handles for interacting with the ODBC Driver Manager"
 function ODBCAllocHandle(handletype, parenthandle)
-    handle = Ref{Ptr{Void}}()
+    handle = Ref{Ptr{Cvoid}}()
     ODBC.API.SQLAllocHandle(handletype, parenthandle, handle)
     handle = handle[]
     if handletype == ODBC.API.SQL_HANDLE_ENV
@@ -10,10 +10,10 @@ function ODBCAllocHandle(handletype, parenthandle)
 end
 
 # "Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin"
-function ODBCDriverConnect!(dbc::Ptr{Void}, conn_string, prompt::Bool)
+function ODBCDriverConnect!(dbc::Ptr{Cvoid}, conn_string, prompt::Bool)
     @static if Sys.iswindows()
         driver_prompt = prompt ? ODBC.API.SQL_DRIVER_PROMPT : ODBC.API.SQL_DRIVER_NOPROMPT
-        window_handle = prompt ? ccall((:GetForegroundWindow, :user32), Ptr{Void}, () ) : C_NULL
+        window_handle = prompt ? ccall((:GetForegroundWindow, :user32), Ptr{Cvoid}, () ) : C_NULL
     else
         driver_prompt = ODBC.API.SQL_DRIVER_NOPROMPT
         window_handle = C_NULL
@@ -37,9 +37,9 @@ cast(x::Dates.Date) = ODBC.API.SQLDate(x)
 cast(x::Dates.DateTime) = ODBC.API.SQLTimestamp(x)
 cast(x::String) = WeakRefString(pointer(x), sizeof(x))
 
-getpointer(::Type{T}, A, i) where {T} = unsafe_load(Ptr{Ptr{Void}}(pointer(A, i)))
-getpointer(::Type{WeakRefString{T}}, A, i) where {T} = convert(Ptr{Void}, A[i].ptr)
-getpointer(::Type{String}, A, i) = convert(Ptr{Void}, pointer(Vector{UInt8}(A[i])))
+getpointer(::Type{T}, A, i) where {T} = unsafe_load(Ptr{Ptr{Cvoid}}(pointer(A, i)))
+getpointer(::Type{WeakRefString{T}}, A, i) where {T} = convert(Ptr{Cvoid}, A[i].ptr)
+getpointer(::Type{String}, A, i) = convert(Ptr{Cvoid}, pointer(Vector{UInt8}(A[i])))
 
 sqllength(x) = 1
 sqllength(x::AbstractString) = length(x)
@@ -199,7 +199,7 @@ end
 # decimal/numeric and binary types
 using DecFP
 
-cast(::Type{Dec64}, arr, cur, ind) = ind <= 0 ? DECZERO : parse(Dec64, String(unsafe_wrap(Array, pointer(arr, cur), ind)))
+cast(::Type{Dec64}, arr, cur, ind) = ind <= 0 ? Dec64(0) : parse(Dec64, String(unsafe_wrap(Array, pointer(arr, cur), ind)))
 
 function cast!(::Type{Union{Dec64, Missing}}, source, col)
     len = source.rowsfetched[]
@@ -294,7 +294,7 @@ function cast!(::Type{ODBC.API.Long{Union{T, Missing}}}, source, col) where {T}
         len = ind[]
         oldlen = length(data)
         resize!(data, oldlen + bytes2codeunits(eT, len))
-        ccall(:memcpy, Void, (Ptr{Void}, Ptr{Void}, Csize_t), pointer(data, oldlen + 1), pointer(buf), len)
+        ccall(:memcpy, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), pointer(data, oldlen + 1), pointer(buf), len)
         res = ODBC.API.SQLGetData(stmt, col, source.ctypes[col], pointer(buf), length(buf), ind)
         res != ODBC.API.SQL_SUCCESS && res != ODBC.API.SQL_SUCCESS_WITH_INFO && break
     end
