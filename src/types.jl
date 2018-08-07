@@ -8,7 +8,7 @@ let
         Sys.iswindows() && (lib_choices = ["odbc32"])
         Sys.isapple()   && (lib_choices = ["libodbc.2.dylib","libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"])
         lib = Libdl.find_library(lib_choices)
-        const odbc_dm = lib
+        odbc_dm = lib
     end
 end
 
