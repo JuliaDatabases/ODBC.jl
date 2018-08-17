@@ -236,7 +236,6 @@ function SQLSetConnectAttr(dbc::Ptr{Cvoid},attribute::Int,value::Array{Int},valu
 end
 
 #SQLGetConnectAttr
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710297(v=vs.85).aspx"
 #Description: returns the current setting of a connection attribute.
 #Valid attributes: see SQLSetConnectAttr in addition to those below
 const SQL_ATTR_AUTO_IPD = 10001
@@ -245,6 +244,7 @@ const SQL_ATTR_CONNECTION_DEAD = 1209
 const SQL_CD_TRUE = 1
 const SQL_CD_FALSE = 0
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710297(v=vs.85).aspx"
 function SQLGetConnectAttr(dbc::Ptr{Cvoid},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
     @odbc(:SQLGetConnectAttrW,
                 (Ptr{Cvoid},Int,Ptr{T},Int,Ptr{Int}),
@@ -252,7 +252,6 @@ function SQLGetConnectAttr(dbc::Ptr{Cvoid},attribute::Int,value::Array{T,N},byte
 end
 
 #SQLSetStmtAttr
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712631(v=vs.85).aspx"
 #Description: sets attributes related to a statement.
 #Valid attributes
 const SQL_ATTR_ROW_STATUS_PTR = 25
@@ -267,6 +266,7 @@ const SQL_CURSOR_STATIC = UInt(3)
 #this sets the rowset size for ExtendedFetch and FetchScroll
 #Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712631(v=vs.85).aspx"
 function SQLSetStmtAttr(stmt::Ptr{Cvoid},attribute,value::Ref{SQLLEN},value_length)
     @odbc(:SQLSetStmtAttrW,
                 (Ptr{Cvoid},SQLINTEGER,Ref{SQLLEN},SQLINTEGER),
@@ -288,7 +288,6 @@ function SQLGetStmtAttr(stmt::Ptr{Cvoid},attribute::Int,value::Array{T,N},bytes_
 end
 
 #SQLFreeStmt
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709284(v=vs.85).aspx"
 #Description: stops processing associated with a specific statement,
 # closes any open cursors associated with the statement,
 # discards pending results, or, optionally,
@@ -299,6 +298,7 @@ const SQL_RESET_PARAMS = UInt16(3)
 const SQL_UNBIND = UInt16(2)
 
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709284(v=vs.85).aspx"
 function SQLFreeStmt(stmt::Ptr{Cvoid},param::UInt16)
     @odbc(:SQLFreeStmt,
                 (Ptr{Cvoid},UInt16),
@@ -335,9 +335,9 @@ end
 
 ### Connection Functions ###
 # SQLConnect
-#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711810(v=vs.85).aspx"
 # Description: establishes connections to a driver and a data source
 # Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711810(v=vs.85).aspx"
 function SQLConnect(dbc::Ptr{Cvoid},dsn,username,password)
     @odbc(:SQLConnectW,
                 (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
@@ -345,7 +345,6 @@ function SQLConnect(dbc::Ptr{Cvoid},dsn,username,password)
 end
 
 #SQLDriverConnect
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715433(v=vs.85).aspx"
 #Description:
 #Valid driver_prompt
 const SQL_DRIVER_COMPLETE = UInt16(1)
@@ -353,36 +352,37 @@ const SQL_DRIVER_COMPLETE_REQUIRED = UInt16(3)
 const SQL_DRIVER_NOPROMPT = UInt16(0)
 const SQL_DRIVER_PROMPT = UInt16(2)
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715433(v=vs.85).aspx"
 function SQLDriverConnect(dbc::Ptr{Cvoid},window_handle::Ptr{Cvoid},conn_string,out_conn::Ptr{SQLWCHAR},out_len,out_buff::Ref{Int16},driver_prompt)
     @odbc(:SQLDriverConnectW,
                 (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
                 dbc,window_handle,transcode(SQLWCHAR,conn_string),length(transcode(SQLWCHAR,conn_string)),out_conn,out_len,out_buff,driver_prompt)
 end
 #SQLBrowseConnect
- "http://msdn.microsoft.com/en-us/library/windows/desktop/ms714565(v=vs.85).aspx"
  #Description: supports an iterative method of discovering and enumerating the attributes and attribute values required to connect to a data source
  #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714565(v=vs.85).aspx"
 function SQLBrowseConnect(dbc::Ptr{Cvoid},instring::AbstractString,outstring::Array{SQLWCHAR,1},indicator::Array{Int16,1})
     @odbc(:SQLBrowseConnectW,
                 (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{Int16}),
                 dbc,transcode(SQLWCHAR,instring),length(transcode(SQLWCHAR,instring)),transcode(SQLWCHAR,outstring),length(transcode(SQLWCHAR,outstring)),indicator)
 end
 #SQLDisconnect
- "http://msdn.microsoft.com/en-us/library/windows/desktop/ms713946(v=vs.85).aspx"
  #Description: closes the connection associated with a specific connection handle
  #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713946(v=vs.85).aspx"
 function SQLDisconnect(dbc::Ptr{Cvoid})
     @odbc(:SQLDisconnect,
                 (Ptr{Cvoid},),
                 dbc)
 end
 #SQLGetFunctions
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709291(v=vs.85).aspx"
 #Descriptions:
 #Valid functionid
 
 #supported will be SQL_TRUE or SQL_FALSE
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709291(v=vs.85).aspx"
 function SQLGetFunctions(dbc::Ptr{Cvoid},functionid::UInt16,supported::Array{UInt16,1})
     @odbc(:SQLGetFunctions,
                 (Ptr{Cvoid},UInt16,Ptr{UInt16}),
@@ -390,9 +390,9 @@ function SQLGetFunctions(dbc::Ptr{Cvoid},functionid::UInt16,supported::Array{UIn
 end
 
 #SQLGetInfo
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711681(v=vs.85).aspx"
 #Description:
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711681(v=vs.85).aspx"
 function SQLGetInfo(dbc::Ptr{Cvoid},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
     @odbc(:SQLGetInfoW,
                 (Ptr{Cvoid},Int,Ptr{T},Int,Ptr{Int}),
@@ -401,9 +401,9 @@ end
 
 #### Query Functions ####
 #SQLNativeSql
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714575(v=vs.85).aspx"
 #Description: returns the SQL string as modified by the driver
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714575(v=vs.85).aspx"
 function SQLNativeSql(dbc::Ptr{Cvoid},query_string::AbstractString,output_string::Array{SQLWCHAR,1},length_ind::Array{Int,1})
     @odbc(:SQLNativeSql,
                 (Ptr{Cvoid},Ptr{SQLWCHAR},Int,Ptr{SQLWCHAR},Int,Ptr{Int}),
@@ -411,11 +411,11 @@ function SQLNativeSql(dbc::Ptr{Cvoid},query_string::AbstractString,output_string
 end
 
 #SQLGetTypeInfo
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714632(v=vs.85).aspx"
 #Description:
 #valid sqltype
 #const SQL_ALL_TYPES =
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714632(v=vs.85).aspx"
 function SQLGetTypeInfo(stmt::Ptr{Cvoid},sqltype::Int16)
     @odbc(:SQLGetTypeInfo,
                 (Ptr{Cvoid},Int16),
@@ -444,9 +444,9 @@ function SQLExecute(stmt::Ptr{Cvoid})
 end
 
 #SQLExecDirect
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713611(v=vs.85).aspx"
 #Description: executes a preparable statement
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713611(v=vs.85).aspx"
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
     @odbc(:SQLExecDirectW,
                 (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
@@ -512,7 +512,6 @@ end
 
 #### Resultset Retrieval Functions ####
 #SQLBindParameter
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710963(v=vs.85).aspx"
 #Description:
 #valid iotype
 const SQL_PARAM_INPUT = Int16(1)
@@ -521,6 +520,7 @@ const SQL_PARAM_INPUT_OUTPUT = Int16(2)
 #const SQL_PARAM_INPUT_OUTPUT_STREAM = Int16()
 #const SQL_PARAM_OUTPUT_STREAM = Int16()
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710963(v=vs.85).aspx"
 function SQLBindParameter(stmt::Ptr{Cvoid},x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value,param_size::Int,len::Ref{SQLLEN})
     @odbc(:SQLBindParameter,
                 (Ptr{Cvoid},UInt16,Int16,Int16,Int16,UInt,Int16,Ptr{Cvoid},Int,Ptr{SQLLEN}),
@@ -557,7 +557,6 @@ function SQLGetData(stmt::Ptr{Cvoid},i,ctype,mem,jlsize,indicator::Ref{SQLLEN})
 end
 
 #SQLFetchScroll
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714682(v=vs.85).aspx"
 #Description:
 #valid fetch_orientation
 const SQL_FETCH_NEXT = Int16(1)
@@ -568,6 +567,7 @@ const SQL_FETCH_ABSOLUTE = Int16(5)
 const SQL_FETCH_RELATIVE = Int16(6)
 const SQL_FETCH_BOOKMARK = Int16(8)
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714682(v=vs.85).aspx"
 function SQLFetchScroll(stmt::Ptr{Cvoid},fetch_orientation::Int16,fetch_offset::Int)
     @odbc(:SQLFetchScroll,
                 (Ptr{Cvoid},Int16,Int),
@@ -582,7 +582,6 @@ function SQLExtendedFetch(stmt::Ptr{Cvoid},fetch_orientation::UInt16,fetch_offse
 end
 
 #SQLSetPos
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713507(v=vs.85).aspx"
 #Description:
 #valid operation
 const SQL_POSITION = UInt16(0) #SQLSetPos
@@ -594,6 +593,7 @@ const SQL_LOCK_NO_CHANGE = UInt16(0) #SQLSetPos
 const SQL_LOCK_EXCLUSIVE = UInt16(1) #SQLSetPos
 const SQL_LOCK_UNLOCK = UInt16(2) #SQLSetPos
 #Status
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713507(v=vs.85).aspx"
 function SQLSetPos(stmt::Ptr{Cvoid},rownumber::T,operation::UInt16,lock_type::UInt16) where {T}
     @odbc(:SQLSetPos,
                 (Ptr{Cvoid},T,UInt16,UInt16),
@@ -608,12 +608,12 @@ function SQLMoreResults(stmt::Ptr{Cvoid})
 end
 
 #SQLEndTran
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716544(v=vs.85).aspx"
 #Description:
 #valid completion_type
 const SQL_COMMIT = Int16(0) #SQLEndTran
 const SQL_ROLLBACK = Int16(1) #SQLEndTran
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716544(v=vs.85).aspx"
 function SQLEndTran(handletype::Int16,handle::Ptr{Cvoid},completion_type::Int16)
     @odbc(:SQLEndTran,
                 (Int16,Ptr{Cvoid},Int16),
@@ -628,7 +628,6 @@ function SQLCloseCursor(stmt::Ptr{Cvoid})
 end
 
 #SQLBulkOperations
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712471(v=vs.85).aspx"
 #Description:
 #valid operation
 const SQL_ADD = UInt16(4) #SQLBulkOperations
@@ -636,6 +635,7 @@ const SQL_UPDATE_BY_BOOKMARK = UInt16(5) #SQLBulkOperations
 const SQL_DELETE_BY_BOOKMARK = UInt16(6) #SQLBulkOperations
 const SQL_FETCH_BY_BOOKMARK = UInt16(7) #SQLBulkOperations
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712471(v=vs.85).aspx"
 function SQLBulkOperations(stmt::Ptr{Cvoid},operation::UInt16)
     @odbc(:SQLBulkOperations,
                 (Ptr{Cvoid},UInt16),
@@ -700,7 +700,6 @@ function SQLTablePrivileges(stmt::Ptr{Cvoid},catalog::AbstractString,schema::Abs
 end
 
 #SQLStatistics
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711022(v=vs.85).aspx"
 #Description:
 #valid unique
 const SQL_INDEX_ALL = UInt16(1)
@@ -712,6 +711,7 @@ const SQL_INDEX_UNIQUE = UInt16(0)
 const SQL_ENSURE = UInt16(1)
 const SQL_QUICK = UInt16(0)
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711022(v=vs.85).aspx"
 function SQLStatistics(stmt::Ptr{Cvoid},catalog::AbstractString,schema::AbstractString,table::AbstractString,unique::UInt16,reserved::UInt16)
     @odbc(:SQLStatisticsW,
                 (Ptr{Cvoid},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,UInt16,UInt16),
@@ -719,7 +719,6 @@ function SQLStatistics(stmt::Ptr{Cvoid},catalog::AbstractString,schema::Abstract
 end
 
 #SQLSpecialColumns
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714602(v=vs.85).aspx"
 #Description:
 #valid id_type
 const SQL_BEST_ROWID        = Int16(1) #SQLSpecialColumns
@@ -733,6 +732,7 @@ const SQL_NO_NULLS          = Int16(0) #SQLSpecialColumns
 const SQL_NULLABLE          = Int16(1) #SQLSpecialColumns
 #const SQL_NULLABLE_UNKNOWN = Int16() #SQLSpecialColumns
 #Status:
+"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714602(v=vs.85).aspx"
 function SQLSpecialColumns(stmt::Ptr{Cvoid},id_type::Int16,catalog::AbstractString,schema::AbstractString,table::AbstractString,scope::Int16,nullable::Int16)
     @odbc(:SQLSpecialColumnsW,
                 (Ptr{Cvoid},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Int16,Int16),
