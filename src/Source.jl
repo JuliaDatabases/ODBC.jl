@@ -109,12 +109,12 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
     API.SQLRowCount(stmt, rows)
     rows, cols = rows[], cols[]
     #Allocate arrays to hold each column's metadata
-    cnames = Array{String}(cols)
-    ctypes, csizes = Array{API.SQLSMALLINT}(cols), Array{API.SQLULEN}(cols)
-    cdigits, cnulls = Array{API.SQLSMALLINT}(cols), Array{API.SQLSMALLINT}(cols)
-    juliatypes = Array{Type}(cols)
-    alloctypes = Array{DataType}(cols)
-    longtexts = Array{Bool}(cols)
+    cnames = Vector{String}(undef, cols)
+    ctypes, csizes = Vector{API.SQLSMALLINT}(undef, cols), Vector{API.SQLULEN}(undef, cols)
+    cdigits, cnulls = Vector{API.SQLSMALLINT}(undef, cols), Vector{API.SQLSMALLINT}(undef, cols)
+    juliatypes = Vector{Type}(undef, cols)
+    alloctypes = Vector{DataType}(undef, cols)
+    longtexts = Vector{Bool}(undef, cols)
     longtext = false
     #Allocate space for and fetch the name, type, size, etc. for each column
     len, dt, csize = Ref{API.SQLSMALLINT}(), Ref{API.SQLSMALLINT}(), Ref{API.SQLULEN}()
@@ -142,14 +142,14 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
         rowset = allocsize = 1
     end
     API.SQLSetStmtAttr(stmt, API.SQL_ATTR_ROW_ARRAY_SIZE, rowset, API.SQL_IS_UINTEGER)
-    boundcols = Array{Any}(cols)
-    indcols = Array{Vector{API.SQLLEN}}(cols)
+    boundcols = Vector{Any}(undef, cols)
+    indcols = Vector{Vector{API.SQLLEN}}(undef, cols)
     for x = 1:cols
         if longtexts[x]
             boundcols[x], indcols[x] = alloctypes[x][], API.SQLLEN[]
         else
             boundcols[x], elsize = internal_allocate(alloctypes[x], rowset, csizes[x])
-            indcols[x] = Array{API.SQLLEN}(rowset)
+            indcols[x] = Vector{API.SQLLEN}(undef, rowset)
             API.SQLBindCols(stmt, x, API.SQL2C[ctypes[x]], pointer(boundcols[x]), elsize, indcols[x])
         end
     end
