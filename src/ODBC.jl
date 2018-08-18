@@ -21,12 +21,12 @@ Block allocator:
 function Block(::Type{T}, elements::Int, extradim::Integer=1) where {T}
     len = sizeof(T) * elements * extradim
     block = Block{T}(convert(Ptr{T}, Libc.malloc(len)), len, sizeof(T) * extradim)
-    finalizer(block, x->Libc.free(x.ptr))
+    finalizer(x->Libc.free(x.ptr), block)
     return block
 end
 
 # used for getting messages back from ODBC driver manager; SQLDrivers, SQLError, etc.
-Base.string(block::Block, len::Integer) = String(transcode(UInt8, unsafe_wrap(Array, block.ptr, len, false)))
+Base.string(block::Block, len::Integer) = String(transcode(UInt8, unsafe_wrap(Array, block.ptr, len, own=false)))
 
 struct ODBCError <: Exception
     msg::String

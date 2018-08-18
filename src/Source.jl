@@ -1,10 +1,10 @@
 # "Allocate ODBC handles for interacting with the ODBC Driver Manager"
 function ODBCAllocHandle(handletype, parenthandle)
     handle = Ref{Ptr{Cvoid}}()
-    ODBC.API.SQLAllocHandle(handletype, parenthandle, handle)
+    API.SQLAllocHandle(handletype, parenthandle, handle)
     handle = handle[]
-    if handletype == ODBC.API.SQL_HANDLE_ENV
-        ODBC.API.SQLSetEnvAttr(handle, ODBC.API.SQL_ATTR_ODBC_VERSION, ODBC.API.SQL_OV_ODBC3)
+    if handletype == API.SQL_HANDLE_ENV
+        API.SQLSetEnvAttr(handle, API.SQL_ATTR_ODBC_VERSION, API.SQL_OV_ODBC3)
     end
     return handle
 end
@@ -12,29 +12,29 @@ end
 # "Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin"
 function ODBCDriverConnect!(dbc::Ptr{Cvoid}, conn_string, prompt::Bool)
     @static if Sys.iswindows()
-        driver_prompt = prompt ? ODBC.API.SQL_DRIVER_PROMPT : ODBC.API.SQL_DRIVER_NOPROMPT
+        driver_prompt = prompt ? API.SQL_DRIVER_PROMPT : API.SQL_DRIVER_NOPROMPT
         window_handle = prompt ? ccall((:GetForegroundWindow, :user32), Ptr{Cvoid}, () ) : C_NULL
     else
-        driver_prompt = ODBC.API.SQL_DRIVER_NOPROMPT
+        driver_prompt = API.SQL_DRIVER_NOPROMPT
         window_handle = C_NULL
     end
-    out_conn = Block(ODBC.API.SQLWCHAR, BUFLEN)
+    out_conn = Block(API.SQLWCHAR, BUFLEN)
     out_buff = Ref{Int16}()
-    @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLDriverConnect(dbc, window_handle, conn_string, out_conn.ptr, BUFLEN, out_buff, driver_prompt)
+    @CHECK dbc API.SQL_HANDLE_DBC API.SQLDriverConnect(dbc, window_handle, conn_string, out_conn.ptr, BUFLEN, out_buff, driver_prompt)
     connection_string = string(out_conn, out_buff[])
     return connection_string
 end
 
-"`ODBC.prepare` prepares an SQL statement to be executed"
+"`prepare` prepares an SQL statement to be executed"
 function prepare(dsn::DSN, query::AbstractString)
-    stmt = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dsn.dbc_ptr)
-    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLPrepare(stmt, query)
+    stmt = ODBCAllocHandle(API.SQL_HANDLE_STMT, dsn.dbc_ptr)
+    @CHECK stmt API.SQL_HANDLE_STMT API.SQLPrepare(stmt, query)
     return Statement(dsn, stmt, query, Task(1))
 end
 
 cast(x) = x
-cast(x::Dates.Date) = ODBC.API.SQLDate(x)
-cast(x::Dates.DateTime) = ODBC.API.SQLTimestamp(x)
+cast(x::Dates.Date) = API.SQLDate(x)
+cast(x::Dates.DateTime) = API.SQLTimestamp(x)
 cast(x::String) = WeakRefString(pointer(x), sizeof(x))
 
 getpointer(::Type{T}, A, i) where {T} = unsafe_load(Ptr{Ptr{Cvoid}}(pointer(A, i)))
@@ -45,18 +45,18 @@ sqllength(x) = 1
 sqllength(x::AbstractString) = length(x)
 sqllength(x::Vector{UInt8}) = length(x)
 sqllength(x::WeakRefString) = x.len
-sqllength(x::ODBC.API.SQLDate) = 10
-sqllength(x::Union{ODBC.API.SQLTime,ODBC.API.SQLTimestamp}) = length(string(x))
+sqllength(x::API.SQLDate) = 10
+sqllength(x::Union{API.SQLTime,API.SQLTimestamp}) = length(string(x))
 
 clength(x) = 1
 clength(x::AbstractString) = length(x)
 clength(x::Vector{UInt8}) = length(x)
 clength(x::WeakRefString{T}) where {T} = codeunits2bytes(T, x.len)
 clength(x::CategoricalArrays.CategoricalValue) = length(String(x))
-clength(x::Missing) = ODBC.API.SQL_NULL_DATA
+clength(x::Missing) = API.SQL_NULL_DATA
 
 digits(x) = 0
-digits(x::ODBC.API.SQLTimestamp) = length(string(x.fraction * 1000000))
+digits(x::API.SQLTimestamp) = length(string(x.fraction * 1000000))
 
 function execute!(statement::Statement, values)
     stmt = statement.stmt
@@ -65,15 +65,15 @@ function execute!(statement::Statement, values)
     types = map(typeof, values2)
     for (i, v) in enumerate(values2)
         if ismissing(v)
-            ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBindParameter(stmt, i, ODBC.API.SQL_PARAM_INPUT,
-                ODBC.API.SQL_C_CHAR, ODBC.API.SQL_CHAR, 0, 0, C_NULL, 0, Ref(ODBC.API.SQL_NULL_DATA))
+            @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindParameter(stmt, i, API.SQL_PARAM_INPUT,
+                API.SQL_C_CHAR, API.SQL_CHAR, 0, 0, C_NULL, 0, Ref(API.SQL_NULL_DATA))
         else
-            ctype, sqltype = ODBC.API.julia2C[types[i]], ODBC.API.julia2SQL[types[i]]
+            ctype, sqltype = API.julia2C[types[i]], API.julia2SQL[types[i]]
             csize, len, dgts = sqllength(v), clength(v), digits(v)
             ptr = getpointer(types[i], values2, i)
             # println("ctype: $ctype, sqltype: $sqltype, digits: $dgts, len: $len, csize: $csize")
             push!(pointers, ptr)
-            ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLBindParameter(stmt, i, ODBC.API.SQL_PARAM_INPUT,
+            @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindParameter(stmt, i, API.SQL_PARAM_INPUT,
                 ctype, sqltype, csize, dgts, ptr, len, Ref(len))
         end
     end
@@ -83,49 +83,49 @@ end
 
 function execute!(statement::Statement)
     stmt = statement.stmt
-    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecute(stmt)
+    @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecute(stmt)
     return
 end
 
-"`ODBC.execute!` is a minimal method for just executing an SQL `query` string. No results are checked for or returned."
+"`execute!` is a minimal method for just executing an SQL `query` string. No results are checked for or returned."
 function execute!(dsn::DSN, query::AbstractString, stmt=dsn.stmt_ptr)
-    ODBC.ODBCFreeStmt!(stmt)
-    ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query)
+    ODBCFreeStmt!(stmt)
+    @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecDirect(stmt, query)
     return
 end
 
 """
-`ODBC.Source` constructs a valid `Data.Source` type that executes an SQL `query` string for the `dsn` ODBC DSN.
-Results are checked for and an `ODBC.ResultBlock` is allocated to prepare for fetching the resultset.
+`Source` constructs a valid `Data.Source` type that executes an SQL `query` string for the `dsn` ODBC DSN.
+Results are checked for and an `ResultBlock` is allocated to prepare for fetching the resultset.
 """
 function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noquery::Bool=false)
     stmt = dsn.stmt_ptr
-    noquery || ODBC.ODBCFreeStmt!(stmt)
-    supportsreset = ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_CURSOR_SCROLLABLE, ODBC.API.SQL_SCROLLABLE, ODBC.API.SQL_IS_INTEGER)
-    supportsreset &= ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_CURSOR_TYPE, ODBC.API.SQL_CURSOR_STATIC, ODBC.API.SQL_IS_INTEGER)
-    noquery || (ODBC.@CHECK stmt ODBC.API.SQL_HANDLE_STMT ODBC.API.SQLExecDirect(stmt, query))
+    noquery || ODBCFreeStmt!(stmt)
+    supportsreset = API.SQLSetStmtAttr(stmt, API.SQL_ATTR_CURSOR_SCROLLABLE, API.SQL_SCROLLABLE, API.SQL_IS_INTEGER)
+    supportsreset &= API.SQLSetStmtAttr(stmt, API.SQL_ATTR_CURSOR_TYPE, API.SQL_CURSOR_STATIC, API.SQL_IS_INTEGER)
+    noquery || (@CHECK stmt API.SQL_HANDLE_STMT API.SQLExecDirect(stmt, query))
     rows, cols = Ref{Int}(), Ref{Int16}()
-    ODBC.API.SQLNumResultCols(stmt, cols)
-    ODBC.API.SQLRowCount(stmt, rows)
+    API.SQLNumResultCols(stmt, cols)
+    API.SQLRowCount(stmt, rows)
     rows, cols = rows[], cols[]
     #Allocate arrays to hold each column's metadata
     cnames = Array{String}(cols)
-    ctypes, csizes = Array{ODBC.API.SQLSMALLINT}(cols), Array{ODBC.API.SQLULEN}(cols)
-    cdigits, cnulls = Array{ODBC.API.SQLSMALLINT}(cols), Array{ODBC.API.SQLSMALLINT}(cols)
+    ctypes, csizes = Array{API.SQLSMALLINT}(cols), Array{API.SQLULEN}(cols)
+    cdigits, cnulls = Array{API.SQLSMALLINT}(cols), Array{API.SQLSMALLINT}(cols)
     juliatypes = Array{Type}(cols)
     alloctypes = Array{DataType}(cols)
     longtexts = Array{Bool}(cols)
     longtext = false
     #Allocate space for and fetch the name, type, size, etc. for each column
-    len, dt, csize = Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLULEN}()
-    digits, missing = Ref{ODBC.API.SQLSMALLINT}(), Ref{ODBC.API.SQLSMALLINT}()
-    cname = ODBC.Block(ODBC.API.SQLWCHAR, ODBC.BUFLEN)
+    len, dt, csize = Ref{API.SQLSMALLINT}(), Ref{API.SQLSMALLINT}(), Ref{API.SQLULEN}()
+    digits, missing = Ref{API.SQLSMALLINT}(), Ref{API.SQLSMALLINT}()
+    cname = Block(API.SQLWCHAR, BUFLEN)
     for x = 1:cols
-        ODBC.API.SQLDescribeCol(stmt, x, cname.ptr, ODBC.BUFLEN, len, dt, csize, digits, missing)
+        API.SQLDescribeCol(stmt, x, cname.ptr, BUFLEN, len, dt, csize, digits, missing)
         cnames[x] = string(cname, len[])
         t = dt[]
         ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], missing[]
-        alloctypes[x], juliatypes[x], longtexts[x] = ODBC.API.SQL2Julia[t]
+        alloctypes[x], juliatypes[x], longtexts[x] = API.SQL2Julia[t]
         longtext |= longtexts[x]
     end
     if !weakrefstrings
@@ -136,49 +136,49 @@ function Source(dsn::DSN, query::AbstractString; weakrefstrings::Bool=true, noqu
     if longtext
         rowset = allocsize = 1
     elseif rows > -1
-        # rowset = min(rows, ODBC.API.MAXFETCHSIZE)
+        # rowset = min(rows, API.MAXFETCHSIZE)
         allocsize = rowset = rows
     else
         rowset = allocsize = 1
     end
-    ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROW_ARRAY_SIZE, rowset, ODBC.API.SQL_IS_UINTEGER)
+    API.SQLSetStmtAttr(stmt, API.SQL_ATTR_ROW_ARRAY_SIZE, rowset, API.SQL_IS_UINTEGER)
     boundcols = Array{Any}(cols)
-    indcols = Array{Vector{ODBC.API.SQLLEN}}(cols)
+    indcols = Array{Vector{API.SQLLEN}}(cols)
     for x = 1:cols
         if longtexts[x]
-            boundcols[x], indcols[x] = alloctypes[x][], ODBC.API.SQLLEN[]
+            boundcols[x], indcols[x] = alloctypes[x][], API.SQLLEN[]
         else
             boundcols[x], elsize = internal_allocate(alloctypes[x], rowset, csizes[x])
-            indcols[x] = Array{ODBC.API.SQLLEN}(rowset)
-            ODBC.API.SQLBindCols(stmt, x, ODBC.API.SQL2C[ctypes[x]], pointer(boundcols[x]), elsize, indcols[x])
+            indcols[x] = Array{API.SQLLEN}(rowset)
+            API.SQLBindCols(stmt, x, API.SQL2C[ctypes[x]], pointer(boundcols[x]), elsize, indcols[x])
         end
     end
     columns = ((allocate(T) for T in juliatypes)...,)
     schema = Data.Schema(juliatypes, cnames, rows >= 0 ? rows : Missings.missing,
-        Dict("types"=>[ODBC.API.SQL_TYPES[c] for c in ctypes], "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
-    rowsfetched = Ref{ODBC.API.SQLLEN}() # will be populated by call to SQLFetchScroll
-    ODBC.API.SQLSetStmtAttr(stmt, ODBC.API.SQL_ATTR_ROWS_FETCHED_PTR, rowsfetched, ODBC.API.SQL_NTS)
-    types = [ODBC.API.SQL2C[ctypes[x]] for x = 1:cols]
-    source = ODBC.Source(schema, dsn, query, columns, 100, rowsfetched, 0, boundcols, indcols, csizes, types, Type[longtexts[x] ? ODBC.API.Long{T} : T for (x, T) in enumerate(juliatypes)], supportsreset == 1)
+        Dict("types"=>[API.SQL_TYPES[c] for c in ctypes], "sizes"=>csizes, "digits"=>cdigits, "nulls"=>cnulls))
+    rowsfetched = Ref{API.SQLLEN}() # will be populated by call to SQLFetchScroll
+    API.SQLSetStmtAttr(stmt, API.SQL_ATTR_ROWS_FETCHED_PTR, rowsfetched, API.SQL_NTS)
+    types = [API.SQL2C[ctypes[x]] for x = 1:cols]
+    source = Source(schema, dsn, query, columns, 100, rowsfetched, 0, boundcols, indcols, csizes, types, Type[longtexts[x] ? API.Long{T} : T for (x, T) in enumerate(juliatypes)], supportsreset == 1)
     rows != 0 && fetch!(source)
     return source
 end
 
 # primitive types
-allocate(::Type{T}) where {T} = Vector{T}(0)
+allocate(::Type{T}) where {T} = Vector{T}(undef, 0)
 allocate(::Type{Union{Missing, WeakRefString{T}}}) where {T} = WeakRefStringArray(UInt8[], Union{Missing, WeakRefString{T}}, 0)
 
-internal_allocate(::Type{T}, rowset, size) where {T} = Vector{T}(rowset), sizeof(T)
+internal_allocate(::Type{T}, rowset, size) where {T} = Vector{T}(undef, rowset), sizeof(T)
 # string/binary types
 internal_allocate(::Type{T}, rowset, size) where {T <: Union{UInt8, UInt16, UInt32}} = zeros(T, rowset * (size + 1)), sizeof(T) * (size + 1)
 
 function fetch!(source)
     stmt = source.dsn.stmt_ptr
-    source.status = ODBC.API.SQLFetchScroll(stmt, ODBC.API.SQL_FETCH_NEXT, 0)
+    source.status = API.SQLFetchScroll(stmt, API.SQL_FETCH_NEXT, 0)
     # source.rowsfetched[] == 0 && return
     # types = source.jltypes
     # for col = 1:length(types)
-    #     ODBC.cast!(types[col], source, col)
+    #     cast!(types[col], source, col)
     # end
     return
 end
@@ -191,7 +191,7 @@ function cast!(::Type{T}, source, col) where {T}
     ind = source.indcols[col]
     data = source.boundcols[col]
     @simd for i = 1:len
-        @inbounds c[i] = ifelse(ind[i] == ODBC.API.SQL_NULL_DATA, missing, data[i])
+        @inbounds c[i] = ifelse(ind[i] == API.SQL_NULL_DATA, missing, data[i])
     end
     return c
 end
@@ -210,7 +210,7 @@ function cast!(::Type{Union{Dec64, Missing}}, source, col)
     inds = source.indcols[col]
     @inbounds for i = 1:len
         ind = inds[i]
-        c[i] = ind == ODBC.API.SQL_NULL_DATA ? missing : cast(Dec64, source.boundcols[col], cur, ind)
+        c[i] = ind == API.SQL_NULL_DATA ? missing : cast(Dec64, source.boundcols[col], cur, ind)
         cur += elsize
     end
     return c
@@ -227,19 +227,19 @@ function cast!(::Type{Union{Vector{UInt8}, Missing}}, source, col)
     inds = source.indcols[col]
     @inbounds for i = 1:len
         ind = inds[i]
-        c[i] = ind == ODBC.API.SQL_NULL_DATA ? missing : cast(Vector{UInt8}, source.boundcols[col], cur, ind)
+        c[i] = ind == API.SQL_NULL_DATA ? missing : cast(Vector{UInt8}, source.boundcols[col], cur, ind)
         cur += elsize
     end
     return c
 end
 
 # string types
-bytes2codeunits(::Type{UInt8},  bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes))
-bytes2codeunits(::Type{UInt16}, bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes >> 1))
-bytes2codeunits(::Type{UInt32}, bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes >> 2))
-codeunits2bytes(::Type{UInt8},  bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes))
-codeunits2bytes(::Type{UInt16}, bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes * 2))
-codeunits2bytes(::Type{UInt32}, bytes) = ifelse(bytes == ODBC.API.SQL_NULL_DATA, 0, Int(bytes * 4))
+bytes2codeunits(::Type{UInt8},  bytes) = ifelse(bytes == API.SQL_NULL_DATA, 0, Int(bytes))
+bytes2codeunits(::Type{UInt16}, bytes) = ifelse(bytes == API.SQL_NULL_DATA, 0, Int(bytes >> 1))
+bytes2codeunits(::Type{UInt32}, bytes) = ifelse(bytes == API.SQL_NULL_DATA, 0, Int(bytes >> 2))
+codeunits2bytes(::Type{UInt8},  bytes) = ifelse(bytes == API.SQL_NULL_DATA, 0, Int(bytes))
+codeunits2bytes(::Type{UInt16}, bytes) = ifelse(bytes == API.SQL_NULL_DATA, 0, Int(bytes * 2))
+codeunits2bytes(::Type{UInt32}, bytes) = ifelse(bytes == API.SQL_NULL_DATA, 0, Int(bytes * 4))
 
 function cast!(::Type{Union{String, Missing}}, source, col)
     len = source.rowsfetched[]
@@ -252,8 +252,8 @@ function cast!(::Type{Union{String, Missing}}, source, col)
     inds = source.indcols[col]
     @inbounds for i in 1:len
         ind = inds[i]
-        length = ODBC.bytes2codeunits(T, max(ind, 0))
-        c[i] = ind == ODBC.API.SQL_NULL_DATA ? missing : (length == 0 ? "" : String(transcode(UInt8, data[cur:(cur + length - 1)])))
+        length = bytes2codeunits(T, max(ind, 0))
+        c[i] = ind == API.SQL_NULL_DATA ? missing : (length == 0 ? "" : String(transcode(UInt8, data[cur:(cur + length - 1)])))
         cur += elsize
     end
     return c
@@ -272,8 +272,8 @@ function cast!(::Type{Union{WeakRefString{T}, Missing}}, source, col) where {T}
     EMPTY = WeakRefString{T}(Ptr{T}(0), 0)
     @inbounds for i = 1:len
         ind = inds[i]
-        length = ODBC.bytes2codeunits(T, max(ind, 0))
-        c[i] = ind == ODBC.API.SQL_NULL_DATA ? missing : (length == 0 ? EMPTY : WeakRefString{T}(pointer(data, cur), length))
+        length = bytes2codeunits(T, max(ind, 0))
+        c[i] = ind == API.SQL_NULL_DATA ? missing : (length == 0 ? EMPTY : WeakRefString{T}(pointer(data, cur), length))
         cur += elsize
     end
     return c
@@ -282,21 +282,21 @@ end
 # long types
 const LONG_DATA_BUFFER_SIZE = 1024
 
-function cast!(::Type{ODBC.API.Long{Union{T, Missing}}}, source, col) where {T}
+function cast!(::Type{API.Long{Union{T, Missing}}}, source, col) where {T}
     stmt = source.dsn.stmt_ptr
     eT = eltype(source.boundcols[col])
     data = eT[]
-    buf = zeros(eT, ODBC.LONG_DATA_BUFFER_SIZE)
-    ind = Ref{ODBC.API.SQLLEN}()
-    res = ODBC.API.SQLGetData(stmt, col, source.ctypes[col], pointer(buf), sizeof(buf), ind)
-    isnull = ind[] == ODBC.API.SQL_NULL_DATA
+    buf = zeros(eT, LONG_DATA_BUFFER_SIZE)
+    ind = Ref{API.SQLLEN}()
+    res = API.SQLGetData(stmt, col, source.ctypes[col], pointer(buf), sizeof(buf), ind)
+    isnull = ind[] == API.SQL_NULL_DATA
     while !isnull
         len = ind[]
         oldlen = length(data)
         resize!(data, oldlen + bytes2codeunits(eT, len))
         ccall(:memcpy, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), pointer(data, oldlen + 1), pointer(buf), len)
-        res = ODBC.API.SQLGetData(stmt, col, source.ctypes[col], pointer(buf), length(buf), ind)
-        res != ODBC.API.SQL_SUCCESS && res != ODBC.API.SQL_SUCCESS_WITH_INFO && break
+        res = API.SQLGetData(stmt, col, source.ctypes[col], pointer(buf), length(buf), ind)
+        res != API.SQL_SUCCESS && res != API.SQL_SUCCESS_WITH_INFO && break
     end
     c = source.columns[col]
     resize!(c, 1)
@@ -305,21 +305,21 @@ function cast!(::Type{ODBC.API.Long{Union{T, Missing}}}, source, col) where {T}
 end
 
 # DataStreams interface
-Data.schema(source::ODBC.Source) = source.schema
-"Checks if an `ODBC.Source` has finished fetching results from an executed query string"
-Data.isdone(source::ODBC.Source, x=1, y=1) = source.status != ODBC.API.SQL_SUCCESS && source.status != ODBC.API.SQL_SUCCESS_WITH_INFO
-function Data.reset!(source::ODBC.Source)
+Data.schema(source::Source) = source.schema
+"Checks if an `Source` has finished fetching results from an executed query string"
+Data.isdone(source::Source, x=1, y=1) = source.status != API.SQL_SUCCESS && source.status != API.SQL_SUCCESS_WITH_INFO
+function Data.reset!(source::Source)
     source.supportsreset || throw(ArgumentError("Data.reset! not supported, probably due to the database vendor ODBC driver implementation"))
     stmt = source.dsn.stmt_ptr
-    source.status = ODBC.API.SQLFetchScroll(stmt, ODBC.API.SQL_FETCH_FIRST, 0)
+    source.status = API.SQLFetchScroll(stmt, API.SQL_FETCH_FIRST, 0)
     source.rowoffset = 0
     return
 end
 
-Data.streamtype(::Type{ODBC.Source}, ::Type{Data.Column}) = true
-Data.streamtype(::Type{ODBC.Source}, ::Type{Data.Field}) = true
+Data.streamtype(::Type{Source}, ::Type{Data.Column}) = true
+Data.streamtype(::Type{Source}, ::Type{Data.Field}) = true
 
-function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T, Missing}}, row, col) where {T}
+function Data.streamfrom(source::Source, ::Type{Data.Field}, ::Type{Union{T, Missing}}, row, col) where {T}
     val = if isempty(source.columns[col])
         cast!(source.jltypes[col], source, col)[row - source.rowoffset]
     else
@@ -327,7 +327,7 @@ function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T
     end
 
     if col == length(source.columns) && (row - source.rowoffset) == source.rowsfetched[] && !Data.isdone(source)
-        ODBC.fetch!(source)
+        fetch!(source)
         if source.rowsfetched[] > 0
             for i = 1:col
                 cast!(source.jltypes[i], source, i)
@@ -338,10 +338,10 @@ function Data.streamfrom(source::ODBC.Source, ::Type{Data.Field}, ::Type{Union{T
     return val
 end
 
-function Data.streamfrom(source::ODBC.Source, ::Type{Data.Column}, ::Type{Union{T, Missing}}, row, col) where {T}
+function Data.streamfrom(source::Source, ::Type{Data.Column}, ::Type{Union{T, Missing}}, row, col) where {T}
     dest = cast!(source.jltypes[col], source, col)
     if col == length(source.columns) && !Data.isdone(source)
-        ODBC.fetch!(source)
+        fetch!(source)
     end
     return dest
 end
@@ -356,8 +356,8 @@ function query(dsn::DSN, sql::AbstractString, sink::T; weakrefstrings::Bool=true
     return Data.close!(sink)
 end
 
-query(source::ODBC.Source, sink=DataFrame, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}()) = (sink = Data.stream!(source, sink, args...; append=append, transforms=transforms); return Data.close!(sink))
-query(source::ODBC.Source, sink::T; append::Bool=false, transforms::Dict=Dict{Int,Function}()) where {T} = (sink = Data.stream!(source, sink; append=append, transforms=transforms); return Data.close!(sink))
+query(source::Source, sink=DataFrame, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}()) = (sink = Data.stream!(source, sink, args...; append=append, transforms=transforms); return Data.close!(sink))
+query(source::Source, sink::T; append::Bool=false, transforms::Dict=Dict{Int,Function}()) where {T} = (sink = Data.stream!(source, sink; append=append, transforms=transforms); return Data.close!(sink))
 
 "Convenience string macro for executing an SQL statement against a DSN."
 macro sql_str(s,dsn)

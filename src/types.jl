@@ -1,4 +1,4 @@
-using Libdl, Printf, DecFP, Missings, WeakRefStrings
+using Libdl, Dates, Printf, DecFP, Missings, WeakRefStrings
 
 # Link to ODBC Driver Manager (system-dependent)
 let

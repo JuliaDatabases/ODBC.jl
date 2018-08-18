@@ -11,7 +11,7 @@ Sink(dsn::DSN, table::AbstractString; append::Bool=false) = Sink(dsn, table, [],
 # DataStreams interface
 function Sink(sch::Data.Schema, ::Type{T}, dsn::DSN, table::AbstractString; append::Bool=false, reference::Vector{UInt8}=UInt8[]) where {T}
     cols = size(sch, 2)
-    sink = Sink(dsn, table, Vector{Any}(cols), Vector{Any}(cols))
+    sink = Sink(dsn, table, Vector{Any}(undef, cols), Vector{Any}(undef, cols))
     !append && ODBC.execute!(dsn, "delete from $table")
     stmt = sink.dsn.stmt_ptr2
     ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
@@ -54,7 +54,7 @@ function _prep!(T, column)
     ind = 1
     for i = 1:length(column)
         ptr, len, ref = getptrlen(column[i])
-        unsafe_copy!(pointer(data, ind), ptr, len)
+        unsafe_copyto!(pointer(data, ind), ptr, len)
         ind += maxlen
     end
     return data, maxlen
