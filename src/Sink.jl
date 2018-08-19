@@ -9,7 +9,7 @@ end
 Sink(dsn::DSN, table::AbstractString; append::Bool=false) = Sink(dsn, table, [], [])
 
 # DataStreams interface
-function Sink(sch::Data.Schema, ::Type{T}, dsn::DSN, table::AbstractString; append::Bool=false, reference::Vector{UInt8}=UInt8[]) where {T}
+function Sink(sch::Data.Schema, ::Type{T}, append::Bool, dsn::DSN, table::AbstractString; reference::Vector{UInt8}=UInt8[]) where {T}
     cols = size(sch, 2)
     sink = Sink(dsn, table, Vector{Any}(undef, cols), Vector{Any}(undef, cols))
     !append && ODBC.execute!(dsn, "delete from $table")
@@ -17,7 +17,7 @@ function Sink(sch::Data.Schema, ::Type{T}, dsn::DSN, table::AbstractString; appe
     ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
     return sink
 end
-function Sink(sink, sch::Data.Schema, ::Type{T}; append::Bool=false, reference::Vector{UInt8}=UInt8[]) where {T}
+function Sink(sink, sch::Data.Schema, ::Type{T}, append::Bool; reference::Vector{UInt8}=UInt8[]) where {T}
     cols = size(sch, 2)
     resize!(sink.columns, cols)
     resize!(sink.indcols, cols)
