@@ -316,8 +316,8 @@ function Data.reset!(source::Source)
     return
 end
 
-Data.streamtype(::Type{Source}, ::Type{Data.Column}) = true
-Data.streamtype(::Type{Source}, ::Type{Data.Field}) = true
+Data.streamtype(::Type{<:Source}, ::Type{Data.Column}) = true
+Data.streamtype(::Type{<:Source}, ::Type{Data.Field}) = true
 
 function Data.streamfrom(source::Source, ::Type{Data.Field}, ::Type{Union{T, Missing}}, row, col) where {T}
     val = if isempty(source.columns[col])
