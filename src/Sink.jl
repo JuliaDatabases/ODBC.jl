@@ -9,15 +9,15 @@ end
 Sink(dsn::DSN, table::AbstractString; append::Bool=false) = Sink(dsn, table, [], [])
 
 # DataStreams interface
-function Sink(sch::Data.Schema, ::Type{T}, dsn::DSN, table::AbstractString; append::Bool=false, reference::Vector{UInt8}=UInt8[]) where {T}
+function Sink(sch::Data.Schema, ::Type{T}, append::Bool, dsn::DSN, table::AbstractString; reference::Vector{UInt8}=UInt8[]) where {T}
     cols = size(sch, 2)
-    sink = Sink(dsn, table, Vector{Any}(cols), Vector{Any}(cols))
+    sink = Sink(dsn, table, Vector{Any}(undef, cols), Vector{Any}(undef, cols))
     !append && ODBC.execute!(dsn, "delete from $table")
     stmt = sink.dsn.stmt_ptr2
     ODBC.execute!(sink.dsn, "select * from $(sink.table)", stmt)
     return sink
 end
-function Sink(sink, sch::Data.Schema, ::Type{T}; append::Bool=false, reference::Vector{UInt8}=UInt8[]) where {T}
+function Sink(sink, sch::Data.Schema, ::Type{T}, append::Bool; reference::Vector{UInt8}=UInt8[]) where {T}
     cols = size(sch, 2)
     resize!(sink.columns, cols)
     resize!(sink.indcols, cols)
@@ -35,7 +35,7 @@ prep!(::Type{Union{Dates.Date, Missing}}, A) = ODBC.API.SQLDate[ismissing(x) ? O
 prep!(::Type{Union{Dates.DateTime, Missing}}, A) = ODBC.API.SQLTimestamp[ismissing(x) ? ODBC.API.SQLTimestamp() : ODBC.API.SQLTimestamp(x) for x in A], 0
 prep!(::Type{Union{Dec64, Missing}}, A) = Float64[ismissing(x) ? 0.0 : Float64(x) for x in A], 0
 
-getptrlen(x::AbstractString) = pointer(Vector{UIn8}(x)), length(x), UInt8[]
+getptrlen(x::AbstractString) = pointer(Vector{UInt8}(x)), length(x), UInt8[]
 getptrlen(x::WeakRefString{T}) where {T} = convert(Ptr{UInt8}, x.ptr), codeunits2bytes(T, x.len), UInt8[]
 getptrlen(x::Missing) = convert(Ptr{UInt8}, C_NULL), 0, UInt8[]
 function getptrlen(x::CategoricalArrays.CategoricalValue)
@@ -54,7 +54,7 @@ function _prep!(T, column)
     ind = 1
     for i = 1:length(column)
         ptr, len, ref = getptrlen(column[i])
-        unsafe_copy!(pointer(data, ind), ptr, len)
+        unsafe_copyto!(pointer(data, ind), ptr, len)
         ind += maxlen
     end
     return data, maxlen

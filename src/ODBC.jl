@@ -1,16 +1,8 @@
-__precompile__(true)
 module ODBC
 
-using DataStreams, Missings, CategoricalArrays, WeakRefStrings, DataFrames
-import Compat: Sys
+using DataStreams, Missings, CategoricalArrays, WeakRefStrings, DataFrames, Dates
 
 export Data, DataFrame, odbcdf
-
-if VERSION < v"0.7.0-DEV.2575"
-    const Dates = Base.Dates
-else
-    import Dates
-end
 
 include("API.jl")
 
@@ -29,12 +21,12 @@ Block allocator:
 function Block(::Type{T}, elements::Int, extradim::Integer=1) where {T}
     len = sizeof(T) * elements * extradim
     block = Block{T}(convert(Ptr{T}, Libc.malloc(len)), len, sizeof(T) * extradim)
-    finalizer(block, x->Libc.free(x.ptr))
+    finalizer(x->Libc.free(x.ptr), block)
     return block
 end
 
 # used for getting messages back from ODBC driver manager; SQLDrivers, SQLError, etc.
-Base.string(block::Block, len::Integer) = String(transcode(UInt8, unsafe_wrap(Array, block.ptr, len, false)))
+Base.string(block::Block, len::Integer) = String(transcode(UInt8, unsafe_wrap(Array, block.ptr, len, own=false)))
 
 struct ODBCError <: Exception
     msg::String
@@ -42,7 +34,7 @@ end
 
 const BUFLEN = 1024
 
-function ODBCError(handle::Ptr{Void}, handletype::Int16)
+function ODBCError(handle::Ptr{Cvoid}, handletype::Int16)
     i = Int16(1)
     state = ODBC.Block(ODBC.API.SQLWCHAR, 6)
     native = Ref{ODBC.API.SQLINTEGER}()
@@ -80,7 +72,7 @@ function drivers()
     driver_attr = Block(ODBC.API.SQLWCHAR, BUFLEN)
     attr_length = Ref{ODBC.API.SQLSMALLINT}()
     dir = ODBC.API.SQL_FETCH_FIRST
-    while ODBC.API.SQLDrivers(ENV, dir, driver_desc.ptr, BUFLEN, desc_length, driver_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
+    while ODBC.API.SQLDrivers(ENV[], dir, driver_desc.ptr, BUFLEN, desc_length, driver_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
         push!(descriptions, string(driver_desc, desc_length[]))
         push!(attributes,   string(driver_attr, attr_length[]))
         dir = ODBC.API.SQL_FETCH_NEXT
@@ -97,7 +89,7 @@ function dsns()
     dsn_attr    = Block(ODBC.API.SQLWCHAR, BUFLEN)
     attr_length = Ref{ODBC.API.SQLSMALLINT}()
     dir = ODBC.API.SQL_FETCH_FIRST
-    while ODBC.API.SQLDataSources(ENV, dir, dsn_desc.ptr, BUFLEN, desc_length, dsn_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
+    while ODBC.API.SQLDataSources(ENV[], dir, dsn_desc.ptr, BUFLEN, desc_length, dsn_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
         push!(descriptions, string(dsn_desc, desc_length[]))
         push!(attributes,   string(dsn_attr, attr_length[]))
         dir = ODBC.API.SQL_FETCH_NEXT
@@ -111,9 +103,9 @@ It is passed to most other ODBC methods as a first argument
 """
 mutable struct DSN
     dsn::String
-    dbc_ptr::Ptr{Void}
-    stmt_ptr::Ptr{Void}
-    stmt_ptr2::Ptr{Void}
+    dbc_ptr::Ptr{Cvoid}
+    stmt_ptr::Ptr{Cvoid}
+    stmt_ptr2::Ptr{Cvoid}
 end
 
 Base.show(io::IO,conn::DSN) = print(io, "ODBC.DSN($(conn.dsn))")
@@ -127,7 +119,7 @@ Takes optional 2nd and 3rd arguments for `username` and `password`, respectively
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
 """
 function DSN(connectionstring::AbstractString, username::AbstractString=String(""), password::AbstractString=String(""); prompt::Bool=true)
-    dbc = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV)
+    dbc = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV[])
     dsns = ODBC.dsns()
     found = false
     for d in dsns[:,1]
@@ -158,7 +150,7 @@ end
 
 mutable struct Statement
     dsn::DSN
-    stmt::Ptr{Void}
+    stmt::Ptr{Cvoid}
     query::String
     task::Task
 end
@@ -184,12 +176,12 @@ Base.show(io::IO, source::Source) = print(io, "ODBC.Source:\n\tDSN: $(source.dsn
 
 include("Source.jl")
 include("Sink.jl")
-include("sqlreplmode.jl")
+# include("sqlreplmode.jl")
+
+const ENV = Ref{Ptr{Cvoid}}()
 
 function __init__()
-    global const ENV = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
-    global const DECZERO = Dec64(0)
-    toggle_sql_repl()
+    ENV[] = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
 end
 
 # used to 'clear' a statement of bound columns, resultsets,

@@ -1,4 +1,4 @@
-using Base.Test, ODBC, DataStreams, Missings, WeakRefStrings, DataFrames, DecFP, CSV, SQLite
+using Test, Dates, Random, ODBC, DataStreams, Missings, WeakRefStrings, DataFrames, DecFP, CSV, SQLite
 
 # You can also specify which database you want to test for as an environment variable:
 # ENV["ODBC_TEST_DRIVERS"] = "mysql"
@@ -49,19 +49,19 @@ const TEST_MSSQL = "mssql" in TEST_DRIVERS
     if TEST_MYSQL
         include("mysql.jl")
     else
-        warn("Skipping mysql tests...")
+        @warn "Skipping mysql tests..."
     end
 
     if TEST_POSTGRESQL
         include("postgresql.jl")
     else
-        warn("Skipping postgresql tests...")
+        @warn "Skipping postgresql tests..."
     end
 
     if TEST_MSSQL
         include("mssql.jl")
     else
-        warn("Skipping mssql tests...")
+        @warn "Skipping mssql tests..."
     end
 end
 

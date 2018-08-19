@@ -1,4 +1,4 @@
-using DecFP, Missings, WeakRefStrings
+using Libdl, Dates, Printf, DecFP, Missings, WeakRefStrings
 
 # Link to ODBC Driver Manager (system-dependent)
 let
@@ -36,17 +36,11 @@ const SQLREAL =       Cfloat
 const SQLTIME =       Cuchar
 const SQLTIMESTAMP =  Cuchar
 
-if contains(odbc_dm,"iodbc")
+if occursin("iodbc", odbc_dm)
     const SQLWCHAR = UInt32
-    if !isdefined(Base, :transcode)
-        transcode(T, x) = wstring(x)
-    end
 else
     # correct for windows + unixODBC
     const SQLWCHAR = Cushort
-    if !isdefined(Base, :transcode)
-        transcode(T, x) = utf16(x)
-    end
 end
 
 # ODBC API	64-bit platform	32-bit platform
@@ -79,9 +73,9 @@ const SQLROWCOUNT =   SQLULEN
 const SQLROWSETSIZE = SQLULEN
 const SQLTRANSID =    SQLULEN
 const SQLROWOFFSET =  SQLLEN
-const SQLPOINTER =    Ptr{Void}
+const SQLPOINTER =    Ptr{Cvoid}
 const SQLRETURN =     SQLSMALLINT
-const SQLHANDLE =     Ptr{Void}
+const SQLHANDLE =     Ptr{Cvoid}
 const SQLHENV =       SQLHANDLE
 const SQLHDBC =       SQLHANDLE
 const SQLHSTMT =      SQLHANDLE
@@ -103,12 +97,12 @@ const SSHORT =        Cshort
 const SDOUBLE =       Cdouble
 const LDOUBLE =       Cdouble
 const SFLOAT =        Cfloat
-const PTR =           Ptr{Void}
-const HENV =          Ptr{Void}
-const HDBC =          Ptr{Void}
-const HSTMT =         Ptr{Void}
+const PTR =           Ptr{Cvoid}
+const HENV =          Ptr{Cvoid}
+const HDBC =          Ptr{Cvoid}
+const HSTMT =         Ptr{Cvoid}
 const RETCODE =       Cshort
-const SQLHWND =       Ptr{Void}
+const SQLHWND =       Ptr{Cvoid}
 
 #################
 
@@ -283,7 +277,7 @@ struct SQLTimestamp <: Dates.AbstractTime
     fraction::Int32 #nanoseconds
 end
 
-Base.show(io::IO,x::SQLTimestamp) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))T$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))$(x.fraction == 0 ? "" : strip(@sprintf("%.9f",x.fraction/1e+9),'0'))")
+Base.show(io::IO,x::SQLTimestamp) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))T$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))$(x.fraction == 0 ? "" : strip(Printf.@sprintf("%.9f",x.fraction/1e+9),'0'))")
 function SQLTimestamp(x::Dates.DateTime)
     y, m, d = Dates.yearmonthday(x)
     h, mm, s = Dates.hour(x), Dates.minute(x), Dates.second(x)
