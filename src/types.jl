@@ -1,14 +1,12 @@
 using Libdl, Dates, Printf, DecFP, Missings, WeakRefStrings
 
 # Link to ODBC Driver Manager (system-dependent)
-let
-    global odbc_dm
+const odbc_dm = let
     if !isdefined(@__MODULE__, :odbc_dm)
         Sys.islinux()   && (lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"])
         Sys.iswindows() && (lib_choices = ["odbc32"])
         Sys.isapple()   && (lib_choices = ["libodbc.2.dylib","libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"])
-        lib = Libdl.find_library(lib_choices)
-        odbc_dm = lib
+        Libdl.find_library(lib_choices)
     end
 end
 
