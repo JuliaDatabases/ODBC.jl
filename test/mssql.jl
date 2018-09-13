@@ -72,11 +72,10 @@
                              cast(123456 as binary(2)), -- binary
                              cast(123456 as varbinary(16)) -- varbinary
                             )")
-        source = ODBC.Source(dsn, "select * from test1")
-        data = Data.stream!(source, Data.Table)
+        data = ODBC.query(dsn, "select * from test1")
 
-        @test size(Data.schema(data)) == (1,23)
-        @test Data.types(Data.schema(data)) == (
+        @test size(data) == (1,23)
+        @test Tables.schema(data).types == (
             Union{Int64, Missing},
             Union{Int8, Missing},
             Union{DecFP.Dec64, Missing},
@@ -152,17 +151,15 @@
                              cast(123456 as varbinary(16)) -- varbinary
                             )")
         data = ODBC.query(dsn, "select * from test1")
-        @test size(Data.schema(data)) == (2,23)
+        @test size(data) == (2,23)
         @test data[1][1] === Int64(1)
         @test data[1][2] === Int64(2)
 
         @testset "Streaming mssql data to CSV" begin
             # Test exporting test1 to CSV
             temp_filename = "mssql_test1.csv"
-            source = ODBC.Source(dsn, "select * from test1")
-            csv = CSV.Sink(temp_filename)
-            Data.stream!(source, csv)
-            Data.close!(csv)
+            source = ODBC.Query(dsn, "select * from test1")
+            CSV.write(source, temp_filename)
 
             open(temp_filename) do f
                 @test readline(f) == (
@@ -186,20 +183,13 @@
                 )
             end
             rm(temp_filename)
-
-            # Test exporting test1 using ODBC.query
-            temp_filename = "mssql_test2.csv"
-            csv = ODBC.query(dsn, "select * from test1", CSV.Sink, temp_filename)
-            rm(temp_filename)
         end
 
         @testset "Exporting mssql data to SQLite" begin
             # Test exporting test1 to SQLite
             db = SQLite.DB()
-            source = ODBC.Source(dsn, "select * from test1")
-            sqlite = SQLite.Sink(db, "mssql_test1", Data.schema(source))
-            Data.stream!(source, sqlite)
-            Data.close!(sqlite)
+            source = ODBC.Query(dsn, "select * from test1")
+            SQLite.load!(source, db, "mssql_test1")
 
             data = SQLite.query(db, "select * from mssql_test1")
             @test size(data) == (2,23)
@@ -215,7 +205,7 @@
     @testset "employee" begin
         ODBC.execute!(dsn, "drop table if exists employee")
 
-        ODBC.Source(dsn, """
+        ODBC.execute!(dsn, """
         CREATE TABLE Employee
         (
             ID INT NOT NULL IDENTITY(1,1) PRIMARY KEY,
@@ -228,7 +218,7 @@
             Senior BIT,
             empno SMALLINT
         );""")
-        ODBC.Source(dsn, """
+        ODBC.execute!(dsn, """
         INSERT INTO Employee
         (Name, Salary, JoinDate, LastLogin, LunchTime, OfficeNo, Senior, empno)
          VALUES ('John', 10000.50, '2015-8-3', '2015-9-5 12:31:30', '12:00:00', 1, 1, 1301),
@@ -237,18 +227,8 @@
          ('Tim', 15000.50, '2015-7-25', '2015-10-10 12:12:25', '12:30:00', 56, 1, 3200);
         """)
         data = ODBC.query(dsn, "select * from employee")
-
-        @test sprint(showall, data) == (
-            "4×9 DataFrames.DataFrame\n" *
-            "│ Row │ ID │ Name │ Salary  │ JoinDate   │ LastLogin           │ LunchTime │ OfficeNo │ Senior │ empno │\n" *
-            "├─────┼────┼──────┼─────────┼────────────┼─────────────────────┼───────────┼──────────┼────────┼───────┤\n" *
-            "│ 1   │ 1  │ John │ 10000.5 │ 2015-08-03 │ 2015-09-05T12:31:30 │ 12:00:00  │ 1        │ 1      │ 1301  │\n" *
-            "│ 2   │ 2  │ Tom  │ 20000.3 │ 2015-08-04 │ 2015-10-12T13:12:14 │ 13:00:00  │ 12       │ 1      │ 1422  │\n" *
-            "│ 3   │ 3  │ Jim  │ 30000.0 │ 2015-06-02 │ 2015-09-05T10:05:10 │ 12:30:00  │ 45       │ 0      │ 1567  │\n" *
-            "│ 4   │ 4  │ Tim  │ 15000.5 │ 2015-07-25 │ 2015-10-10T12:12:25 │ 12:30:00  │ 56       │ 1      │ 3200  │"
-        )
-        @test size(Data.schema(data)) == (4,9)
-        ODBC.Source(dsn, "drop table if exists employee")
+        @test size(data) == (4,9)
+        ODBC.execute!(dsn, "drop table if exists employee")
     end
 
     ODBC.disconnect!(dsn)

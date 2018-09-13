@@ -50,10 +50,9 @@
                              'hey there abraham', -- text,
                              ARRAY[1, 2, 3] -- integer array
                             )")
-        source = ODBC.Source(dsn, "select * from test1")
         data = ODBC.query(source)
-        @test size(Data.schema(data)) == (1,17)
-        @test Data.types(Data.schema(data)) == (
+        @test size(data) == (1,17)
+        @test Tables.schema(data).types == (
             Union{Int64, Missing},
             Union{DecFP.Dec64, Missing},
             Union{Int32, Missing},
@@ -79,10 +78,8 @@
         @testset "Streaming postgres data to CSV" begin
             # Test exporting test1 to CSV
             temp_filename = "postgres_test1.csv"
-            source = ODBC.Source(dsn, "select * from test1")
-            csv = CSV.Sink(temp_filename)
-            Data.stream!(source, csv)
-            Data.close!(csv)
+            source = ODBC.Query(dsn, "select * from test1")
+            CSV.write(source, temp_filename)
 
             open(temp_filename) do f
                 @test readline(f) == (
@@ -96,20 +93,13 @@
                 )
             end
             rm(temp_filename)
-
-            # Test exporting test1 using ODBC.query
-            temp_filename = "postgres_test2.csv"
-            csv = ODBC.query(dsn, "select * from test1", CSV.Sink, temp_filename)
-            rm(temp_filename)
         end
 
         @testset "Exporting postgres data to SQLite" begin
             # Test exporting test1 to SQLite
             db = SQLite.DB()
-            source = ODBC.Source(dsn, "select * from test1")
-            sqlite = SQLite.Sink(db, "postgres_test1", Data.schema(source))
-            Data.stream!(source, sqlite)
-            Data.close!(sqlite)
+            source = ODBC.Query(dsn, "select * from test1")
+            SQLite.load!(source, db, "postgres_test1")
 
             data = SQLite.query(db, "select * from postgres_test1")
             @test size(data) == (1,17)

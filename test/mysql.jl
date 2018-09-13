@@ -47,7 +47,7 @@
                              test_mediumtext mediumtext,
                              test_longtext longtext
                             )")
-        data = ODBC.query(dsn, "select * from information_schema.columns where table_name = 'test1'")
+        data = ODBC.Query(dsn, "select * from information_schema.columns where table_name = 'test1'")
         ODBC.execute!(dsn, "insert test1 VALUES
                             (1, -- bigint
                              1, -- bit
@@ -77,11 +77,10 @@
                              'hey there george', -- mediumtext
                              'hey there hank' -- longtext
                             )")
-        source = ODBC.Source(dsn, "select * from test1")
+        data = ODBC.query(dsn, "select * from test1")
 
-        data = ODBC.query(source)
-        @test size(Data.schema(data)) == (1,27)
-        @test Data.types(Data.schema(data)) == (
+        @test size(data) == (1,27)
+        @test Tables.schema(data).types == (
             Union{Int64, Missing},
             Union{Int8, Missing},
             Union{DecFP.Dec64, Missing},
@@ -168,18 +167,16 @@
                              'hey there hank2' -- longtext
                             )")
         data = ODBC.query(dsn, "select * from test1")
-        @test size(Data.schema(data)) == (2,27)
+        @test size(data) == (2,27)
         @test data[1][1] === Int64(1)
         @test data[1][2] === Int64(2)
 
         @testset "Streaming mysql data to CSV" begin
             # Test exporting test1 to CSV
             temp_filename = "mysql_test1.csv"
-            source = ODBC.Source(dsn, "select * from test1")
-            csv = CSV.Sink(temp_filename)
-            Data.stream!(source, csv)
-            Data.close!(csv)
-
+            source = ODBC.Query(dsn, "select * from test1")
+            CSV.write(source, temp_filename)
+            
             open(temp_filename) do f
                 @test readline(f) == (
                     "test_bigint,test_bit,test_decimal,test_int,test_numeric," *
@@ -192,43 +189,24 @@
                 @test readline(f) == (
                     "1,1,1.0,1,1.0,1,1,1,1.2,1.2,2016-01-01,2016-01-01T01:01:01," *
                     "2016-01-01T01:01:01,01:01:01,2016,A,hey there sailor," *
-                    "\"UInt8[0x31, 0x32]\",,\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, 0x68, " *
-                    "0x65, 0x72, 0x65, 0x20, 0x61, 0x62, 0x72, 0x61, 0x68, 0x61, 0x6d]\"," *
-                    "\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, 0x68, 0x65, 0x72, 0x65, 0x20, " *
-                    "0x62, 0x69, 0x6c, 0x6c]\",\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, " *
-                    "0x68, 0x65, 0x72, 0x65, 0x20, 0x63, 0x68, 0x61, 0x72, 0x6c, 0x69, " *
-                    "0x65]\",\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, 0x68, 0x65, 0x72, " *
-                    "0x65, 0x20, 0x64, 0x61, 0x6e]\",hey there ephraim,hey there frank," *
-                    "hey there george,hey there hank"
+                    "12,,hey there abraham,hey there bill,hey there charlie,hey there dan," *
+                    "hey there ephraim,hey there frank,hey there george,hey there hank"
                 )
                 @test readline(f) == (
                     "2,1,2.0,2,2.0,2,2,2,2.2,2.2,2016-01-01,2016-01-01T01:01:01," *
                     "2016-01-01T01:01:01,01:01:01,2016,B,hey there sailor," *
-                    "\"UInt8[0x31, 0x32]\",,\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, 0x68, " *
-                    "0x65, 0x72, 0x65, 0x20, 0x61, 0x62, 0x72, 0x61, 0x68, 0x61, 0x6d, " *
-                    "0x32]\",\"UInt8[0x68, 0x65, 0x79, 0x20, 0x74, 0x68, 0x65, 0x72, " *
-                    "0x65, 0x20, 0x62, 0x69, 0x6c, 0x6c, 0x32]\",\"UInt8[0x68, 0x65, " *
-                    "0x79, 0x20, 0x74, 0x68, 0x65, 0x72, 0x65, 0x20, 0x63, 0x68, 0x61, " *
-                    "0x72, 0x6c, 0x69, 0x65, 0x32]\",\"UInt8[0x68, 0x65, 0x79, 0x20, " *
-                    "0x74, 0x68, 0x65, 0x72, 0x65, 0x20, 0x64, 0x61, 0x6e, 0x32]\"," *
+                    "12,,hey there abraham2,hey there bill2,hey there charlie2,hey there dan2," *
                     "hey there ephraim2,hey there frank2,hey there george2,hey there hank2"
                 )
             end
-            rm(temp_filename)
-
-            # Test exporting test1 using ODBC.query
-            temp_filename = "mysql_test2.csv"
-            csv = ODBC.query(dsn, "select * from test1", CSV.Sink, temp_filename)
             rm(temp_filename)
         end
 
         @testset "Exporting mysql data to SQLite" begin
             # Test exporting test1 to SQLite
             db = SQLite.DB()
-            source = ODBC.Source(dsn, "select * from test1")
-            sqlite = SQLite.Sink(db, "mysql_test1", Data.schema(source))
-            Data.stream!(source, sqlite)
-            Data.close!(sqlite)
+            source = ODBC.Query(dsn, "select * from test1")
+            SQLite.load!(source, db, "mysql_test1")
 
             data = SQLite.query(db, "select * from mysql_test1")
             @test size(data) == (2,27)
@@ -254,17 +232,17 @@
             hireDate DATE,
             `last clockin` DATETIME
         );""")
-        randoms = joinpath(dirname(@__FILE__), "data/randoms.csv")
+        randoms = joinpath(dirname(pathof(ODBC)), "../test/data/randoms.csv")
         ODBC.execute!(dsn, "load data local infile '$randoms' into table test2
                             fields terminated by ',' lines terminated by '\n'
                             (id,first_name,last_name,salary,`hourly rate`,hiredate,`last clockin`)")
 
         data = ODBC.query(dsn, "select count(*) from test2")
-        @test size(Data.schema(data)) == (1,1)
+        @test size(data) == (1,1)
         @test data[1][1] === 70000
 
         df = ODBC.query(dsn, "select * from test2")
-        @test size(Data.schema(df)) == (70000,7)
+        @test size(df) == (70000,7)
         @test df[1] == collect(1:70000)
         @test df[end][1] === ODBC.API.SQLTimestamp(2002,1,17,21,32,0,0)
     end
@@ -279,7 +257,7 @@
         ODBC.execute!(stmt, [102, "Dean", "Martin", 1.5, 10.1, Date(2016,1,2), DateTime(2016,1,2)])
 
         df = ODBC.query(dsn, "select * from test3")
-        @test size(Data.schema(df)) == (2,7)
+        @test size(df) == (2,7)
         @test df[1][end-1] == 101
         @test df[1][end] == 102
         @test df[2][end-1] == "Steve"
@@ -294,8 +272,8 @@
         @test df[6][end] == ODBC.API.SQLDate(2016,1,2)
         @test df[7][end-1] == ODBC.API.SQLTimestamp(2016,1,1,0,0,0,0)
         @test df[7][end] == ODBC.API.SQLTimestamp(2016,1,2,0,0,0,0)
-        ODBC.Source(dsn, "drop table if exists test2")
-        ODBC.Source(dsn, "drop table if exists test3")
+        ODBC.execute!(dsn, "drop table if exists test2")
+        ODBC.execute!(dsn, "drop table if exists test3")
     end
 
     ODBC.disconnect!(dsn)

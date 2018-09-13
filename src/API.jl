@@ -55,13 +55,9 @@ const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
 
 macro odbc(func,args,vals...)
     if Sys.iswindows()
-        esc(quote
-            ret = ccall( ($func, odbc_dm), stdcall, SQLRETURN, $args, $(vals...))
-        end)
+        esc(:(ccall( ($func, $odbc_dm), stdcall, SQLRETURN, $args, $(vals...))))
     else
-        esc(quote
-            ret = ccall( ($func, odbc_dm),          SQLRETURN, $args, $(vals...))
-        end)
+        esc(:(ccall( ($func, $odbc_dm),          SQLRETURN, $args, $(vals...))))
     end
 end
 
@@ -143,9 +139,9 @@ const SQL_TRUE = 1
 const SQL_FALSE = 0
 
 #Status: Tested on Windows, Linux, Mac 32/64-bit
-function SQLSetEnvAttr(env_handle::Ptr{Cvoid}, attribute::Int, value::T) where {T<:Union{Int,UInt}}
+function SQLSetEnvAttr(env_handle::Ptr{Cvoid}, attribute::Int, value::Integer)
     @odbc(:SQLSetEnvAttr,
-                (Ptr{Cvoid}, Int, T, Int), env_handle, attribute, value, 0)
+                (Ptr{Cvoid}, Int, UInt, Int), env_handle, attribute, value, 0)
 end
 
 # SQLGetEnvAttr
@@ -247,7 +243,7 @@ const SQL_CD_FALSE = 0
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms710297(v=vs.85).aspx"
 function SQLGetConnectAttr(dbc::Ptr{Cvoid},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
     @odbc(:SQLGetConnectAttrW,
-                (Ptr{Cvoid},Int,Ptr{T},Int,Ptr{Int}),
+                (Ptr{Cvoid},Int,Ptr{Cvoid},Int,Ptr{Int}),
                 dbc,attribute,value,sizeof(T)*N,bytes_returned)
 end
 
@@ -283,7 +279,7 @@ end
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms715438(v=vs.85).aspx"
 function SQLGetStmtAttr(stmt::Ptr{Cvoid},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
     @odbc(:SQLGetStmtAttrW,
-                (Ptr{Cvoid},Int,Ptr{T},Int,Ptr{Int}),
+                (Ptr{Cvoid},Int,Ptr{Cvoid},Int,Ptr{Int}),
                 stmt,attribute,value,sizeof(T)*N,bytes_returned)
 end
 
@@ -308,14 +304,14 @@ end
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms713560(v=vs.85).aspx"
 function SQLSetDescField(desc::Ptr{Cvoid},i::Int16,field_id::Int16,value::Array{T,N}) where {T,N}
     @odbc(:SQLSetDescFieldW,
-                (Ptr{Cvoid},Int16,Int16,Ptr{T},Int),
+                (Ptr{Cvoid},Int16,Int16,Ptr{Cvoid},Int),
                 desc,i,field_id,value,length(value))
 end
 
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms716370(v=vs.85).aspx"
 function SQLGetDescField(desc::Ptr{Cvoid},i::Int16,attribute::Int16,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
     @odbc(:SQLGetDescFieldW,
-                (Ptr{Cvoid},Int16,Int16,Ptr{T},Int,Ptr{Int}),
+                (Ptr{Cvoid},Int16,Int16,Ptr{Cvoid},Int,Ptr{Int}),
                 desc,i,attribute,value,sizeof(T)*N,bytes_returned)
 end
 
@@ -395,7 +391,7 @@ end
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms711681(v=vs.85).aspx"
 function SQLGetInfo(dbc::Ptr{Cvoid},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
     @odbc(:SQLGetInfoW,
-                (Ptr{Cvoid},Int,Ptr{T},Int,Ptr{Int}),
+                (Ptr{Cvoid},Int,Ptr{Cvoid},Int,Ptr{Int}),
                 dbc,attribute,value,sizeof(T)*N,bytes_returned)
 end
 
@@ -425,7 +421,7 @@ end
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms713824(v=vs.85).aspx"
 function SQLPutData(stmt::Ptr{Cvoid},data::Array{T},data_length::Int) where {T}
     @odbc(:SQLPutData,
-                (Ptr{Cvoid},Ptr{T},Int),
+                (Ptr{Cvoid},Ptr{Cvoid},Int),
                 stmt,data,data_length)
 end
 
@@ -596,7 +592,7 @@ const SQL_LOCK_UNLOCK = UInt16(2) #SQLSetPos
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms713507(v=vs.85).aspx"
 function SQLSetPos(stmt::Ptr{Cvoid},rownumber::T,operation::UInt16,lock_type::UInt16) where {T}
     @odbc(:SQLSetPos,
-                (Ptr{Cvoid},T,UInt16,UInt16),
+                (Ptr{Cvoid},UInt64,UInt16,UInt16),
                 stmt,rownumber,operation,lock_type)
 end #T can be Uint64 or UInt16 it seems
 
