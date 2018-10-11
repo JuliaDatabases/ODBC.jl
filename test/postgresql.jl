@@ -79,7 +79,7 @@
             # Test exporting test1 to CSV
             temp_filename = "postgres_test1.csv"
             source = ODBC.Query(dsn, "select * from test1")
-            CSV.write(source, temp_filename)
+            CSV.write(temp_filename, source)
 
             open(temp_filename) do f
                 @test readline(f) == (
