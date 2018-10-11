@@ -1,8 +1,8 @@
 module ODBC
 
-using DataStreams, Missings, CategoricalArrays, WeakRefStrings, DataFrames, Dates, DecFP
+using Tables, CategoricalArrays, WeakRefStrings, DataFrames, Dates, DecFP
 
-export Data, DataFrame, odbcdf
+export DataFrame, odbcdf
 
 include("API.jl")
 
