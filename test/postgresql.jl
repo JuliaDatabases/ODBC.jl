@@ -49,7 +49,7 @@
                              'hey there abraham', -- text,
                              ARRAY[1, 2, 3] -- integer array
                             )")
-        data = ODBC.query(source)
+        data = ODBC.query("select * from test1")
         @test size(data) == (1,17)
         @test Tables.schema(data).types == (
             Union{Int64, Missing},
