@@ -29,7 +29,6 @@
                             )")
         data = ODBC.query(dsn, "select * from information_schema.tables where table_name = 'test1'")
         println("Postgres table 'test1' schema:")
-        showall(data)
         println()
         ODBC.execute!(dsn, "insert into test1 VALUES
                             (1, -- bigint,
