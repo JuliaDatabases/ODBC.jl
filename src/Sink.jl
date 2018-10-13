@@ -41,7 +41,7 @@ getCtype(::Type{Union{T, Missing}}) where {T} = get(ODBC.API.julia2C, T, ODBC.AP
 getCtype(::Type{Vector{T}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 getCtype(::Type{Vector{Union{T, Missing}}}) where {T} = get(ODBC.API.julia2C, T, ODBC.API.SQL_C_CHAR)
 
-function load!(itr::T, dsn::DSN, table::AbstractString) where {T}
+function load!(dsn::DSN, table::AbstractString, itr::T) where {T}
     Tables.istable(T) || throw(ArgumentError("$T doesn't support the required Tables.jl interface"))
     stmt = dsn.stmt_ptr2
     ODBC.execute!(dsn, "select * from $table", stmt)

@@ -33,18 +33,13 @@ The second method takes a full connection string. Connection strings are vendor-
 
 The ODBC.jl package ships an experimental REPL mode for convenience in rapid query execution. The REPL mode can be accessed by hitting the `]` character at an empty `julia>` prompt. The prompt will change to `sql>` and SQL queries can be entered directly and executed by pressing `enter`. Since the queries need an `ODBC.DSN` to execute against, the most recently connected `ODBC.DSN` is used automatically, so a valid connection must have been created before entering the `sql>` REPL mode. Query results are shown directly in the REPL, and the prompt will stay in `sql>` mode until `backspace` is pressed at an empty `sql>` prompt. The results of the last query can then be accessed back at the `julia>` prompt via the global `odbcdf` variable.
 
-Methods:
+`ODBC.query(dsn::ODBC.DSN, sql::AbstractString)`
+`ODBC.Query(dsn::ODBC.DSN, sql::AbstractString) |> DataFrame`
+`ODBC.Query(dsn::ODBC.DSN, sql::AbstractString) |> CSV.write("output.csv")`
+`ODBC.Query(dsn::ODBC.DSN, sql::AbstractString) |> SQLite.load!(db, table_name)`
+`ODBC.Query(dsn::ODBC.DSN, sql::AbstractString) |> Feather.write("output.feather")`
 
-`ODBC.query(dsn::ODBC.DSN, sql::AbstractString, sink=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false)`
-
-`ODBC.query(dsn::DSN, sql::AbstractString, sink::T; weakrefstrings::Bool=true, append::Bool=false) where T`
-
-`ODBC.query(source::ODBC.Source, sink=DataFrame, args...; append::Bool=false)`
-
-`ODBC.query(source::ODBC.Source, sink::T; append::Bool=false) where T`
-
-
-`ODBC.query` is a high-level method for sending an SQL statement to a system and returning the results. As is shown, a valid `dsn::ODBC.DSN` and SQL statement `sql` combo can be sent, as well as an already-constructed `source::ODBC.Source`. By default, the results will be returned in a [`DataFrame`](http://juliadata.github.io/DataFrames.jl/latest/), but a variety of options exist for returning results, including `CSV.Sink`, `SQLite.Sink`, or `Feather.Sink`. `ODBC.query` actually utilizes the `DataStreams.jl` framework, so any valid [`Data.Sink`](http://juliadata.github.io/DataStreams.jl/latest/#Data.Sink-Interface-1) can be used to return results. The `append=false` keyword specifies whether the results should be *added to* any existing data in the `Data.Sink`, or if the resultset should fully replace any existing data. The `weakrefstrings` argument indicates whether `WeakRefString`s should be used by default for efficiency.
+`ODBC.query` is a high-level method for sending an SQL statement to a system and returning the results. As is shown, a valid `dsn::ODBC.DSN` and SQL statement `sql` combo are the arguments. By default, the results will be returned in a [`DataFrame`](http://juliadata.github.io/DataFrames.jl/latest/), but a variety of options exist for handling  results, including `CSV.write`, `SQLite.load!`, or `Feather.write`. `ODBC.Query` executes a query and returns metadata about the return results and satisfies the [Tables.jl](https://github.com/JuliaData/Tables.jl) interface for allowing integration with the numerous other formats.
 
 Examples:
 
@@ -56,36 +51,28 @@ df = ODBC.query(dsn, "select * from cool_table")
 
 # return result as a csv file
 using CSV
-csv = ODBC.query(dsn, "select * from cool_table", CSV.Sink, "cool_table.csv")
+csv = ODBC.Query(dsn, "select * from cool_table") |> CSV.write("cool_table.csv")
 
 # return the result directly into a local SQLite table
 using SQLite
 db = SQLite.DB()
 
-sqlite = ODBC.query(dsn, "select * from cool_table", SQLite.Sink, db, "cool_table_in_sqlite")
+sqlite = ODBC.Query(dsn, "select * from cool_table") |> SQLite.load!(db, "cool_table_in_sqlite")
 
 # return the result as a feather-formatted binary file
 using Feather
-feather = ODBC.query(dsn, "select * from cool_table", Feather.Sink, "cool_table.feather")
+feather = ODBC.Query(dsn, "select * from cool_table") |> Feather.write("cool_table.feather")
 
 ```
 
-### `ODBC.load`
+### `ODBC.load!`
 
 Methods:
-`ODBC.load(dsn::DSN, table::AbstractString, ::Type{T}, args...; append::Bool=false) where T`
-
-`ODBC.load(dsn::DSN, table::AbstractString, source; append::Bool=false)`
-
-`ODBC.load(sink::Sink, ::Type{T}, args...; append::Bool=false) where T`
-
-`ODBC.load(sink::Sink, source; append::Bool=false)`
-
-`ODBC.load` is a sister method to `ODBC.query`, but instead of providing a robust way of *returning* results, it allows one to *send* data to a DB.
+`ODBC.load!(table, dsn::DSN, tablename::AbstractString)`
 
 **Please note this is currently experimental and ODBC driver-dependent; meaning, an ODBC driver must impelement certain low-level API methods to enable this feature. This is not a limitation of ODBC.jl itself, but the ODBC driver provided by the vendor. In the case this method doesn't work for loading data, please see the documentation around prepared statements.**
 
-`ODBC.load` takes a valid DB connection `dsn` and the name of an *existing* table `table` to which to send data. Note that on-the-fly creation of a table is not currently supported. The data to send can be any valid [`Data.Source`](http://juliadata.github.io/DataStreams.jl/latest/#Data.Source-Interface-1) object, from the `DataStreams.jl` framework, including a `DataFrame`, `CSV.Source`, `SQLite.Source`, `Feather.Source`, etc.
+`ODBC.load!` takes a valid DB connection `dsn` and the name of an *existing* table `tablename` to which to send data. Note that on-the-fly creation of a table is not currently supported. The data to send can be any valid [`Tables.jl`](https://github.com/JuliaData/Tables.jl) implementor, from the `Tables.jl` framework, including a `DataFrame`, `CSV.File`, `SQLite.Query`, etc.
 
 Examples:
 
@@ -98,22 +85,18 @@ ODBC.execute!(dsn, "CREATE TABLE cool_table (col1 INT, col2 FLOAT, col3 VARCHAR)
 # load data from a DataFrame into the table
 df = DataFrame(col1=[1,2,3], col2=[4.0, 5.0, 6.0], col3=["hey", "there", "sailor"])
 
-ODBC.load(dsn, "cool_table", df)
+ODBC.load!(dsn, "cool_table", df)
 
 # load data from a csv file
 using CSV
 
-ODBC.load(dsn, "cool_table", CSV.Source, "cool_table.csv")
+ODBC.load!(dsn, "cool_table", CSV.File("cool_table.csv"))
 
 # load data from an SQLite table
 using SQLite
 
-ODBC.load(dsn, "cool_table", SQLite.Source, "select * from cool_table")
-
-# load data from a feather-formatted binary file
-using Feather
-
-ODBC.load(dsn, "cool_table", Feather.Source, "cool_table.feather")
+db = SQLite.DB()
+ODBC.load!(dsn, "cool_table", SQLite.Query(db, "select * from cool_table"))
 
 ```
 
@@ -156,10 +139,10 @@ Methods:
 `ODBC.execute!` provides a method for executing a statement against a DB without returning any results. Certain SQL statements known as "DDL" statements are used to modify objects in a DB and don't have results to return anyway. While `ODBC.query` can still be used for these types of statements, `ODBC.execute!` is much more efficient. This method is also used to execute prepared statements, as noted in the documentation for `ODBC.prepare`.
 
 
-### `ODBC.Source`
+### `ODBC.Query`
 
 Constructors:
 
-`ODBC.Source(dsn::ODBC.DSN, querystring::String) => ODBC.Source`
+`ODBC.Query(dsn::ODBC.DSN, querystring::String) => ODBC.Query`
 
-`ODBC.Source` is an implementation of a `Data.Source` in the [DataStreams.jl](http://juliadata.github.io/DataStreams.jl/latest/#Data.Source-Interface-1) framework. It takes a valid DB connection `dsn` and executes a properly formatted SQL query string `querystring` and makes preparations for returning a resultset.
+`ODBC.Query` is an implementation of the [Tables.jl](https://github.com/JuliaData/Tables.jl) interface. It takes a valid DB connection `dsn` and executes a properly formatted SQL query string `querystring` and makes preparations for returning a resultset.
