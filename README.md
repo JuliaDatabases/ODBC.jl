@@ -23,7 +23,7 @@ julia> Pkg.add("ODBC")
 
 ## Project Status
 
-The package is tested against Julia `0.5` on Linux, OS X, and Windows.
+The package is tested against Julia `1.0` on Linux, OSX, and Windows.
 
 ## Contributing and Questions
 

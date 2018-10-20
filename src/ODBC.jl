@@ -1,8 +1,8 @@
 module ODBC
 
-using DataStreams, Missings, CategoricalArrays, WeakRefStrings, DataFrames, Dates
+using Tables, CategoricalArrays, WeakRefStrings, DataFrames, Dates, DecFP
 
-export Data, DataFrame, odbcdf
+export DataFrame, odbcdf
 
 include("API.jl")
 
@@ -155,41 +155,92 @@ mutable struct Statement
     task::Task
 end
 
-"An `ODBC.Source` type executes a `query` string upon construction and prepares data for streaming to an appropriate `Data.Sink`"
-mutable struct Source{T} <: Data.Source
-    schema::Data.Schema
-    dsn::DSN
-    query::String
-    columns::T
-    status::Int
-    rowsfetched::Ref{ODBC.API.SQLLEN}
-    rowoffset::Int
-    boundcols::Vector{Any}
-    indcols::Vector{Vector{ODBC.API.SQLLEN}}
-    sizes::Vector{ODBC.API.SQLULEN}
-    ctypes::Vector{ODBC.API.SQLSMALLINT}
-    jltypes::Vector{Type}
-    supportsreset::Bool
-end
-
-Base.show(io::IO, source::Source) = print(io, "ODBC.Source:\n\tDSN: $(source.dsn)\n\tstatus: $(source.status)\n\tschema: $(source.schema)")
-
-include("Source.jl")
-include("Sink.jl")
-# include("sqlreplmode.jl")
-
-const ENV = Ref{Ptr{Cvoid}}()
-
-function __init__()
-    ENV[] = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
-end
-
 # used to 'clear' a statement of bound columns, resultsets,
 # and other bound parameters in preparation for a subsequent query
 function ODBCFreeStmt!(stmt)
     ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_CLOSE)
     ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_UNBIND)
     ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_RESET_PARAMS)
+end
+
+# "Allocate ODBC handles for interacting with the ODBC Driver Manager"
+function ODBCAllocHandle(handletype, parenthandle)
+    handle = Ref{Ptr{Cvoid}}()
+    API.SQLAllocHandle(handletype, parenthandle, handle)
+    handle = handle[]
+    if handletype == API.SQL_HANDLE_ENV
+        API.SQLSetEnvAttr(handle, API.SQL_ATTR_ODBC_VERSION, API.SQL_OV_ODBC3)
+    end
+    return handle
+end
+
+# "Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin"
+function ODBCDriverConnect!(dbc::Ptr{Cvoid}, conn_string, prompt::Bool)
+    @static if Sys.iswindows()
+        driver_prompt = prompt ? API.SQL_DRIVER_PROMPT : API.SQL_DRIVER_NOPROMPT
+        window_handle = prompt ? ccall((:GetForegroundWindow, :user32), Ptr{Cvoid}, () ) : C_NULL
+    else
+        driver_prompt = API.SQL_DRIVER_NOPROMPT
+        window_handle = C_NULL
+    end
+    out_conn = Block(API.SQLWCHAR, BUFLEN)
+    out_buff = Ref{Int16}()
+    @CHECK dbc API.SQL_HANDLE_DBC API.SQLDriverConnect(dbc, window_handle, conn_string, out_conn.ptr, BUFLEN, out_buff, driver_prompt)
+    connection_string = string(out_conn, out_buff[])
+    return connection_string
+end
+
+"`prepare` prepares an SQL statement to be executed"
+function prepare(dsn::DSN, query::AbstractString)
+    stmt = ODBCAllocHandle(API.SQL_HANDLE_STMT, dsn.dbc_ptr)
+    @CHECK stmt API.SQL_HANDLE_STMT API.SQLPrepare(stmt, query)
+    return Statement(dsn, stmt, query, Task(1))
+end
+
+function execute!(statement::Statement, values)
+    stmt = statement.stmt
+    values2 = Any[cast(x) for x in values]
+    pointers = Ptr[]
+    types = map(typeof, values2)
+    for (i, v) in enumerate(values2)
+        if ismissing(v)
+            @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindParameter(stmt, i, API.SQL_PARAM_INPUT,
+                API.SQL_C_CHAR, API.SQL_CHAR, 0, 0, C_NULL, 0, Ref(API.SQL_NULL_DATA))
+        else
+            ctype, sqltype = API.julia2C[types[i]], API.julia2SQL[types[i]]
+            csize, len, dgts = sqllength(v), clength(v), digits(v)
+            ptr = getpointer(types[i], values2, i)
+            # println("ctype: $ctype, sqltype: $sqltype, digits: $dgts, len: $len, csize: $csize")
+            push!(pointers, ptr)
+            @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindParameter(stmt, i, API.SQL_PARAM_INPUT,
+                ctype, sqltype, csize, dgts, ptr, len, Ref(len))
+        end
+    end
+    execute!(statement)
+    return
+end
+
+function execute!(statement::Statement)
+    stmt = statement.stmt
+    @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecute(stmt)
+    return
+end
+
+"`execute!` is a minimal method for just executing an SQL `query` string. No results are checked for or returned."
+function execute!(dsn::DSN, query::AbstractString, stmt=dsn.stmt_ptr)
+    ODBCFreeStmt!(stmt)
+    @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecDirect(stmt, query)
+    return
+end
+
+include("Sink.jl")
+include("Query.jl")
+# include("sqlreplmode.jl")
+
+const ENV = Ref{Ptr{Cvoid}}()
+
+function __init__()
+    ENV[] = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
 end
 
 end #ODBC module

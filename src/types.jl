@@ -1,4 +1,4 @@
-using Libdl, Dates, Printf, DecFP, Missings, WeakRefStrings
+using Libdl, Dates, Printf, DecFP, WeakRefStrings
 
 # Link to ODBC Driver Manager (system-dependent)
 let
@@ -406,11 +406,11 @@ The 3rd `Bool` value indicates whether the column is a LONGTEXT or LONGBINARY SQ
 tend to require special result-handling rules.
 """
 const SQL2Julia = Dict(
-    SQL_CHAR           => (SQLCHAR, Union{WeakRefString{SQLCHAR}, Missing}, false),
-    SQL_VARCHAR        => (SQLCHAR, Union{WeakRefString{SQLCHAR}, Missing}, false),
+    SQL_CHAR           => (SQLCHAR, Union{String, Missing}, false),
+    SQL_VARCHAR        => (SQLCHAR, Union{String, Missing}, false),
     SQL_LONGVARCHAR    => (SQLCHAR, Union{String, Missing}, true),
-    SQL_WCHAR          => (SQLWCHAR, Union{WeakRefString{SQLWCHAR}, Missing}, false),
-    SQL_WVARCHAR       => (SQLWCHAR, Union{WeakRefString{SQLWCHAR}, Missing}, false),
+    SQL_WCHAR          => (SQLWCHAR, Union{String, Missing}, false),
+    SQL_WVARCHAR       => (SQLWCHAR, Union{String, Missing}, false),
     SQL_WLONGVARCHAR   => (SQLWCHAR, Union{String, Missing}, true),
     SQL_DECIMAL        => (SQLCHAR, Union{Dec64, Missing}, false),
     SQL_NUMERIC        => (SQLCHAR, Union{Dec64, Missing}, false),
