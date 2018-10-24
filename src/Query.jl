@@ -4,7 +4,7 @@ struct Query{rows, NT, T}
     stmt::Ptr{Cvoid}
     status::Base.RefValue{Int}
     columns::T
-    rowsfetched::Ref{ODBC.API.SQLLEN}
+    rowsfetched::Base.RefValue{ODBC.API.SQLLEN}
     boundcols::Vector{Any}
     indcols::Vector{Vector{ODBC.API.SQLLEN}}
     sizes::Vector{ODBC.API.SQLULEN}
