@@ -59,13 +59,13 @@ function Query(dsn::DSN, query::AbstractString)
     longtext = false
     # Allocate space for and fetch the name, type, size, etc. for each column
     len, dt, csize = Ref{API.SQLSMALLINT}(), Ref{API.SQLSMALLINT}(), Ref{API.SQLULEN}()
-    digits, missing = Ref{API.SQLSMALLINT}(), Ref{API.SQLSMALLINT}()
+    digits, maybemissing = Ref{API.SQLSMALLINT}(), Ref{API.SQLSMALLINT}()
     cname = Block(API.SQLWCHAR, BUFLEN)
     for x = 1:cols
-        API.SQLDescribeCol(stmt, x, cname.ptr, BUFLEN, len, dt, csize, digits, missing)
+        API.SQLDescribeCol(stmt, x, cname.ptr, BUFLEN, len, dt, csize, digits, maybemissing)
         cnames[x] = Symbol(string(cname, len[]))
         t = dt[]
-        ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], missing[]
+        ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], maybemissing[]
         alloctypes[x], juliatypes[x], longtexts[x] = API.SQL2Julia[t]
         longtext |= longtexts[x]
     end
