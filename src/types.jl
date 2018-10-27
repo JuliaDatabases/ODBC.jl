@@ -281,7 +281,7 @@ Base.show(io::IO,x::SQLTimestamp) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$
 function SQLTimestamp(x::Dates.DateTime)
     y, m, d = Dates.yearmonthday(x)
     h, mm, s = Dates.hour(x), Dates.minute(x), Dates.second(x)
-    frac = div(Dates.millisecond(x), 1000000)
+    frac = Dates.millisecond(x) * 1_000_000
     return SQLTimestamp(y, m, d, h, mm, s, frac)
 end
 SQLTimestamp() = SQLTimestamp(0,0,0,0,0,0,0)
@@ -289,7 +289,7 @@ SQLTimestamp() = SQLTimestamp(0,0,0,0,0,0,0)
                                    x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
 ==(y::Dates.DateTime, x::SQLTimestamp) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
                                x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
-Dates.DateTime(x::SQLTimestamp) = Dates.DateTime(x.year, x.month, x.day, x.hour, x.minute, x.second, x.fraction * 1000000)
+Dates.DateTime(x::SQLTimestamp) = Dates.DateTime(x.year, x.month, x.day, x.hour, x.minute, x.second, x.fraction ÷ 1_000_000)
 
 const SQL_MAX_NUMERIC_LEN = 16
 struct SQLNumeric
