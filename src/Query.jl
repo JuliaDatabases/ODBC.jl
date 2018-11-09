@@ -266,7 +266,7 @@ function query(dsn::DSN, sql::AbstractString, sink=DataFrame, args...; weakrefst
     end
     !weakrefstrings && Base.depwarn("`ODBC.query(dsn, sql; weakrefstrings=false)` is no longer supported", nothing)
     !isempty(transforms) && Base.depwarn("`ODBC.query(dsn, sql; transforms=...)` is no longer supported", nothing)
-    return DataFrame(ODBC.Query(dsn, sql))
+    return sink(ODBC.Query(dsn, sql))
 end
 
 function query(dsn::DSN, sql::AbstractString, sink::T; weakrefstrings::Bool=true, append::Bool=false, transforms::Dict=Dict{Int,Function}()) where {T}
@@ -275,7 +275,7 @@ function query(dsn::DSN, sql::AbstractString, sink::T; weakrefstrings::Bool=true
     end
     !weakrefstrings && Base.depwarn("`ODBC.query(dsn, sql; weakrefstrings=false)` is no longer supported", nothing)
     !isempty(transforms) && Base.depwarn("`ODBC.query(dsn, sql; transforms=...)` is no longer supported", nothing)
-    return DataFrame(ODBC.Query(dsn, sql))
+    return sink(ODBC.Query(dsn, sql))
 end
 
 function query(source::Query, sink=DataFrame, args...; append::Bool=false, transforms::Dict=Dict{Int,Function}())
@@ -286,14 +286,14 @@ function query(source::Query, sink=DataFrame, args...; append::Bool=false, trans
         Base.depwarn("`ODBC.query(dsn, sql, $(typeof(sink)))` is no longer supported; returning a DataFrame instead", nothing)
     end
     !isempty(transforms) && Base.depwarn("`ODBC.query(dsn, sql; transforms=...)` is no longer supported", nothing)
-    return DataFrame(source)
+    return sink(source)
 end
 function query(source::Query, sink::T; append::Bool=false, transforms::Dict=Dict{Int,Function}()) where {T}
     if append
         Base.depwarn("`ODBC.query(dsn, sql; append=true)` is no longer supported in favor of individual sink support, like `append!(existing_dataframe, ODBC.query(dsn, sql))`", nothing)
     end
     !isempty(transforms) && Base.depwarn("`ODBC.query(dsn, sql; transforms=...)` is no longer supported", nothing)
-    return DataFrame(source)
+    return sink(source)
 end
 
 "Convenience string macro for executing an SQL statement against a DSN."
