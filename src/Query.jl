@@ -31,7 +31,7 @@ Base.eltype(q::Query{rows, NT}) where {rows, NT} = NT
 end
 
 function Base.iterate(q::Query{rows, NT}, st=1) where {rows, NT}
-    (st > q.rowsfetched[] && q.status[] != API.SQL_SUCCESS && q.status[] != API.SQL_SUCCESS_WITH_INFO) && return nothing
+    ((st > q.rowsfetched[] && q.status[] != API.SQL_SUCCESS && q.status[] != API.SQL_SUCCESS_WITH_INFO) || q.status[] == API.SQL_NO_DATA) && return nothing
     nt = generate_namedtuple(NT, q, st)
     if st == q.rowsfetched[]
         q.status[] = API.SQLFetchScroll(q.stmt, API.SQL_FETCH_NEXT, 0)
