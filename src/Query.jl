@@ -41,7 +41,7 @@ function Base.iterate(q::Query{rows, NT}, st=1) where {rows, NT}
     return nt, st + 1
 end
 
-function Query(dsn::DSN, query::AbstractString)
+function Query(dsn::DSN, query::AbstractString; debug::Bool=false)
     stmt = dsn.stmt_ptr
     ODBCFreeStmt!(stmt)
     @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecDirect(stmt, query)
@@ -49,6 +49,7 @@ function Query(dsn::DSN, query::AbstractString)
     API.SQLNumResultCols(stmt, colsref)
     API.SQLRowCount(stmt, rowsref)
     rows, cols = rowsref[], colsref[]
+    debug && println("executed query has rows=$rows, cols=$cols")
     # Allocate arrays to hold each column's metadata
     cnames = Vector{Symbol}(undef, cols)
     ctypes, csizes = Vector{API.SQLSMALLINT}(undef, cols), Vector{API.SQLULEN}(undef, cols)
@@ -84,6 +85,8 @@ function Query(dsn::DSN, query::AbstractString)
     indcols = Vector{Vector{API.SQLLEN}}(undef, cols)
     for x = 1:cols
         if longtexts[x]
+            debug && println("column $x is longtext: alloctypes=$(alloctypes[x][]), ind=$(API.SQLLEN[])")
+            debug && dump(API.SQLLEN)
             boundcols[x], indcols[x] = alloctypes[x][], API.SQLLEN[]
         else
             boundcols[x], elsize = internal_allocate(alloctypes[x], rowset, csizes[x])
@@ -99,6 +102,8 @@ function Query(dsn::DSN, query::AbstractString)
     types = [API.SQL2C[ctypes[x]] for x = 1:cols]
     jltypes = Type[longtexts[x] ? API.Long{T} : T for (x, T) in enumerate(juliatypes)]
     q = Query{rows >= 0 ? rows : missing, NT, typeof(columns)}(stmt, Ref(0), columns, rowsfetched, boundcols, indcols, csizes, types, jltypes)
+    debug && println([map(Int, csizes) types jltypes])
+    debug && println("initial rowsfetched=$(rowsfetched[])")
     if rows != 0
         q.status[] = Int(API.SQLFetchScroll(q.stmt, API.SQL_FETCH_NEXT, 0))
         q.rowsfetched[] > 0 && foreach(i->cast!(jltypes[i], q, i), 1:length(jltypes))
