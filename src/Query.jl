@@ -74,7 +74,7 @@ function Query(dsn::DSN, query::AbstractString; debug::Bool=false)
     # rows might be -1 (dbms doesn't return total rows in resultset), 0 (empty resultset), or 1+
     if longtext
         rowset = allocsize = 1
-    elseif rows > -1
+    elseif rows != -1 && rows != 4294967295
         # rowset = min(rows, API.MAXFETCHSIZE)
         allocsize = rowset = rows
     else
