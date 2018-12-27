@@ -204,7 +204,7 @@ function cast!(::Type{Union{String, Missing}}, source, col)
     data = source.boundcols[col]
     T = eltype(data)
     cur = 1
-    elsize = source.sizes[col] + 1
+    elsize = codeunits2bytes(T,source.sizes[col] + 1)
     inds = source.indcols[col]
     @inbounds for i in 1:len
         ind = min(inds[i]|>Int, elsize|>Int)
