@@ -247,7 +247,7 @@ function cast!(::Type{API.Long{Union{T, Missing}}}, source, col) where {T}
     res = API.SQLGetData(stmt, col, source.ctypes[col], pointer(buf), sizeof(buf), ind)
     isnull = ind[] == API.SQL_NULL_DATA
     while !isnull
-        len = ind[]
+        len = min(LONG_DATA_BUFFER_SIZE,ind[])
         oldlen = length(data)
         resize!(data, oldlen + bytes2codeunits(eT, len))
         ccall(:memcpy, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), pointer(data, oldlen + 1), pointer(buf), len)
