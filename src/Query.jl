@@ -206,7 +206,7 @@ function cast!(::Type{Union{String, Missing}}, source, col)
     cur = 1
     elsize = source.sizes[col] + 1
     inds = source.indcols[col]
-    for i in 1:len
+    @inbounds for i in 1:len
         ind = inds[i]
         length = bytes2codeunits(T, max(ind, 0))
         c[i] = ind == API.SQL_NULL_DATA ? missing : (length == 0 ? "" : transcode(String, data[cur:(cur + length - 1)]))
