@@ -41,10 +41,42 @@ function Base.iterate(q::Query{rows, NT}, st=1) where {rows, NT}
     return nt, st + 1
 end
 
+function Query!(statement::Statement, values)
+    stmt = statement.stmt
+    values2 = Any[cast(x) for x in values]
+    pointers = Ptr[]
+    types = map(typeof, values2)
+    for (i, v) in enumerate(values2)
+        if ismissing(v)
+            @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindParameter(stmt, i, API.SQL_PARAM_INPUT,
+                API.SQL_C_CHAR, API.SQL_CHAR, 0, 0, C_NULL, 0, Ref(API.SQL_NULL_DATA))
+        else
+            ctype, sqltype = API.julia2C[types[i]], API.julia2SQL[types[i]]
+            csize, len, dgts = sqllength(v), clength(v), digits(v)
+            ptr = getpointer(types[i], values2, i)
+            # println("ctype: $ctype, sqltype: $sqltype, digits: $dgts, len: $len, csize: $csize")
+            push!(pointers, ptr)
+            @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindParameter(stmt, i, API.SQL_PARAM_INPUT,
+                ctype, sqltype, csize, dgts, ptr, len, Ref(len))
+        end
+    end
+    return Query!(statement)
+end
+
+function Query!(statement::Statement)
+    stmt = statement.stmt
+    @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecute(stmt)
+    return _Query(stmt)
+end
+
 function Query(dsn::DSN, query::AbstractString)
     stmt = dsn.stmt_ptr
     ODBCFreeStmt!(stmt)
     @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecDirect(stmt, query)
+    return _Query(stmt)
+end
+
+function _Query(stmt)
     rowsref, colsref = Ref{Int}(), Ref{Int16}()
     API.SQLNumResultCols(stmt, colsref)
     API.SQLRowCount(stmt, rowsref)
@@ -259,6 +291,8 @@ function cast!(::Type{API.Long{Union{T, Missing}}}, source, col) where {T}
     c[1] = isnull ? missing : T(transcode(UInt8, data))
     return c
 end
+
+query!(stmt::Statement, values) = DataFrame(ODBC.Query!(stmt, values))
 
 function query(dsn::DSN, sql::AbstractString, sink=DataFrame, args...; weakrefstrings::Bool=true, append::Bool=false, transforms::Dict=Dict{Int,Function}())
     if append
