@@ -74,6 +74,10 @@
         show(data)
         println()
 
+        stmt = ODBC.prepare(dsn, "select * from test1 where test_text = ?")
+        data = ODBC.query!(stmt, ("hey there abraham",))
+        @test size(data) == (1,17)
+
         @testset "Streaming postgres data to CSV" begin
             # Test exporting test1 to CSV
             temp_filename = "postgres_test1.csv"

@@ -228,6 +228,9 @@
         """)
         data = ODBC.query(dsn, "select * from employee")
         @test size(data) == (4,9)
+        stmt = ODBC.prepare(dsn, "select * from employee where name like ?")
+        data = ODBC.query!(stmt, ("%im",))
+        @test size(data) == (2,9)
         ODBC.execute!(dsn, "drop table if exists employee")
     end
 

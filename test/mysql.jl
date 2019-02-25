@@ -266,6 +266,11 @@
         @test df[6][end] == ODBC.API.SQLDate(2016,1,2)
         @test df[7][end-1] == ODBC.API.SQLTimestamp(2016,1,1,0,0,0,0)
         @test df[7][end] == ODBC.API.SQLTimestamp(2016,1,2,0,0,0,0)
+
+        stmt = ODBC.prepare(dsn, "select * from test3 where last_name = ?")
+        data = ODBC.query!(stmt, ("Martin",))
+        @test size(data) == (1,7)
+
         ODBC.execute!(dsn, "drop table if exists test2")
         ODBC.execute!(dsn, "drop table if exists test3")
     end
