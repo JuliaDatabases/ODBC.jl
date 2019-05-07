@@ -100,7 +100,7 @@
             source = ODBC.Query(dsn, "select * from test1")
             SQLite.load!(source, db, "postgres_test1")
 
-            data = SQLite.query(db, "select * from postgres_test1")
+            data = SQLite.Query(db, "select * from postgres_test1") |> DataFrame
             @test size(data) == (1,17)
             @test data[1][1] === 1
             @test data[2][1] === 1.2

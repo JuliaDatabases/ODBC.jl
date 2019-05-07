@@ -191,7 +191,7 @@
             source = ODBC.Query(dsn, "select * from test1")
             SQLite.load!(source, db, "mssql_test1")
 
-            data = SQLite.query(db, "select * from mssql_test1")
+            data = SQLite.Query(db, "select * from mssql_test1") |> DataFrame
             @test size(data) == (2,23)
             @test data[1][1] === 1
             @test data[10][1] === 1.2
