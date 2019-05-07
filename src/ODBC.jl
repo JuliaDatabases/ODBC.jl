@@ -197,7 +197,6 @@ end
 function execute!(statement::Statement, values)
     stmt = statement.stmt
     values2 = Any[cast(x) for x in values]
-    pointers = Ptr[]
     types = map(typeof, values2)
     for (i, v) in enumerate(values2)
         if ismissing(v)
@@ -208,20 +207,17 @@ function execute!(statement::Statement, values)
             csize, len, dgts = sqllength(v), clength(v), digits(v)
             ptr = getpointer(types[i], values2, i)
             # println("ctype: $ctype, sqltype: $sqltype, digits: $dgts, len: $len, csize: $csize")
-            push!(pointers, ptr)
             @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindParameter(stmt, i, API.SQL_PARAM_INPUT,
                 ctype, sqltype, csize, dgts, ptr, len, Ref(len))
         end
     end
-    execute!(statement)
+    GC.@preserve values2 execute!(statement)
     return
 end
 
 function execute!(statement::Statement)
     stmt = statement.stmt
-    GC.@preserve statement begin
-        @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecute(stmt)
-    end
+    @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecute(stmt)
     return
 end
 
