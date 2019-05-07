@@ -49,7 +49,7 @@ function ODBCError(handle::Ptr{Cvoid}, handletype::Int16)
     return true
 end
 
-#Macros to to check if a function returned a success value or not
+# Macros to to check if a function returned a success value or not
 macro CHECK(handle, handletype, func)
     str = string(func)
     esc(quote
@@ -59,9 +59,6 @@ macro CHECK(handle, handletype, func)
         nothing
     end)
 end
-
-Base.@deprecate listdrivers ODBC.drivers
-Base.@deprecate listdsns ODBC.dsns
 
 "List ODBC drivers that have been installed and registered"
 function drivers()

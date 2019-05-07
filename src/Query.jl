@@ -136,7 +136,7 @@ digits(x::API.SQLTimestamp) = length(string(x.fraction * 1000000))
 
 # primitive types
 allocate(::Type{T}) where {T} = Vector{T}(undef, 0)
-allocate(::Type{Union{Missing, WeakRefString{T}}}) where {T} = WeakRefStringArray(UInt8[], Union{Missing, WeakRefString{T}}, 0)
+allocate(::Type{Union{Missing, WeakRefString{T}}}) where {T} = StringVector{String}(undef, 0)
 
 internal_allocate(::Type{T}, rowset, size) where {T} = Vector{T}(undef, rowset), sizeof(T)
 # string/binary types
