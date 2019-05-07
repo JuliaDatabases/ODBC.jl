@@ -219,7 +219,9 @@ end
 
 function execute!(statement::Statement)
     stmt = statement.stmt
-    @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecute(stmt)
+    GC.@preserve statement begin
+        @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecute(stmt)
+    end
     return
 end
 
