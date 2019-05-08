@@ -517,7 +517,7 @@ const SQL_PARAM_INPUT_OUTPUT = Int16(2)
 #const SQL_PARAM_OUTPUT_STREAM = Int16()
 #Status:
 "http://msdn.microsoft.com/en-us/library/windows/desktop/ms710963(v=vs.85).aspx"
-function SQLBindParameter(stmt::Ptr{Cvoid},x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value,param_size::Int,len::Ref{SQLLEN})
+function SQLBindParameter(stmt::Ptr{Cvoid},x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value,param_size::Int,len::Ptr{SQLLEN})
     @odbc(:SQLBindParameter,
                 (Ptr{Cvoid},UInt16,Int16,Int16,Int16,UInt,Int16,Ptr{Cvoid},Int,Ptr{SQLLEN}),
                 stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,len)

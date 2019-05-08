@@ -120,7 +120,7 @@ getpointer(::Type{String}, A, i) = convert(Ptr{Cvoid}, pointer(A[i]))
 sqllength(x) = 1
 sqllength(x::AbstractString) = sizeof(x)
 sqllength(x::Vector{UInt8}) = length(x)
-sqllength(x::WeakRefString) = x.len
+sqllength(x::WeakRefString{T}) where {T} = codeunits2bytes(T, x.len)
 sqllength(x::API.SQLDate) = 10
 sqllength(x::Union{API.SQLTime,API.SQLTimestamp}) = sizeof(string(x))
 
