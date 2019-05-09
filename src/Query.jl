@@ -113,9 +113,9 @@ cast(x::Dates.Date) = API.SQLDate(x)
 cast(x::Dates.DateTime) = API.SQLTimestamp(x)
 cast(x::String) = WeakRefString(pointer(x), sizeof(x))
 
-getpointer(::Type{T}, A, i) where {T} = convert(Ptr{Cvoid}, pointer(A, i))
-getpointer(::Type{WeakRefString}, A, i) = convert(Ptr{Cvoid}, A[i].ptr)
-getpointer(::Type{String}, A, i) = convert(Ptr{Cvoid}, pointer(A[i]))
+getpointer(::Type{T}, A, i) where {T} = unsafe_load(Ptr{Ptr{Cvoid}}(pointer(A, i)))
+getpointer(::Type{WeakRefString{T}}, A, i) where {T} = A[i].ptr
+getpointer(::Type{String}, A, i) = pointer(A[i])
 
 sqllength(x) = 1
 sqllength(x::AbstractString) = sizeof(x)
