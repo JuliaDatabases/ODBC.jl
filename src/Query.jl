@@ -114,21 +114,21 @@ cast(x::Dates.DateTime) = API.SQLTimestamp(x)
 cast(x::String) = WeakRefString(pointer(x), sizeof(x))
 
 getpointer(::Type{T}, A, i) where {T} = unsafe_load(Ptr{Ptr{Cvoid}}(pointer(A, i)))
-getpointer(::Type{WeakRefString{T}}, A, i) where {T} = convert(Ptr{Cvoid}, A[i].ptr)
-getpointer(::Type{String}, A, i) = convert(Ptr{Cvoid}, pointer(Vector{UInt8}(A[i])))
+getpointer(::Type{WeakRefString{T}}, A, i) where {T} = A[i].ptr
+getpointer(::Type{String}, A, i) = pointer(A[i])
 
 sqllength(x) = 1
-sqllength(x::AbstractString) = length(x)
+sqllength(x::AbstractString) = sizeof(x)
 sqllength(x::Vector{UInt8}) = length(x)
-sqllength(x::WeakRefString) = x.len
+sqllength(x::WeakRefString{T}) where {T} = codeunits2bytes(T, x.len)
 sqllength(x::API.SQLDate) = 10
-sqllength(x::Union{API.SQLTime,API.SQLTimestamp}) = length(string(x))
+sqllength(x::Union{API.SQLTime,API.SQLTimestamp}) = sizeof(string(x))
 
 clength(x) = 1
-clength(x::AbstractString) = length(x)
+clength(x::AbstractString) = sizeof(x)
 clength(x::Vector{UInt8}) = length(x)
 clength(x::WeakRefString{T}) where {T} = codeunits2bytes(T, x.len)
-clength(x::CategoricalArrays.CategoricalValue) = length(String(x))
+clength(x::CategoricalArrays.CategoricalValue) = sizeof(String(x))
 clength(x::Missing) = API.SQL_NULL_DATA
 
 digits(x) = 0
@@ -136,7 +136,7 @@ digits(x::API.SQLTimestamp) = length(string(x.fraction * 1000000))
 
 # primitive types
 allocate(::Type{T}) where {T} = Vector{T}(undef, 0)
-allocate(::Type{Union{Missing, WeakRefString{T}}}) where {T} = WeakRefStringArray(UInt8[], Union{Missing, WeakRefString{T}}, 0)
+allocate(::Type{Union{Missing, WeakRefString{T}}}) where {T} = StringVector{String}(undef, 0)
 
 internal_allocate(::Type{T}, rowset, size) where {T} = Vector{T}(undef, rowset), sizeof(T)
 # string/binary types

@@ -49,7 +49,7 @@ function ODBCError(handle::Ptr{Cvoid}, handletype::Int16)
     return true
 end
 
-#Macros to to check if a function returned a success value or not
+# Macros to to check if a function returned a success value or not
 macro CHECK(handle, handletype, func)
     str = string(func)
     esc(quote
@@ -59,9 +59,6 @@ macro CHECK(handle, handletype, func)
         nothing
     end)
 end
-
-Base.@deprecate listdrivers ODBC.drivers
-Base.@deprecate listdsns ODBC.dsns
 
 "List ODBC drivers that have been installed and registered"
 function drivers()
@@ -200,23 +197,24 @@ end
 function execute!(statement::Statement, values)
     stmt = statement.stmt
     values2 = Any[cast(x) for x in values]
-    pointers = Ptr[]
-    types = map(typeof, values2)
+    strlens = zeros(API.SQLLEN, length(values2))
     for (i, v) in enumerate(values2)
         if ismissing(v)
+            strlens[i] = API.SQL_NULL_DATA
             @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindParameter(stmt, i, API.SQL_PARAM_INPUT,
-                API.SQL_C_CHAR, API.SQL_CHAR, 0, 0, C_NULL, 0, Ref(API.SQL_NULL_DATA))
+                API.SQL_C_CHAR, API.SQL_CHAR, 0, 0, C_NULL, 0, pointer(strlens, i))
         else
-            ctype, sqltype = API.julia2C[types[i]], API.julia2SQL[types[i]]
+            T = typeof(v)
+            ctype, sqltype = API.julia2C[T], API.julia2SQL[T]
             csize, len, dgts = sqllength(v), clength(v), digits(v)
-            ptr = getpointer(types[i], values2, i)
+            strlens[i] = len
+            ptr = getpointer(T, values2, i)
             # println("ctype: $ctype, sqltype: $sqltype, digits: $dgts, len: $len, csize: $csize")
-            push!(pointers, ptr)
             @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindParameter(stmt, i, API.SQL_PARAM_INPUT,
-                ctype, sqltype, csize, dgts, ptr, len, Ref(len))
+                ctype, sqltype, csize, dgts, ptr, len, pointer(strlens, i))
         end
     end
-    execute!(statement)
+    GC.@preserve values2 strlens execute!(statement)
     return
 end
 
