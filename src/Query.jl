@@ -10,6 +10,7 @@ struct Query{rows, NT, T}
     sizes::Vector{ODBC.API.SQLULEN}
     ctypes::Vector{ODBC.API.SQLSMALLINT}
     jltypes::Vector{Type}
+    boundcount::Int
 end
 getstmt(q::Query) = q.stmt
 
@@ -67,6 +68,10 @@ function Query(dsn::DSN, query::AbstractString)
         t = dt[]
         ctypes[x], csizes[x], cdigits[x], cnulls[x] = t, csize[], digits[], maybemissing[]
         alloctypes[x], juliatypes[x], longtexts[x] = API.SQL2Julia[t]
+        # Some drivers return 0 size for variable length or large fields
+        if csizes[x] == 0
+            longtexts[x] = ctypes[x] in (API.SQL_VARCHAR, API.SQL_WVARCHAR, API.SQL_VARBINARY)
+        end
         longtext |= longtexts[x]
     end
     # Determine fetch strategy
@@ -82,13 +87,21 @@ function Query(dsn::DSN, query::AbstractString)
     API.SQLSetStmtAttr(stmt, API.SQL_ATTR_ROW_ARRAY_SIZE, rowset, API.SQL_IS_UINTEGER)
     boundcols = Vector{Any}(undef, cols)
     indcols = Vector{Vector{API.SQLLEN}}(undef, cols)
+
+    # For drivers that do not support SQL_GD_ANY_COLUMN, can only
+    # bind columns prior to the first longtext. Must use
+    # SQLGetData on all subsequent columns.
+    boundcount = longtext ? findfirst(longtexts) - 1 : cols
     for x = 1:cols
         if longtexts[x]
             boundcols[x], indcols[x] = alloctypes[x][], API.SQLLEN[]
         else
+            # Setup storage for fixed columns here whether bound or not.
             boundcols[x], elsize = internal_allocate(alloctypes[x], rowset, csizes[x])
             indcols[x] = Vector{API.SQLLEN}(undef, rowset)
-            API.SQLBindCols(stmt, x, API.SQL2C[ctypes[x]], pointer(boundcols[x]), elsize, indcols[x])
+            if x <= boundcount
+                API.SQLBindCols(stmt, x, API.SQL2C[ctypes[x]], pointer(boundcols[x]), elsize, indcols[x])
+            end
         end
     end
     names = Tuple(cnames)
@@ -98,7 +111,8 @@ function Query(dsn::DSN, query::AbstractString)
     API.SQLSetStmtAttr(stmt, API.SQL_ATTR_ROWS_FETCHED_PTR, rowsfetched, API.SQL_NTS)
     types = [API.SQL2C[ctypes[x]] for x = 1:cols]
     jltypes = Type[longtexts[x] ? API.Long{T} : T for (x, T) in enumerate(juliatypes)]
-    q = Query{rows >= 0 ? rows : missing, NT, typeof(columns)}(stmt, Ref(0), columns, rowsfetched, boundcols, indcols, csizes, types, jltypes)
+    q = Query{rows >= 0 ? rows : missing, NT, typeof(columns)}(
+        stmt, Ref(0), columns, rowsfetched, boundcols, indcols, csizes, types, jltypes, boundcount)
     if rows != 0
         q.status[] = Int(API.SQLFetchScroll(q.stmt, API.SQL_FETCH_NEXT, 0))
         q.rowsfetched[] > 0 && foreach(i->cast!(jltypes[i], q, i), 1:length(jltypes))
@@ -149,6 +163,12 @@ function cast!(::Type{T}, source, col) where {T}
     resize!(c, len)
     ind = source.indcols[col]
     data = source.boundcols[col]
+    # If this column was not bound, get the data
+    if col > source.boundcount
+        @assert len == 1
+        res = API.SQLGetData(getstmt(source), col, source.ctypes[col],
+            pointer(data), sizeof(data), Ref(ind, 1))
+    end
     @simd for i = 1:len
         @inbounds c[i] = ifelse(ind[i] == API.SQL_NULL_DATA, missing, data[i])
     end
@@ -164,9 +184,16 @@ function cast!(::Type{Union{Dec64, Missing}}, source, col)
     cur = 1
     elsize = source.sizes[col] + 1
     inds = source.indcols[col]
+    data = source.boundcols[col]
+    # If this column was not bound, get the data
+    if col > source.boundcount
+        @assert len == 1
+        res = API.SQLGetData(getstmt(source), col, source.ctypes[col],
+            pointer(data), sizeof(data), Ref(inds, 1))
+    end
     @inbounds for i = 1:len
         ind = inds[i]
-        c[i] = ind == API.SQL_NULL_DATA ? missing : cast(Dec64, source.boundcols[col], cur, ind)
+        c[i] = ind == API.SQL_NULL_DATA ? missing : cast(Dec64, data, cur, ind)
         cur += elsize
     end
     return c
@@ -181,9 +208,16 @@ function cast!(::Type{Union{Vector{UInt8}, Missing}}, source, col)
     cur = 1
     elsize = source.sizes[col] + 1
     inds = source.indcols[col]
+    data = source.boundcols[col]
+    # If this column was not bound, get the data
+    if col > source.boundcount
+        @assert len == 1
+        res = API.SQLGetData(getstmt(source), col, source.ctypes[col],
+            pointer(data), sizeof(data), Ref(inds, 1))
+    end
     @inbounds for i = 1:len
         ind = inds[i]
-        c[i] = ind == API.SQL_NULL_DATA ? missing : cast(Vector{UInt8}, source.boundcols[col], cur, ind)
+        c[i] = ind == API.SQL_NULL_DATA ? missing : cast(Vector{UInt8}, data, cur, ind)
         cur += elsize
     end
     return c
@@ -206,6 +240,12 @@ function cast!(::Type{Union{String, Missing}}, source, col)
     cur = 1
     elsize = source.sizes[col] + 1
     inds = source.indcols[col]
+    # If this column was not bound, get the data
+    if col > source.boundcount
+        @assert len == 1
+        res = API.SQLGetData(getstmt(source), col, source.ctypes[col],
+            pointer(data), sizeof(data), Ref(inds, 1))
+    end
     @inbounds for i in 1:len
         ind = inds[i]
         length = bytes2codeunits(T, max(ind, 0))
@@ -220,11 +260,17 @@ function cast!(::Type{Union{WeakRefString{T}, Missing}}, source, col) where {T}
     c = source.columns[col]
     resize!(c, len)
     empty!(c.data)
+    inds = source.indcols[col]
+    # If this column was not bound, get the data
+    if col > source.boundcount
+        @assert len == 1
+        res = API.SQLGetData(getstmt(source), col, source.ctypes[col],
+            pointer(source.boundcols[col]), sizeof(source.boundcols[col]), Ref(inds, 1))
+    end
     data = copy(source.boundcols[col])
     push!(c.data, data)
     cur = 1
     elsize = source.sizes[col] + 1
-    inds = source.indcols[col]
     EMPTY = WeakRefString{T}(Ptr{T}(0), 0)
     @inbounds for i = 1:len
         ind = inds[i]
@@ -244,14 +290,15 @@ function cast!(::Type{API.Long{Union{T, Missing}}}, source, col) where {T}
     data = eT[]
     buf = zeros(eT, LONG_DATA_BUFFER_SIZE)
     ind = Ref{API.SQLLEN}()
-    res = API.SQLGetData(stmt, col, source.ctypes[col], pointer(buf), sizeof(buf), ind)
+    ctype = source.ctypes[col]
+    res = API.SQLGetData(stmt, col, ctype, pointer(buf), sizeof(buf), ind)
     isnull = ind[] == API.SQL_NULL_DATA
     while !isnull
         len = min(LONG_DATA_BUFFER_SIZE,ind[])
         oldlen = length(data)
         resize!(data, oldlen + bytes2codeunits(eT, len))
         ccall(:memcpy, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), pointer(data, oldlen + 1), pointer(buf), len)
-        res = API.SQLGetData(stmt, col, source.ctypes[col], pointer(buf), length(buf), ind)
+        res = API.SQLGetData(stmt, col, ctype, pointer(buf), length(buf), ind)
         res != API.SQL_SUCCESS && res != API.SQL_SUCCESS_WITH_INFO && break
     end
     c = source.columns[col]
