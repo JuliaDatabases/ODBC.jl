@@ -168,6 +168,7 @@ end
 
 # SQL Data Type Definitions
 const SQL_NULL_DATA     = -1
+const SQL_NO_TOTAL      = -4
 const SQL_CHAR          = Int16(  1) # Character string of fixed string length n.
 const SQL_VARCHAR       = Int16( 12) # Variable-length character string with a maximum string length n.
 const SQL_LONGVARCHAR   = Int16( -1) # Variable length character data. Maximum length is data source–dependent.
