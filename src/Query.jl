@@ -74,7 +74,7 @@ function Query(dsn::DSN, query::AbstractString)
         alloctypes[x], juliatypes[x], longtexts[x] = API.SQL2Julia[t]
         # Some drivers return 0 size for variable length or large fields
         if csizes[x] == 0
-            longtexts[x] = ctypes[x] in [API.SQL_VARCHAR, API.SQL_WVARCHAR, API.SQL_VARBINARY]
+            longtexts[x] = ctypes[x] in (API.SQL_VARCHAR, API.SQL_WVARCHAR, API.SQL_VARBINARY)
         end
         longtext |= longtexts[x]
     end
