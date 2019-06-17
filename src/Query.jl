@@ -316,7 +316,7 @@ function cast!(::Type{API.Long{Union{T, Missing}}}, source, col) where {T}
             # size data with fewer allocations.
             sqlgetsize *= 2
             sqlgetfilled = sqlgetsize-nullbytes
-            datalen += sqlgetsize
+            datalen += sqlgetfilled
             dataalloc = bytes2codeunits(eT, datalen+nullbytes)
         elseif indlen > sqlgetfilled
             # Size known - setup to read all remaining bytes
