@@ -42,6 +42,10 @@ function Base.iterate(q::Query{rows, NT}, st=1) where {rows, NT}
     return nt, st + 1
 end
 
+# Initial read size - can be small since first read should return
+# final length needed in most cases
+const LONG_DATA_BUFFER_SIZE = 1000
+
 function Query(dsn::DSN, query::AbstractString)
     stmt = dsn.stmt_ptr
     ODBCFreeStmt!(stmt)
@@ -93,12 +97,12 @@ function Query(dsn::DSN, query::AbstractString)
     # SQLGetData on all subsequent columns.
     boundcount = longtext ? findfirst(longtexts) - 1 : cols
     for x = 1:cols
+        indcols[x] = Vector{API.SQLLEN}(undef, rowset)
         if longtexts[x]
-            boundcols[x], indcols[x] = alloctypes[x][], API.SQLLEN[]
+            boundcols[x] = Vector{alloctypes[x]}(undef, LONG_DATA_BUFFER_SIZE)
         else
             # Setup storage for fixed columns here whether bound or not.
             boundcols[x], elsize = internal_allocate(alloctypes[x], rowset, csizes[x])
-            indcols[x] = Vector{API.SQLLEN}(undef, rowset)
             if x <= boundcount
                 API.SQLBindCols(stmt, x, API.SQL2C[ctypes[x]], pointer(boundcols[x]), elsize, indcols[x])
             end
@@ -161,16 +165,16 @@ function cast!(::Type{T}, source, col) where {T}
     len = source.rowsfetched[]
     c = source.columns[col]
     resize!(c, len)
-    ind = source.indcols[col]
+    inds = source.indcols[col]
     data = source.boundcols[col]
     # If this column was not bound, get the data
     if col > source.boundcount
         @assert len == 1
         res = API.SQLGetData(getstmt(source), col, source.ctypes[col],
-            pointer(data), sizeof(data), Ref(ind, 1))
+            pointer(data), sizeof(data), Ref(inds, 1))
     end
     @simd for i = 1:len
-        @inbounds c[i] = ifelse(ind[i] == API.SQL_NULL_DATA, missing, data[i])
+        @inbounds c[i] = ifelse(inds[i] == API.SQL_NULL_DATA, missing, data[i])
     end
     return c
 end
@@ -282,28 +286,89 @@ function cast!(::Type{Union{WeakRefString{T}, Missing}}, source, col) where {T}
 end
 
 # long types
-const LONG_DATA_BUFFER_SIZE = 1024
-
 function cast!(::Type{API.Long{Union{T, Missing}}}, source, col) where {T}
     stmt = getstmt(source)
-    eT = eltype(source.boundcols[col])
-    data = eT[]
-    buf = zeros(eT, LONG_DATA_BUFFER_SIZE)
-    ind = Ref{API.SQLLEN}()
     ctype = source.ctypes[col]
-    res = API.SQLGetData(stmt, col, ctype, pointer(buf), sizeof(buf), ind)
-    isnull = ind[] == API.SQL_NULL_DATA
-    while !isnull
-        len = min(LONG_DATA_BUFFER_SIZE,ind[])
-        oldlen = length(data)
-        resize!(data, oldlen + bytes2codeunits(eT, len))
-        ccall(:memcpy, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), pointer(data, oldlen + 1), pointer(buf), len)
-        res = API.SQLGetData(stmt, col, ctype, pointer(buf), length(buf), ind)
-        res != API.SQL_SUCCESS && res != API.SQL_SUCCESS_WITH_INFO && break
-    end
     c = source.columns[col]
     resize!(c, 1)
-    c[1] = isnull ? missing : T(transcode(UInt8, data))
+
+    # Grob column's SQLGetData buffer
+    buffer = source.boundcols[col]
+    eT = eltype(buffer)
+    ind = Ref(source.indcols[col], 1)
+
+    # String data needs room for a null character, binary data does not
+    nullbytes = T <: AbstractString ? sizeof(eT) : 0
+
+    # Looping invariants
+    sqlgetsize = sizeof(buffer)
+    sqlgetfilled = sqlgetsize-nullbytes
+    datalen = sqlgetfilled
+    copiedlen = 0
+    dataalloc = 0
+
+    function update_invariants(indlen)
+        if indlen == API.SQL_NO_TOTAL
+            # Total length unavailable, must loop
+            copiedlen += sqlgetfilled
+            # Cut down on number of data resizes by increasing sqlgetsize
+            # each time. Should help quickly read even the largest unknown
+            # size data with fewer allocations.
+            sqlgetsize *= 2
+            sqlgetfilled = sqlgetsize-nullbytes
+            datalen += sqlgetfilled
+            dataalloc = bytes2codeunits(eT, datalen+nullbytes)
+        elseif indlen > sqlgetfilled
+            # Size known - setup to read all remaining bytes
+            copiedlen += sqlgetfilled
+            # indlen includes last buffer filled, subtract it out
+            sqlgetfilled = indlen-sqlgetfilled
+            # But keep room for null in next read size
+            sqlgetsize = sqlgetfilled+nullbytes
+            datalen += sqlgetfilled
+            dataalloc = bytes2codeunits(eT, datalen+nullbytes)
+        else
+            # All bytes read - adjust sizes discarding null or oversizing
+            datalen = (copiedlen += indlen)
+            dataalloc = bytes2codeunits(eT, datalen)
+        end
+    end
+
+    # String data null uses buffer space but is
+    # in not included in returned ind length
+    @CHECK(stmt, API.SQL_HANDLE_STMT,
+        API.SQLGetData(stmt, col, ctype, pointer(buffer), sqlgetsize, ind))
+
+    # Return immediately on null
+    if ind[] == API.SQL_NULL_DATA
+        c[1] = missing
+        return c
+    end
+
+    # update loop variables to reflect state
+    update_invariants(ind[])
+
+    # Allocate data and copy in first buffer
+    data = Vector{eT}(undef, dataalloc)
+    ccall(:memcpy, Cvoid, (Ptr{Cvoid}, Ptr{Cvoid}, Csize_t), pointer(data),
+        pointer(buffer), copiedlen)
+
+    while copiedlen < datalen
+        # Read remaining bytes directly into data
+        @CHECK(stmt, API.SQL_HANDLE_STMT,
+            API.SQLGetData(stmt, col, ctype, pointer(data)+copiedlen,
+                sqlgetsize, ind))
+
+        # Forward update loop invariants
+        update_invariants(ind[])
+
+        # Will resize bigger (for SQL_NO_TOTAL looping),
+        # smaller (removing null for string or extra size for SQL_NO_TOTAL),
+        # or maybe not at all (exact size binary field data read)
+        resize!(data, dataalloc)
+    end
+
+    c[1] = T(transcode(UInt8, data))
     return c
 end
 
