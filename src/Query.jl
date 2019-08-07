@@ -35,7 +35,7 @@ function Base.iterate(q::Query{rows, NT}, st=1) where {rows, NT}
     ((st > q.rowsfetched[] && q.status[] != API.SQL_SUCCESS && q.status[] != API.SQL_SUCCESS_WITH_INFO) || q.status[] == API.SQL_NO_DATA) && return nothing
     nt = generate_namedtuple(NT, q, st)
     if st == q.rowsfetched[]
-        q.status[] = API.SQLFetchScroll(q.stmt, API.SQL_FETCH_NEXT, 0)
+        q.status[] = @CHECK q.stmt API.SQL_HANDLE_STMT API.SQLFetchScroll(q.stmt, API.SQL_FETCH_NEXT, 0)
         q.rowsfetched[] > 0 && foreach(i->cast!(q.jltypes[i], q, i), 1:length(q.jltypes))
         st = 0
     end
@@ -118,7 +118,7 @@ function Query(dsn::DSN, query::AbstractString)
     q = Query{rows >= 0 ? rows : missing, NT, typeof(columns)}(
         stmt, Ref(0), columns, rowsfetched, boundcols, indcols, csizes, types, jltypes, boundcount)
     if rows != 0
-        q.status[] = Int(API.SQLFetchScroll(q.stmt, API.SQL_FETCH_NEXT, 0))
+        q.status[] = @CHECK q.stmt API.SQL_HANDLE_STMT API.SQLFetchScroll(q.stmt, API.SQL_FETCH_NEXT, 0)
         q.rowsfetched[] > 0 && foreach(i->cast!(jltypes[i], q, i), 1:length(jltypes))
     else
         q.status[] = 100

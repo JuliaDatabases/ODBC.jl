@@ -56,7 +56,7 @@ macro CHECK(handle, handletype, func)
         ret = $func
         ret != ODBC.API.SQL_SUCCESS && ret != ODBC.API.SQL_SUCCESS_WITH_INFO && ODBCError($handle, $handletype) &&
             throw(ODBCError("$($str) failed; return code: $ret => $(ODBC.API.RETURN_VALUES[ret])"))
-        nothing
+        ret
     end)
 end
 
