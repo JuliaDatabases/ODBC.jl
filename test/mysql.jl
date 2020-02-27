@@ -196,20 +196,6 @@
         #     rm(temp_filename)
         # end
 
-        @testset "Exporting mysql data to SQLite" begin
-            # Test exporting test1 to SQLite
-            db = SQLite.DB()
-            source = ODBC.Query(dsn, "select * from test1")
-            SQLite.load!(source, db, "mysql_test1")
-
-            data = SQLite.Query(db, "select * from mysql_test1") |> DataFrame
-            @test size(data) == (2,27)
-            @test data[1][1] === 1
-            @test data[10][1] === 1.2
-            @test data[11][1] === ODBC.API.SQLDate(2016,1,1)
-            @test data[27][1] == "hey there hank"
-        end
-
         ODBC.execute!(dsn, "drop table if exists test1")
     end
 
