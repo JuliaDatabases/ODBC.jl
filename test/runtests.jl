@@ -1,4 +1,4 @@
-using Test, Dates, Random, ODBC, Tables, WeakRefStrings, DataFrames, DecFP, CSV, SQLite
+using Test, Dates, Random, ODBC, Tables, WeakRefStrings, DataFrames, DecFP
 
 # You can also specify which database you want to test for as an environment variable:
 # ENV["ODBC_TEST_DRIVERS"] = "mysql"

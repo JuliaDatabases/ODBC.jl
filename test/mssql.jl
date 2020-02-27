@@ -46,7 +46,7 @@
                              test_binary binary(2),
                              test_varbinary varbinary(16)
                             )")
-        data = ODBC.query(dsn, "select * from information_schema.columns where table_name = 'test1'")
+        data = DataFrame(ODBC.Query(dsn, "select * from information_schema.columns where table_name = 'test1'"))
         ODBC.execute!(dsn, "insert test1 VALUES
                             (1, -- bigint
                              1, -- bit
@@ -72,7 +72,7 @@
                              cast(123456 as binary(2)), -- binary
                              cast(123456 as varbinary(16)) -- varbinary
                             )")
-        data = ODBC.query(dsn, "select * from test1")
+        data = DataFrame(ODBC.Query(dsn, "select * from test1"))
 
         @test size(data) == (1,23)
         @test Tables.schema(data).types == (
@@ -150,54 +150,10 @@
                              cast(123456 as binary(2)), -- binary
                              cast(123456 as varbinary(16)) -- varbinary
                             )")
-        data = ODBC.query(dsn, "select * from test1")
+        data = DataFrame(ODBC.Query(dsn, "select * from test1"))
         @test size(data) == (2,23)
         @test data[1][1] === Int64(1)
         @test data[1][2] === Int64(2)
-
-        # @testset "Streaming mssql data to CSV" begin
-        #     # Test exporting test1 to CSV
-        #     temp_filename = "mssql_test1.csv"
-        #     source = ODBC.Query(dsn, "select * from test1")
-        #     CSV.write(temp_filename, source)
-
-        #     open(temp_filename) do f
-        #         @test readline(f) == (
-        #             "test_bigint,test_bit,test_decimal,test_int,test_money,test_numeric," *
-        #             "test_smallint,test_smallmoney,test_tiny_int,test_float,test_real," *
-        #             "test_date,test_datetime2,test_datetime,test_datetimeoffset," *
-        #             "test_smalldatetime,test_time,test_char,test_varchar,test_nchar," *
-        #             "test_nvarchar,test_binary,test_varbinary"
-        #         )
-        #         @test readline(f) == (
-        #             "1,1,1.0,1,1.0,1.0,1,1.0,1,1.2,1.2,2016-01-01,2016-01-01T01:01:01," *
-        #             "2016-01-01T01:01:01,2016-01-01T00:01:01,2016-01-01T01:01:00," *
-        #             "01:01:01,A,hey there sailor,B,hey there sally,\"UInt8[0xe2, 0x40]\"," *
-        #             "\"UInt8[0x00, 0x01, 0xe2, 0x40]\""
-        #         )
-        #         @test readline(f) == (
-        #             "2,1,2.0,2,2.0,2.0,2,2.0,2,2.2,2.2,2016-01-01,2016-01-01T01:01:01," *
-        #             "2016-01-01T01:01:01,2016-01-01T00:01:01,2016-01-01T01:01:00," *
-        #             "01:01:01,A,hey there sailor,B,hey there sally,\"UInt8[0xe2, 0x40]\"," *
-        #             "\"UInt8[0x00, 0x01, 0xe2, 0x40]\""
-        #         )
-        #     end
-        #     rm(temp_filename)
-        # end
-
-        @testset "Exporting mssql data to SQLite" begin
-            # Test exporting test1 to SQLite
-            db = SQLite.DB()
-            source = ODBC.Query(dsn, "select * from test1")
-            SQLite.load!(source, db, "mssql_test1")
-
-            data = SQLite.Query(db, "select * from mssql_test1") |> DataFrame
-            @test size(data) == (2,23)
-            @test data[1][1] === 1
-            @test data[10][1] === 1.2
-            @test data[12][1] === ODBC.API.SQLDate(2016,1,1)
-            @test data[23][1] == UInt8[0x00, 0x01, 0xe2, 0x40]
-        end
 
         ODBC.execute!(dsn, "drop table if exists test1")
     end
@@ -226,7 +182,7 @@
          ('Jim', 30000.00, '2015-6-2', '2015-9-5 10:05:10', '12:30:00', 45, 0, 1567),
          ('Tim', 15000.50, '2015-7-25', '2015-10-10 12:12:25', '12:30:00', 56, 1, 3200);
         """)
-        data = ODBC.query(dsn, "select * from employee")
+        data = DataFrame(ODBC.Query(dsn, "select * from employee"))
         @test size(data) == (4,9)
         ODBC.execute!(dsn, "drop table if exists employee")
     end

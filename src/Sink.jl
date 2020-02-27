@@ -49,7 +49,7 @@ function load!(dsn::DSN, table::AbstractString, itr::T) where {T}
     M, N = size(df)
     columns = Vector{Any}(undef, N)
     indcols = Vector{Any}(undef, N)
-    for (col, column) in enumerate(Tables.eachcolumn(df))
+    for (col, column) in enumerate(Tables.Columns(Tables.columns(df)))
         rows, len = prep!(column, col, columns, indcols)
         @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindCols(stmt, col, getCtype(eltype(column)), columns[col], M, indcols[col])
     end

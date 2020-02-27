@@ -77,7 +77,7 @@
                              'hey there george', -- mediumtext
                              'hey there hank' -- longtext
                             )")
-        data = ODBC.query(dsn, "select * from test1")
+        data = DataFrame(ODBC.Query(dsn, "select * from test1"))
 
         @test size(data) == (1,27)
         @test Tables.schema(data).types == (
@@ -166,7 +166,7 @@
                              'hey there george2', -- mediumtext
                              'hey there hank2' -- longtext
                             )")
-        data = ODBC.query(dsn, "select * from test1")
+        data = DataFrame(ODBC.Query(dsn, "select * from test1"))
         @test size(data) == (2,27)
         @test data[1][1] === Int64(1)
         @test data[1][2] === Int64(2)
@@ -196,20 +196,6 @@
         #     rm(temp_filename)
         # end
 
-        @testset "Exporting mysql data to SQLite" begin
-            # Test exporting test1 to SQLite
-            db = SQLite.DB()
-            source = ODBC.Query(dsn, "select * from test1")
-            SQLite.load!(source, db, "mysql_test1")
-
-            data = SQLite.Query(db, "select * from mysql_test1") |> DataFrame
-            @test size(data) == (2,27)
-            @test data[1][1] === 1
-            @test data[10][1] === 1.2
-            @test data[11][1] === ODBC.API.SQLDate(2016,1,1)
-            @test data[27][1] == "hey there hank"
-        end
-
         ODBC.execute!(dsn, "drop table if exists test1")
     end
 
@@ -231,11 +217,11 @@
                             fields terminated by ',' lines terminated by '\n'
                             (id,first_name,last_name,salary,`hourly rate`,hiredate,`last clockin`)")
 
-        data = ODBC.query(dsn, "select count(*) from test2")
+        data = DataFrame(ODBC.Query(dsn, "select count(*) from test2"))
         @test size(data) == (1,1)
         @test data[1][1] === 70000
 
-        df = ODBC.query(dsn, "select * from test2")
+        df = DataFrame(ODBC.Query(dsn, "select * from test2"))
         @test size(df) == (70000,7)
         @test df[1] == collect(1:70000)
         @test df[end][1] === ODBC.API.SQLTimestamp(2002,1,17,21,32,0,0)
@@ -250,7 +236,7 @@
 
         ODBC.execute!(stmt, [102, "Dean", "Martin", 1.5, 10.1, Date(2016,1,2), DateTime(2016,1,2)])
 
-        df = ODBC.query(dsn, "select * from test3")
+        df = DataFrame(ODBC.Query(dsn, "select * from test3"))
         @test size(df) == (2,7)
         @test df[1][end-1] == 101
         @test df[1][end] == 102
