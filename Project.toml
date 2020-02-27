@@ -1,6 +1,6 @@
 name = "ODBC"
 uuid = "be6f12e9-ca4f-5eb2-a339-a4f995cc0291"
-version = "0.8.5"
+version = "0.8.6"
 
 [deps]
 CategoricalArrays = "324d7699-5711-5eae-9e2f-1d82baa6b597"
@@ -15,10 +15,11 @@ WeakRefStrings = "ea10d353-3f73-51f8-a26c-33c1cb351aa5"
 
 [compat]
 CSV = "0.4,0.5"
-CategoricalArrays = "0.4,0.5"
-DataFrames = "0.17,0.18,0.19"
+CategoricalArrays = "0.4,0.5,0.6,0.7"
+DataFrames = "0.17,0.18,0.19,0.20"
 DecFP = "0.4"
-SQLite = "0.7,0.8"
+SQLite = "0.7,0.8,0.9"
+Tables = "0.2"
 WeakRefStrings = "0.5,0.6"
 julia = "1"
 
