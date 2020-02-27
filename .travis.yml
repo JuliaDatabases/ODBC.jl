@@ -2,17 +2,17 @@
 language: julia
 
 services:
- - mysql
- - postgresql
+  - mysql
+  - postgresql
 
 addons:
-apt:
-  packages:
-    - unixodbc
-    - unixodbc-dev
-    - libmyodbc
-    - libsqliteodbc
-    - odbc-postgresql
+  apt:
+    packages:
+      - unixodbc
+      - unixodbc-dev
+      - libmyodbc
+      - libsqliteodbc
+      - odbc-postgresql
 
 os:
   - linux
@@ -29,7 +29,6 @@ julia:
   - nightly
 
 env:
-  - JULIA_PROJECT="@."
   - ODBC_TEST_DRIVERS="mysql, postgresql"
 
 matrix:
@@ -50,20 +49,20 @@ matrix:
       after_success: skip
 
 before_install:
-- |-
-    case $TRAVIS_OS_NAME in windows)
-        choco install mysql
-        dir C:\\tools\\mysql
-        dir C:\\tools\\mysql\\current
-        dir C:\\tools\\mysql\\current\\bin
-        C:\\tools\\mysql\\current\\bin\\mysqld --install
-        ;;
-    esac
-- cp ./test/setup/.odbcinst.ini $HOME
-- odbcinst -i -s -h -f ./test/setup/mysqltest.odbc.ini
-- odbcinst -i -s -h -f ./test/setup/postgresqltest.odbc.ini
-- odbcinst -i -s -h -f ./test/setup/mssqltest.odbc.ini
-- echo -e "\n[odbc]\nlocal-infile=1\n" >> $HOME/.my.cnf
+  - cp ./test/setup/.odbcinst.ini $HOME
+  - odbcinst -i -s -h -f ./test/setup/mysqltest.odbc.ini
+  - odbcinst -i -s -h -f ./test/setup/postgresqltest.odbc.ini
+  - odbcinst -i -s -h -f ./test/setup/mssqltest.odbc.ini
+  - echo -e "\n[odbc]\nlocal-infile=1\n" >> $HOME/.my.cnf
+  - |-
+      case $TRAVIS_OS_NAME in windows)
+          choco install mysql
+          dir C:\\tools\\mysql
+          dir C:\\tools\\mysql\\current
+          dir C:\\tools\\mysql\\current\\bin
+          C:\\tools\\mysql\\current\\bin\\mysqld --install
+          ;;
+      esac
 
 before_script:
   - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew install mysql; brew services start mysql; fi
