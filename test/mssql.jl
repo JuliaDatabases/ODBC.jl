@@ -46,7 +46,7 @@
                              test_binary binary(2),
                              test_varbinary varbinary(16)
                             )")
-        data = ODBC.query(dsn, "select * from information_schema.columns where table_name = 'test1'")
+        data = DataFrame(ODBC.Query(dsn, "select * from information_schema.columns where table_name = 'test1'"))
         ODBC.execute!(dsn, "insert test1 VALUES
                             (1, -- bigint
                              1, -- bit
@@ -72,7 +72,7 @@
                              cast(123456 as binary(2)), -- binary
                              cast(123456 as varbinary(16)) -- varbinary
                             )")
-        data = ODBC.query(dsn, "select * from test1")
+        data = DataFrame(ODBC.Query(dsn, "select * from test1"))
 
         @test size(data) == (1,23)
         @test Tables.schema(data).types == (
@@ -150,7 +150,7 @@
                              cast(123456 as binary(2)), -- binary
                              cast(123456 as varbinary(16)) -- varbinary
                             )")
-        data = ODBC.query(dsn, "select * from test1")
+        data = DataFrame(ODBC.Query(dsn, "select * from test1"))
         @test size(data) == (2,23)
         @test data[1][1] === Int64(1)
         @test data[1][2] === Int64(2)
@@ -226,7 +226,7 @@
          ('Jim', 30000.00, '2015-6-2', '2015-9-5 10:05:10', '12:30:00', 45, 0, 1567),
          ('Tim', 15000.50, '2015-7-25', '2015-10-10 12:12:25', '12:30:00', 56, 1, 3200);
         """)
-        data = ODBC.query(dsn, "select * from employee")
+        data = DataFrame(ODBC.Query(dsn, "select * from employee"))
         @test size(data) == (4,9)
         ODBC.execute!(dsn, "drop table if exists employee")
     end

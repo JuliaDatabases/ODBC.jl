@@ -2,8 +2,8 @@
     dsn = ODBC.DSN("PgSQL-test")
 
     @testset "basic queries" begin
-        dbs = ODBC.query(dsn, "SELECT datname FROM pg_database WHERE datistemplate = false;")
-        data = ODBC.query(dsn, "SELECT table_schema, table_name FROM information_schema.tables ORDER BY table_schema,table_name;")
+        dbs = DataFrame(ODBC.Query(dsn, "SELECT datname FROM pg_database WHERE datistemplate = false;"))
+        data = DataFrame(ODBC.Query(dsn, "SELECT table_schema, table_name FROM information_schema.tables ORDER BY table_schema,table_name;"))
     end
 
     @testset "test1" begin
@@ -27,7 +27,7 @@
                              test_text text,
                              test_array integer[]
                             )")
-        data = ODBC.query(dsn, "select * from information_schema.tables where table_name = 'test1'")
+        data = DataFrame(ODBC.Query(dsn, "select * from information_schema.tables where table_name = 'test1'"))
         println("Postgres table 'test1' schema:")
         println()
         ODBC.execute!(dsn, "insert into test1 VALUES
@@ -49,7 +49,7 @@
                              'hey there abraham', -- text,
                              ARRAY[1, 2, 3] -- integer array
                             )")
-        data = ODBC.query(dsn, "select * from test1")
+        data = DataFrame(ODBC.Query(dsn, "select * from test1"))
         @test size(data) == (1,17)
         @test Tables.schema(data).types == (
             Union{Int64, Missing},
