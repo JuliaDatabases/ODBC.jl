@@ -2,6 +2,7 @@ using Test, Dates, Random, ODBC, Tables, WeakRefStrings, DataFrames, DecFP
 
 # You can also specify which database you want to test for as an environment variable:
 # ENV["ODBC_TEST_DRIVERS"] = "mysql"
+# TODO restore the other drivers
 const TEST_DRIVERS = split(get(ENV, "ODBC_TEST_DRIVERS", "mysql, postgresql, mssql"), r"\s*,\s*")
 const TEST_MYSQL = "mysql" in TEST_DRIVERS
 const TEST_POSTGRESQL = "postgresql" in TEST_DRIVERS

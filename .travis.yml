@@ -17,6 +17,7 @@ os:
 
 julia:
   - 1.0
+  - 1.4
   - nightly
 
 env:
