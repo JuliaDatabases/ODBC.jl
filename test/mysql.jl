@@ -169,7 +169,7 @@
         data = DataFrame(ODBC.Query(dsn, "select * from test1"))
         @test size(data) == (2,27)
         @test data[1, 1] === Int64(1)
-        @test data[1, 1] === Int64(2)
+        @test data[2, 1] === Int64(2)
 
         # @testset "Streaming mysql data to CSV" begin
         #     # Test exporting test1 to CSV
@@ -223,7 +223,7 @@
 
         df = DataFrame(ODBC.Query(dsn, "select * from test2"))
         @test size(df) == (70000,7)
-        @test df[1] == collect(1:70000)
+        @test df[!, 1] == collect(1:70000)
         @test df[1, end] === ODBC.API.SQLTimestamp(2002,1,17,21,32,0,0)
     end
 
