@@ -109,33 +109,33 @@
             Union{String, Missing},
             Union{String, Missing}
         )
-        @test data[1][1] === Int64(1)
-        @test data[2][1] === Int8(1)
-        @test data[3][1] === DecFP.Dec64(1)
-        @test data[4][1] === Int32(1)
-        @test data[5][1] === DecFP.Dec64(1)
-        @test data[6][1] === Int16(1)
-        @test data[7][1] === Int32(1)
-        @test data[8][1] === Int8(1)
-        @test data[9][1] === Float32(1.2)
-        @test data[10][1] === Float64(1.2)
-        @test data[11][1] === ODBC.API.SQLDate(2016,1,1)
-        @test data[12][1] === ODBC.API.SQLTimestamp(2016,1,1,1,1,1,0)
-        @test data[13][1] === ODBC.API.SQLTimestamp(2016,1,1,1,1,1,0)
-        @test data[14][1] === ODBC.API.SQLTime(1,1,1)
-        @test data[15][1] === Int16(2016)
-        @test string(data[16][1]) == "A"
-        @test string(data[17][1]) == "hey there sailor"
-        @test data[18][1] == UInt8[0x31,0x32]
-        @test ismissing(data[19][1])
-        @test data[20][1] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x61,0x62,0x72,0x61,0x68,0x61,0x6d]
-        @test data[21][1] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x62,0x69,0x6c,0x6c]
-        @test data[22][1] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x63,0x68,0x61,0x72,0x6c,0x69,0x65]
-        @test data[23][1] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x64,0x61,0x6e]
-        @test string(data[24][1]) == "hey there ephraim"
-        @test string(data[25][1]) == "hey there frank"
-        @test string(data[26][1]) == "hey there george"
-        @test string(data[27][1]) == "hey there hank"
+        @test data[1, 1] === Int64(1)
+        @test data[1, 2] === Int8(1)
+        @test data[1, 3] === DecFP.Dec64(1)
+        @test data[1, 4] === Int32(1)
+        @test data[1, 5] === DecFP.Dec64(1)
+        @test data[1, 6] === Int16(1)
+        @test data[1, 7] === Int32(1)
+        @test data[1, 8] === Int8(1)
+        @test data[1, 9] === Float32(1.2)
+        @test data[1, 10] === Float64(1.2)
+        @test data[1, 11] === ODBC.API.SQLDate(2016,1,1)
+        @test data[1, 12] === ODBC.API.SQLTimestamp(2016,1,1,1,1,1,0)
+        @test data[1, 13] === ODBC.API.SQLTimestamp(2016,1,1,1,1,1,0)
+        @test data[1, 14] === ODBC.API.SQLTime(1,1,1)
+        @test data[1, 15] === Int16(2016)
+        @test string(data[1, 16]) == "A"
+        @test string(data[1, 17]) == "hey there sailor"
+        @test data[1, 18] == UInt8[0x31,0x32]
+        @test ismissing(data[1, 19])
+        @test data[1, 20] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x61,0x62,0x72,0x61,0x68,0x61,0x6d]
+        @test data[1, 21] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x62,0x69,0x6c,0x6c]
+        @test data[1, 22] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x63,0x68,0x61,0x72,0x6c,0x69,0x65]
+        @test data[1, 23] == UInt8[0x68,0x65,0x79,0x20,0x74,0x68,0x65,0x72,0x65,0x20,0x64,0x61,0x6e]
+        @test string(data[1, 24]) == "hey there ephraim"
+        @test string(data[1, 25]) == "hey there frank"
+        @test string(data[1, 26]) == "hey there george"
+        @test string(data[1, 27]) == "hey there hank"
 
         ODBC.execute!(dsn, "insert test1 VALUES
                             (2, -- bigint
@@ -168,8 +168,8 @@
                             )")
         data = DataFrame(ODBC.Query(dsn, "select * from test1"))
         @test size(data) == (2,27)
-        @test data[1][1] === Int64(1)
-        @test data[1][2] === Int64(2)
+        @test data[1, 1] === Int64(1)
+        @test data[1, 1] === Int64(2)
 
         # @testset "Streaming mysql data to CSV" begin
         #     # Test exporting test1 to CSV
@@ -219,12 +219,12 @@
 
         data = DataFrame(ODBC.Query(dsn, "select count(*) from test2"))
         @test size(data) == (1,1)
-        @test data[1][1] === 70000
+        @test data[1, 1] === 70000
 
         df = DataFrame(ODBC.Query(dsn, "select * from test2"))
         @test size(df) == (70000,7)
         @test df[1] == collect(1:70000)
-        @test df[end][1] === ODBC.API.SQLTimestamp(2002,1,17,21,32,0,0)
+        @test df[1, end] === ODBC.API.SQLTimestamp(2002,1,17,21,32,0,0)
     end
 
     @testset "prepared statement" begin
@@ -238,20 +238,20 @@
 
         df = DataFrame(ODBC.Query(dsn, "select * from test3"))
         @test size(df) == (2,7)
-        @test df[1][end-1] == 101
-        @test df[1][end] == 102
-        @test df[2][end-1] == "Steve"
-        @test df[2][end] == "Dean"
-        @test df[3][end-1] == "McQueen"
-        @test df[3][end] == "Martin"
-        @test df[4][end-1] == DecFP.Dec64(1)
-        @test df[4][end] == DecFP.Dec64(2)
-        @test df[5][end-1] == 100.0
-        @test df[5][end] == 10.1
-        @test df[6][end-1] == ODBC.API.SQLDate(2016,1,1)
-        @test df[6][end] == ODBC.API.SQLDate(2016,1,2)
-        @test df[7][end-1] == ODBC.API.SQLTimestamp(2016,1,1,0,0,0,0)
-        @test df[7][end] == ODBC.API.SQLTimestamp(2016,1,2,0,0,0,0)
+        @test df[end-1, 1] == 101
+        @test df[end, 1] == 102
+        @test df[end-1, 2] == "Steve"
+        @test df[end, 2] == "Dean"
+        @test df[end-1, 3] == "McQueen"
+        @test df[end, 3] == "Martin"
+        @test df[end-1 ,4] == DecFP.Dec64(1)
+        @test df[end, 4] == DecFP.Dec64(2)
+        @test df[end-1, 5] == 100.0
+        @test df[end, 5] == 10.1
+        @test df[end-1, 6] == ODBC.API.SQLDate(2016,1,1)
+        @test df[end, 6] == ODBC.API.SQLDate(2016,1,2)
+        @test df[end-1, 7] == ODBC.API.SQLTimestamp(2016,1,1,0,0,0,0)
+        @test df[end, 7] == ODBC.API.SQLTimestamp(2016,1,2,0,0,0,0)
         ODBC.execute!(dsn, "drop table if exists test2")
         ODBC.execute!(dsn, "drop table if exists test3")
     end
