@@ -71,11 +71,11 @@ setiODBC(; kw...) = API.setiODBC(; kw...)
 """
     ODBC.setodbc32(; kw...)
 
-Set the ODBC driver manager used to odbc32. By default, ODBC.jl sets the `ODBCINI`
-environment variable to the ODBC.jl-managed location
-(`realpath(joinpath(dirname(pathof(ODBC)), "../config/"))`), but users may override
-these (or provide additional environment variables) via `kw...` keyword arguments
-this this function. The env variables will be set before allocating the ODBC environemnt.
+Set the ODBC driver manager used to odbc32. On windows, ODBC.jl uses the system-wide
+configurations for drivers and datasources. Drivers and datasources can still be added
+via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`, but you must
+have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
 setodbc32(; kw...) = API.setodbc32(; kw...)
 
@@ -83,22 +83,32 @@ setodbc32(; kw...) = API.setodbc32(; kw...)
 """
     ODBC.drivers() -> Dict
 
-List installed ODBC drivers. The primary config location for installed drivers is
+List installed ODBC drivers. The primary config location for installed drivers on non-windows platforms is
 `realpath(joinpath(dirname(pathof(ODBC)), "../config/odbcinst.ini"))`, i.e. an ODBC.jl-managed
-location. Other system/user locations may also be checked by the underlying ODBC
-driver manager, but for the most consistent results, aim to allow ODBC.jl to manage
+location. Other system/user locations may also be checked (and are used by default on windows)
+by the underlying ODBC driver manager, but for the most consistent results, aim to allow ODBC.jl to manage
 installed drivers/datasources via `ODBC.addriver`, `ODBC.removedriver`, etc.
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
 drivers() = API.getdrivers()
 
 """
     ODBC.dsns() -> Dict
 
-List installed ODBC datasources. The primary config location for installed datasources is
+List installed ODBC datasources. The primary config location for installed datasources on non-windows platforms is
 `realpath(joinpath(dirname(pathof(ODBC)), "../config/odbc.ini"))`, i.e. an ODBC.jl-managed
-location. Other system/user locations may also be checked by the underlying ODBC
+location. Other system/user locations may also be checked (and are by default on windows) by the underlying ODBC
 driver manager, but for the most consistent results, aim to allow ODBC.jl to manage
 installed drivers/datasources via `ODBC.adddsn`, `ODBC.removedsn`, etc.
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
 dsns() = API.getdsns()
 
@@ -117,7 +127,12 @@ While ODBC.jl supports all 3 major ODBC driver managers (unixODBC, iODBC, and od
 be aware that most DBMS ODBC driver libraries are built against only one of the 3 and
 can lead to compatibility issues if a different driver manager is used. This is mainly
 an issue for driver libraries built against iODBC and then tried to use with unixODBC
-or vice-versa. See 
+or vice-versa.
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
 adddriver(name, libpath; kw...) = API.adddriver(name, libpath; kw...)
 
@@ -126,6 +141,11 @@ adddriver(name, libpath; kw...) = API.adddriver(name, libpath; kw...)
 
 Remove an installed ODBC driver by `name` (as returned from `ODBC.drivers()`).
 `removedsns=true` also removes any datasources that were specified to use the driver.
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
 removedriver(name; removedsns::Bool=true) = API.removedriver(name, removedsns)
 
@@ -144,6 +164,11 @@ An alternative approach to installing datasources is to generate a valid "connec
 that includes all connection properties in a single string passed to `DBInterface.connect`.
 [www.connectionstrings.com](https://www.connectionstrings.com/) is a convenient resource
 that provides connection string templates for various database systems.
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
 adddsn(name, driver; kw...) = API.adddsn(name, driver; kw...)
 
@@ -151,7 +176,12 @@ adddsn(name, driver; kw...) = API.adddsn(name, driver; kw...)
     ODBC.removedsn(name)
 
 Remove an installed datasource by `name` (as returned from `ODBC.dsns()`).
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
-removdsn(name) = API.removedsn(name)
+removedsn(name) = API.removedsn(name)
 
 end #ODBC module

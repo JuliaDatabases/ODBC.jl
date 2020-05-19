@@ -190,10 +190,10 @@ function Cursor(stmt; iterate_rows::Bool=false, debug::Bool=true)
     end
     metadata = [["column name", names...] ["column type", types...] ["sql type", map(x->API.SQL_TYPES[x], sqltypes)...] ["c type", map(x->API.C_TYPES[x], ctypes)...] ["sizes", map(Int, columnsizes)...] ["nullable", map(x->x != API.SQL_NO_NULLS, nullables)...] ["long data", longtexts...]]
     columnar = knownlength = true
-    if any(longtexts) || rows == -1 || iterate_rows
+    if any(longtexts) || rows <= 0 || iterate_rows
         rowset = 1
         columnar = false
-        knownlength = rows != -1
+        knownlength = rows > 0
     else
         rowset = rows
     end

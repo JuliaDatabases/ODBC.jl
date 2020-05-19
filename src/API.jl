@@ -280,10 +280,9 @@ end
 execute(stmt::Handle) = SQLExecute(getptr(stmt))
 
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
-    q = transcode(sqlwcharsize(), query)
-    @odbc(:SQLExecDirectW,
-        (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
-        stmt,q,length(q))
+    @odbc(:SQLExecDirect,
+        (Ptr{Cvoid},Ptr{SQLCHAR},Int),
+        stmt,query,sizeof(query))
 end
 
 function execdirect(stmt::Handle, sql)
