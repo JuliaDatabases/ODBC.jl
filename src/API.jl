@@ -4,16 +4,17 @@ using unixODBC_jll
 const unixODBC_dm = unixODBC_jll.libodbc
 const unixODBC_inst = unixODBC_jll.libodbcinst
 
+const odbc32_dm = "odbc32"
+const odbc32_inst = "odbccp32"
+
 @static if !Sys.iswindows()
     using iODBC_debug_jll
     const iODBC_dm = iODBC_debug_jll.libiodbc
     const iODBC_inst = iODBC_debug_jll.libiodbcinst
 else
-    const iODBC_dm = ""
-    const iODBC_inst = ""
+    const iODBC_dm = odbc32_dm
+    const iODBC_inst = odbc32_inst
 end
-
-const odbc32_dm = "odbc32"
 
 @enum DM_TYPE unixODBC iODBC odbc32
 
@@ -84,7 +85,7 @@ macro odbcinst(func,args,vals...)
         elseif odbc_dm[] == unixODBC
             ccall( ($func, unixODBC_inst),          SQLRETURN, $args, $(vals...))
         else # odbc_dm[] == odbc32
-            ccall( ($func, odbc32_dm), stdcall, SQLRETURN, $args, $(vals...))
+            ccall( ($func, odbc32_inst), stdcall, SQLRETURN, $args, $(vals...))
         end
     end)
 end
