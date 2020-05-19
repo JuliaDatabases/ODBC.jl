@@ -1,20 +1,3 @@
-using Libdl, Dates, Printf, DecFP, WeakRefStrings
-
-# Link to ODBC Driver Manager (system-dependent)
-const odbc_dm = let
-    if !isdefined(@__MODULE__, :odbc_dm)
-        Sys.islinux()   && (lib_choices = ["libodbc", "libodbc.so", "libodbc.so.1", "libodbc.so.2", "libodbc.so.3"])
-        Sys.iswindows() && (lib_choices = ["odbc32"])
-        Sys.isapple()   && (lib_choices = ["libodbc.2.dylib","libodbc.dylib","libiodbc","libiodbc.dylib","libiodbc.1.dylib","libiodbc.2.dylib","libiodbc.3.dylib"])
-        Libdl.find_library(lib_choices)
-    end
-end
-
-function setODBC(x)
-    global odbc_dm
-    odbc_dm = x
-end
-
 # Translation of sqltypes.h; C typealiases for SQL functions
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms716298(v=vs.85).aspx
 # http://msdn.microsoft.com/en-us/library/windows/desktop/aa383751(v=vs.85).aspx
@@ -33,13 +16,6 @@ const SQLNUMERIC =    Cuchar
 const SQLREAL =       Cfloat
 const SQLTIME =       Cuchar
 const SQLTIMESTAMP =  Cuchar
-
-if occursin("iodbc", odbc_dm)
-    const SQLWCHAR = UInt32
-else
-    # correct for windows + unixODBC
-    const SQLWCHAR = Cushort
-end
 
 # ODBC API	64-bit platform	32-bit platform
 # SQLINTEGER	32 bits	32 bits
@@ -104,27 +80,9 @@ const SQLHWND =       Ptr{Cvoid}
 
 #################
 
-# provide lowercase conversion functions for all types
-# e.g., sqlchar(x) = convert(SQLCHAR, x)
-
-for t in [:SQLCHAR, :SQLSCHAR, :SQLWCHAR, :SQLDATE, :SQLDECIMAL,
-          :SQLDOUBLE, :SQLFLOAT, :SQLINTEGER, :SQLUINTEGER,
-          :SQLSMALLINT, :SQLUSMALLINT, :SQLLEN, :SQLULEN,
-          :SQLSETPOSIROW, :SQLROWCOUNT, :SQLROWSETSIZE, :SQLTRANSID,
-          :SQLROWOFFSET, :SQLNUMERIC, :SQLPOINTER, :SQLREAL, :SQLTIME,
-          :SQLTIMESTAMP, :SQLVARCHAR, :SQLRETURN, :SQLHANDLE,
-          :SQLHENV, :SQLHDBC, :SQLHSTMT, :SQLHDESC, :ULONG, :PULONG,
-          :USHORT, :PUSHORT, :UCHAR, :PUCHAR, :PSZ, :SCHAR, :SDWORD,
-          :SWORD, :UDWORD, :UWORD, :SLONG, :SSHORT, :SDOUBLE,
-          :LDOUBLE, :SFLOAT, :PTR, :HENV, :HDBC, :HSTMT, :RETCODE,
-          :SQLHWND]
-    fn = Symbol(lowercase(string(t)))
-    @eval $fn(x) = convert($t, x)
-end
-
 # Data Type Mappings
 # SQL data types are returned in resultset metadata calls (ODBCMetadata)
-# C data types are used in SQLBindCols (ODBCFetch) to allocate column memory; the driver manager converts from the SQL type to this C type in memory
+# C data types are used in SQLBindCol (ODBCFetch) to allocate column memory; the driver manager converts from the SQL type to this C type in memory
 # Julia types indicate how julia should read the returned C data type memory from the previous step
 
 # SQL Data Type                     C Data Type                         Julia Type
@@ -164,7 +122,7 @@ end
 # SQL_INTERVAL_HOUR_TO_MINUTE       SQL_C_INTERVAL_HOUR_TO_MINUTE       UInt8
 # SQL_INTERVAL_HOUR_TO_SECOND       SQL_C_INTERVAL_HOUR_TO_SECOND       UInt8
 # SQL_INTERVAL_MINUTE_TO_SECOND     SQL_C_INTERVAL_MINUTE_TO_SECOND     UInt8
-# SQL_GUID                          SQL_C_GUID                          SQLGUID
+# SQL_GUID                          SQL_C_GUID                          UUID
 
 # SQL Data Type Definitions
 const SQL_NULL_DATA     = -1
@@ -226,6 +184,16 @@ const SQL_C_BINARY    = Int16( -2)
 const SQL_C_TYPE_DATE = Int16( 91)
 const SQL_C_TYPE_TIME = Int16( 92)
 const SQL_C_TYPE_TIMESTAMP = Int16( 93)
+const SQL_SIGNED_OFFSET = Int16(-20)
+const SQL_UNSIGNED_OFFSET = Int16(-22)
+const SQL_C_SLONG = (SQL_C_LONG+SQL_SIGNED_OFFSET)
+const SQL_C_SSHORT = (SQL_C_SHORT+SQL_SIGNED_OFFSET)
+const SQL_C_STINYINT = (SQL_TINYINT+SQL_SIGNED_OFFSET)
+const SQL_C_SBIGINT = (SQL_BIGINT+SQL_SIGNED_OFFSET)
+const SQL_C_ULONG = (SQL_C_LONG+SQL_UNSIGNED_OFFSET)
+const SQL_C_USHORT = (SQL_C_SHORT+SQL_UNSIGNED_OFFSET)
+const SQL_C_UTINYINT = (SQL_TINYINT+SQL_UNSIGNED_OFFSET)
+const SQL_C_UBIGINT = (SQL_BIGINT+SQL_UNSIGNED_OFFSET)
 
 #const SQL_C_INTERVAL_MONTH            = Int16(102)
 #const SQL_C_INTERVAL_YEAR             = Int16(101)
@@ -241,195 +209,6 @@ const SQL_C_TYPE_TIMESTAMP = Int16( 93)
 #const SQL_C_INTERVAL_HOUR_TO_SECOND   = Int16(112)
 #const SQL_C_INTERVAL_MINUTE_TO_SECOND = Int16(113)
 const SQL_C_GUID                      = Int16(-11)
-
-# Julia mapping C structs
-struct SQLDate <: Dates.AbstractTime
-    year::Int16
-    month::Int16
-    day::Int16
-end
-
-Base.show(io::IO,x::SQLDate) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))")
-SQLDate(x::Dates.Date) = SQLDate(Dates.yearmonthday(x)...)
-SQLDate() = SQLDate(0,0,0)
-import Base: ==
-==(x::SQLDate, y::Dates.Date) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
-==(y::Dates.Date, x::SQLDate) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y)
-Dates.Date(x::SQLDate) = Dates.Date(x.year, x.month, x.day)
-
-struct SQLTime <: Dates.AbstractTime
-    hour::Int16
-    minute::Int16
-    second::Int16
-end
-
-Base.show(io::IO,x::SQLTime) = print(io,"$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))")
-SQLTime() = SQLTime(0,0,0)
-
-struct SQLTimestamp <: Dates.AbstractTime
-    year::Int16
-    month::Int16
-    day::Int16
-    hour::Int16
-    minute::Int16
-    second::Int16
-    fraction::Int32 #nanoseconds
-end
-
-Base.show(io::IO,x::SQLTimestamp) = print(io,"$(x.year)-$(lpad(x.month,2,'0'))-$(lpad(x.day,2,'0'))T$(lpad(x.hour,2,'0')):$(lpad(x.minute,2,'0')):$(lpad(x.second,2,'0'))$(x.fraction == 0 ? "" : strip(Printf.@sprintf("%.9f",x.fraction/1e+9),'0'))")
-function SQLTimestamp(x::Dates.DateTime)
-    y, m, d = Dates.yearmonthday(x)
-    h, mm, s = Dates.hour(x), Dates.minute(x), Dates.second(x)
-    frac = Dates.millisecond(x) * 1_000_000
-    return SQLTimestamp(y, m, d, h, mm, s, frac)
-end
-SQLTimestamp() = SQLTimestamp(0,0,0,0,0,0,0)
-==(x::SQLTimestamp, y::Dates.DateTime) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
-                                   x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
-==(y::Dates.DateTime, x::SQLTimestamp) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
-                               x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
-Dates.DateTime(x::SQLTimestamp) = Dates.DateTime(x.year, x.month, x.day, x.hour, x.minute, x.second, x.fraction ÷ 1_000_000)
-
-const SQL_MAX_NUMERIC_LEN = 16
-struct SQLNumeric
-    precision::SQLCHAR
-    scale::SQLSCHAR
-    sign::SQLCHAR
-    val::NTuple{SQL_MAX_NUMERIC_LEN,SQLCHAR}
-end
-
-Base.show(io::IO,x::SQLNumeric) = print(io,"SQLNumeric($(x.sign == 1 ? '+' : '-') precision: $(x.precision) scale: $(x.scale) val: $(x.val))")
-SQLNumeric() = SQLNumeric(0,0,0,(0,))
-
-# typedef struct  tagSQLGUID
-# {
-#     DWORD Data1;
-#     WORD Data2;
-#     WORD Data3;
-#     BYTE Data4[ 8 ];
-# } SQLGUID;
-struct SQLGUID
-    Data1::Cuint
-    Data2::Cushort
-    Data3::Cushort
-    Data4::NTuple{8,Cuchar}
-end
-
-# for representing SQL LONG types
-struct Long{T} end
-
-"""
-Dict for mapping SQL types to C types.
-When executing an SQL query that returns results, the DBMS will return the SQL types of the resultset;
-The application then tells the ODBC Driver Manager how to actually return the data
-(by specifying the equivalent C type or something else entirely).
-"""
-const SQL2C = Dict(
-    SQL_CHAR           => SQL_C_CHAR,
-    SQL_VARCHAR        => SQL_C_CHAR,
-    SQL_LONGVARCHAR    => SQL_C_CHAR,
-    SQL_WCHAR          => SQL_C_WCHAR,
-    SQL_WVARCHAR       => SQL_C_WCHAR,
-    SQL_WLONGVARCHAR   => SQL_C_WCHAR,
-    SQL_DECIMAL        => SQL_C_CHAR,
-    SQL_NUMERIC        => SQL_C_CHAR,
-    SQL_SMALLINT       => SQL_C_SHORT,
-    SQL_INTEGER        => SQL_C_LONG,
-    SQL_REAL           => SQL_C_FLOAT,
-    SQL_FLOAT          => SQL_C_DOUBLE,
-    SQL_DOUBLE         => SQL_C_DOUBLE,
-    SQL_BIT            => SQL_C_BIT,
-    SQL_TINYINT        => SQL_C_TINYINT,
-    SQL_BIGINT         => SQL_C_BIGINT,
-    SQL_BINARY         => SQL_C_BINARY,
-    SQL_VARBINARY      => SQL_C_BINARY,
-    SQL_LONGVARBINARY  => SQL_C_BINARY,
-    SQL_TYPE_DATE      => SQL_C_TYPE_DATE,
-    SQL_TYPE_TIME      => SQL_C_TYPE_TIME,
-    SQL_TYPE_TIMESTAMP => SQL_C_TYPE_TIMESTAMP,
-    SQL_SS_TIME2       => SQL_C_TYPE_TIME,
-    SQL_SS_TIMESTAMPOFFSET => SQL_C_TYPE_TIMESTAMP,
-    SQL_GUID           => SQL_C_GUID)
-
-const julia2SQL = Dict(
-    String                => SQL_CHAR,
-    WeakRefString{UInt8}  => SQL_CHAR,
-    WeakRefString{UInt16} => SQL_WCHAR,
-    WeakRefString{UInt32} => SQL_WCHAR,
-    Dec64                 => SQL_DOUBLE,
-    Float16               => SQL_FLOAT,
-    Float32               => SQL_FLOAT,
-    Float64               => SQL_DOUBLE,
-    Int8                  => SQL_TINYINT,
-    Int16                 => SQL_SMALLINT,
-    Int32                 => SQL_INTEGER,
-    Int64                 => SQL_BIGINT,
-    Bool                  => SQL_BIT,
-    Vector{UInt8}         => SQL_BINARY,
-    Dates.Date            => SQL_TYPE_DATE,
-    Dates.DateTime        => SQL_TYPE_TIMESTAMP,
-    SQLDate               => SQL_TYPE_DATE,
-    SQLTime               => SQL_TYPE_TIME,
-    SQLTimestamp          => SQL_TYPE_TIMESTAMP
-)
-
-const julia2C = Dict(
-    String                => SQL_C_CHAR,
-    WeakRefString{UInt8}  => SQL_C_CHAR,
-    WeakRefString{UInt16} => SQL_C_WCHAR,
-    WeakRefString{UInt32} => SQL_C_WCHAR,
-    Dec64                 => SQL_C_DOUBLE,
-    Float16               => SQL_C_FLOAT,
-    Float32               => SQL_C_FLOAT,
-    Float64               => SQL_C_DOUBLE,
-    Int8                  => SQL_C_TINYINT,
-    Int16                 => SQL_C_SHORT,
-    Int32                 => SQL_C_LONG,
-    Int64                 => SQL_C_BIGINT,
-    Bool                  => SQL_C_BIT,
-    Vector{UInt8}         => SQL_C_BINARY,
-    Dates.Date            => SQL_C_TYPE_DATE,
-    Dates.DateTime        => SQL_C_TYPE_TIMESTAMP,
-    SQLDate               => SQL_C_TYPE_DATE,
-    SQLTime               => SQL_C_TYPE_TIME,
-    SQLTimestamp          => SQL_C_TYPE_TIMESTAMP
-)
-
-"""
-maps SQL types from the ODBC manager to Julia types;
-in particular, it returns a Tuple{A,B,Bool}, where `A` is the Julia type
-used to allocate and return data from the ODBC manager, while `B`
-represents the final column type of the data; conversion from `A` to `B` happens
-through the `cast(::Type{B})` function in utils.jl.
-The 3rd `Bool` value indicates whether the column is a LONGTEXT or LONGBINARY SQL types, since these
-tend to require special result-handling rules.
-"""
-const SQL2Julia = Dict(
-    SQL_CHAR           => (SQLCHAR, Union{String, Missing}, false),
-    SQL_VARCHAR        => (SQLCHAR, Union{String, Missing}, false),
-    SQL_LONGVARCHAR    => (SQLCHAR, Union{String, Missing}, true),
-    SQL_WCHAR          => (SQLWCHAR, Union{String, Missing}, false),
-    SQL_WVARCHAR       => (SQLWCHAR, Union{String, Missing}, false),
-    SQL_WLONGVARCHAR   => (SQLWCHAR, Union{String, Missing}, true),
-    SQL_DECIMAL        => (SQLCHAR, Union{Dec64, Missing}, false),
-    SQL_NUMERIC        => (SQLCHAR, Union{Dec64, Missing}, false),
-    SQL_SMALLINT       => (SQLSMALLINT, Union{SQLSMALLINT, Missing}, false),
-    SQL_INTEGER        => (SQLINTEGER,  Union{SQLINTEGER, Missing}, false),
-    SQL_REAL           => (SQLREAL,   Union{SQLREAL, Missing}, false),
-    SQL_FLOAT          => (SQLFLOAT,  Union{SQLFLOAT, Missing}, false),
-    SQL_DOUBLE         => (SQLDOUBLE, Union{SQLDOUBLE, Missing}, false),
-    SQL_BIT            => (Int8,  Union{Int8, Missing}, false),
-    SQL_TINYINT        => (Int8,  Union{Int8, Missing}, false),
-    SQL_BIGINT         => (Int64, Union{Int64, Missing}, false),
-    SQL_BINARY         => (UInt8, Union{Vector{UInt8}, Missing}, false),
-    SQL_VARBINARY      => (UInt8, Union{Vector{UInt8}, Missing}, false),
-    SQL_LONGVARBINARY  => (UInt8, Union{Vector{UInt8}, Missing}, true),
-    SQL_TYPE_DATE      => (SQLDate, Union{SQLDate, Missing}, false),
-    SQL_TYPE_TIME      => (SQLTime, Union{SQLTime, Missing}, false),
-    SQL_TYPE_TIMESTAMP => (SQLTimestamp, Union{SQLTimestamp, Missing}, false),
-    SQL_SS_TIME2       => (SQLTime, Union{SQLTime, Missing}, false),
-    SQL_SS_TIMESTAMPOFFSET => (SQLTimestamp, Union{SQLTimestamp, Missing}, false),
-    SQL_GUID           => (SQLGUID, Union{SQLGUID, Missing}, false))
 
 "Convenience mapping of SQL types to their string representation"
 const SQL_TYPES = Dict(
@@ -474,26 +253,46 @@ const SQL_TYPES = Dict(
 
 "Convenience mapping of SQL types to their C-type equivalent as a string"
 const C_TYPES = Dict(
-    SQL_CHAR           => "SQL_C_CHAR",
-    SQL_VARCHAR        => "SQL_C_CHAR",
-    SQL_LONGVARCHAR    => "SQL_C_CHAR",
-    SQL_WCHAR          => "SQL_C_WCHAR",
-    SQL_WVARCHAR       => "SQL_C_WCHAR",
-    SQL_WLONGVARCHAR   => "SQL_C_WCHAR",
-    SQL_DECIMAL        => "SQL_C_NUMERIC",
-    SQL_NUMERIC        => "SQL_C_NUMERIC",
-    SQL_SMALLINT       => "SQL_C_SHORT",
-    SQL_INTEGER        => "SQL_C_LONG",
-    SQL_REAL           => "SQL_C_FLOAT",
-    SQL_FLOAT          => "SQL_C_DOUBLE",
-    SQL_DOUBLE         => "SQL_C_DOUBLE",
-    SQL_BIT            => "SQL_C_BIT",
-    SQL_TINYINT        => "SQL_C_TINYINT",
-    SQL_BIGINT         => "SQL_C_BIGINT",
-    SQL_BINARY         => "SQL_C_BINARY",
-    SQL_VARBINARY      => "SQL_C_BINARY",
-    SQL_LONGVARBINARY  => "SQL_C_BINARY",
-    SQL_TYPE_DATE      => "SQL_C_TYPE_DATE",
-    SQL_TYPE_TIME      => "SQL_C_TYPE_TIME",
-    SQL_TYPE_TIMESTAMP => "SQL_C_TYPE_TIMESTAMP",
-    SQL_C_GUID         => "SQL_C_GUID")
+  SQL_C_CHAR => "SQL_C_CHAR",
+  SQL_C_WCHAR => "SQL_C_WCHAR",
+  SQL_C_DOUBLE => "SQL_C_DOUBLE",
+  SQL_C_SHORT => "SQL_C_SHORT",
+  SQL_C_LONG => "SQL_C_LONG",
+  SQL_C_FLOAT => "SQL_C_FLOAT",
+  SQL_C_NUMERIC => "SQL_C_NUMERIC",
+  SQL_C_BIT => "SQL_C_BIT",
+  SQL_C_TINYINT => "SQL_C_TINYINT",
+  SQL_C_BIGINT => "SQL_C_BIGINT",
+  SQL_C_BINARY => "SQL_C_BINARY",
+  SQL_C_TYPE_DATE => "SQL_C_TYPE_DATE",
+  SQL_C_TYPE_TIME => "SQL_C_TYPE_TIME",
+  SQL_C_TYPE_TIMESTAMP => "SQL_C_TYPE_TIMESTAMP",
+  SQL_SIGNED_OFFSET => "SQL_SIGNED_OFFSET",
+  SQL_UNSIGNED_OFFSET => "SQL_UNSIGNED_OFFSET",
+  SQL_C_SLONG => "SQL_C_SLONG",
+  SQL_C_SSHORT => "SQL_C_SSHORT",
+  SQL_C_STINYINT => "SQL_C_STINYINT",
+  SQL_C_ULONG => "SQL_C_ULONG",
+  SQL_C_USHORT => "SQL_C_USHORT",
+  SQL_C_UTINYINT => "SQL_C_UTINYINT",
+  SQL_C_GUID => "SQL_C_GUID",
+)
+
+# success codes
+const SQL_SUCCESS           = Int16(0)
+const SQL_SUCCESS_WITH_INFO = Int16(1)
+
+# error codes
+const SQL_ERROR             = Int16(-1)
+const SQL_INVALID_HANDLE    = Int16(-2)
+
+# status codes
+const SQL_STILL_EXECUTING   = Int16(2)
+const SQL_NO_DATA           = Int16(100)
+
+const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
+                           SQL_NO_DATA => "SQL_NO_DATA",
+                           SQL_INVALID_HANDLE  => "SQL_INVALID_HANDLE",
+                           SQL_STILL_EXECUTING => "SQL_STILL_EXECUTING")
+
+const SQL_NO_NULLS = Int16(0)
