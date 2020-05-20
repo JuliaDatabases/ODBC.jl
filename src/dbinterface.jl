@@ -175,7 +175,9 @@ function Cursor(stmt; iterate_rows::Bool=false, debug::Bool=false)
     cname = Vector{API.sqlwcharsize()}(undef, 1024)
     for i = 1:cols
         API.SQLDescribeCol(API.getptr(stmt), i, cname, namelengths, sqltypes, columnsizes, decimaldigits, nullables)
-        names[i] = Symbol(API.str(cname, namelengths[i]))
+        nm = API.str(cname, namelengths[i])
+        debug && @show nm
+        names[i] = Symbol(nm)
         sqltype = sqltypes[i]
         ctype, jltype = fetchtypes(sqltype)
         ctypes[i] = ctype
