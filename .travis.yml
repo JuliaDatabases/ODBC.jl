@@ -38,6 +38,17 @@ matrix:
         - julia --project=docs/ docs/make.jl
       after_success: skip
 
+branches:
+  only:
+  - master
+  - gh-pages # For building documentation
+  - /^testing-.*$/ # testing branches
+  - /^v[0-9]+\.[0-9]+\.[0-9]+$/ # version tags
+
+cache:
+  directories:
+  - $HOME/.julia/artifacts
+
 before_install:
 - |-
     case $TRAVIS_OS_NAME in windows)
