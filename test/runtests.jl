@@ -33,7 +33,7 @@ DBInterface.execute(conn, """CREATE TABLE Employee
                      LastLogin DATETIME,
                      LastLogin2 TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                      Initial CHAR(1),
-                     Name VARCHAR(255),
+                     Name VARCHAR(255) CHARACTER SET utf8mb4,
                      Photo BLOB,
                      JobType ENUM('HR', 'Management', 'Accounts'),
                      Senior BIT(1),
