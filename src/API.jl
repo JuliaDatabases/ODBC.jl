@@ -8,9 +8,9 @@ const odbc32_dm = "odbc32"
 const odbc32_inst = "odbccp32"
 
 @static if !Sys.iswindows()
-    using iODBC_debug_jll
-    const iODBC_dm = iODBC_debug_jll.libiodbc
-    const iODBC_inst = iODBC_debug_jll.libiodbcinst
+    using iODBC_jll
+    const iODBC_dm = iODBC_jll.libiodbc
+    const iODBC_inst = iODBC_jll.libiodbcinst
 else
     const iODBC_dm = odbc32_dm
     const iODBC_inst = odbc32_inst
