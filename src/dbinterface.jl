@@ -107,13 +107,14 @@ interface as a source, so any valid sink can be used for inspecting results (a l
 is maintained [here](https://github.com/JuliaData/Tables.jl/blob/master/INTEGRATIONS.md)). Supported keyword arguments include `iterate_rows::Bool` for forcing row iteration of the 
 resultset, and `debug::Bool` for printing additional debug information during the query/result process.
 """
-function DBInterface.execute(stmt::Statement, params=(); kw...)
+function DBInterface.execute(stmt::Statement, params=(); debug::Bool=true, kw...)
     API.freestmt(stmt.stmt)
     clear!(stmt.dsn)
     paramcheck(stmt, params)
     stmt.bindings = bindparams(stmt.stmt, params, stmt.bindings)
+    debug && println("executing prepared statement: $(stmt.sql)")
     API.execute(stmt.stmt)
-    c = Cursor(stmt.stmt; kw...)
+    c = Cursor(stmt.stmt; debug=debug, kw...)
     stmt.dsn.cursorstmt = stmt.stmt
     return c
 end
@@ -132,13 +133,14 @@ This is an alternative execution path to `DBInterface.execute` with a prepared s
 This method is faster/less overhead for one-time executions, but prepared statements will
 have more benefit for repeated executions (even with different parameters).
 """
-function DBInterface.execute(conn::Connection, sql::AbstractString, params=(); kw...)
+function DBInterface.execute(conn::Connection, sql::AbstractString, params=(); debug::Bool=true, kw...)
     clear!(conn)
     stmt = API.Handle(API.SQL_HANDLE_STMT, API.getptr(conn.dbc))
     bindings = bindparams(stmt, params, nothing)
+    debug && println("executing statement: $sql")
     GC.@preserve bindings (API.execdirect(stmt, sql))
     conn.cursorstmt = stmt
-    return Cursor(stmt; kw...)
+    return Cursor(stmt; debug=debug, kw...)
 end
 
 mutable struct Cursor{columnar, knownlength}
