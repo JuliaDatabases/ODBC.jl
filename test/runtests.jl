@@ -1,10 +1,20 @@
-using Test, ODBC, DBInterface, Tables, Dates, DecFP
+using Test, ODBC, DBInterface, Tables, Dates, DecFP, MariaDB_Connector_ODBC_jll, MariaDB_Connector_C_jll
 
+tracefile = abspath(joinpath(@__DIR__, "odbc.log"))
+ODBC.setdebug(true, tracefile)
+@show ODBC.drivers()
+@show ODBC.dsns()
+ODBC.setdebug(false)
+@test filesize(tracefile) > 0
+rm(tracefile)
 
+PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
+ODBC.adddriver("ODBC_Test_MariaDB", MariaDB_Connector_ODBC_jll.libmaodbc_path)
+ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="localhost", PLUGIN_DIR=PLUGIN_DIR, Option=67108864)
 
-conn = DBInterface.connect(ODBC.Connection, "mariadb", "root")
+conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB", "root")
 DBInterface.close!(conn)
-conn = DBInterface.connect(ODBC.Connection, "mariadb", "root")
+conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB", "root")
 
 DBInterface.execute(conn, "DROP DATABASE if exists mysqltest")
 DBInterface.execute(conn, "CREATE DATABASE mysqltest")

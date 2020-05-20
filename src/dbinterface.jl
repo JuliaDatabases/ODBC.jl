@@ -156,7 +156,7 @@ mutable struct Cursor{columnar, knownlength}
 end
 
 # takes a recently executed statement handle and handles any produced resultsets
-function Cursor(stmt; iterate_rows::Bool=false, debug::Bool=true)
+function Cursor(stmt; iterate_rows::Bool=false, debug::Bool=false)
     cols = API.numcols(stmt)
     rows = API.numrows(stmt)
     debug && println("rows = $rows, cols = $cols")

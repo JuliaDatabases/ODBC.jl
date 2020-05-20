@@ -24,6 +24,8 @@ julia = "1"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+MariaDB_Connector_ODBC_jll = "1124d457-72a3-5205-9757-36a127c7d0f8"
+MariaDB_Connector_C_jll = "aabc7e14-95f1-5e66-9f32-aea603782360"
 
 [targets]
 test = ["Test"]
