@@ -172,7 +172,7 @@ function Cursor(stmt; iterate_rows::Bool=false, debug::Bool=false)
     decimaldigits = Vector{API.SQLSMALLINT}(undef, cols)
     nullables = Vector{API.SQLSMALLINT}(undef, cols)
     longtexts = Vector{Bool}(undef, cols)
-    cname = Vector{API.sqlwcharsize()}(undef, 1024)
+    cname = Vector{UInt8}(undef, 1024)
     for i = 1:cols
         API.SQLDescribeCol(API.getptr(stmt), i, cname, namelengths, sqltypes, columnsizes, decimaldigits, nullables)
         nm = API.str(cname, namelengths[i])

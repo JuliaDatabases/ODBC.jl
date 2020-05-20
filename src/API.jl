@@ -358,9 +358,9 @@ function numrows(stmt::Handle)
 end
 
 function SQLDescribeCol(stmt,i,nm::Vector,len::Vector,dt::Vector,cs::Vector,dd::Vector,nul::Vector)
-    @odbc(:SQLDescribeColW,
-        (Ptr{Cvoid},SQLUSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},Ptr{SQLSMALLINT},Ptr{SQLULEN},Ptr{SQLSMALLINT},Ptr{SQLSMALLINT}),
-        stmt,i,nm,sizeof(nm),pointer(len, i),pointer(dt, i),pointer(cs, i),pointer(dd, i),pointer(nul, i))
+    @odbc(:SQLDescribeCol,
+        (Ptr{Cvoid},SQLUSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},Ptr{SQLSMALLINT},Ptr{SQLULEN},Ptr{SQLSMALLINT},Ptr{SQLSMALLINT}),
+        stmt,i,nm,length(nm),pointer(len, i),pointer(dt, i),pointer(cs, i),pointer(dd, i),pointer(nul, i))
 end
 
 const SQL_ATTR_ROW_ARRAY_SIZE = 27
@@ -424,7 +424,7 @@ moreresults(stmt::Handle) = @checksuccess stmt SQLMoreResults(getptr(stmt))
 function SQLGetDiagRec(handletype, handle, i, state, native, error_msg, msg_length)
     @odbc(:SQLGetDiagRecW,
         (SQLSMALLINT,Ptr{Cvoid},SQLSMALLINT,Ptr{SQLWCHAR},Ref{SQLINTEGER},Ptr{SQLWCHAR},SQLSMALLINT,Ref{SQLSMALLINT}),
-        handletype,handle,i,state,native,error_msg,sizeof(error_msg),msg_length)
+        handletype,handle,i,state,native,error_msg,length(error_msg),msg_length)
 end
 
 function diagnostics(h::Handle)
