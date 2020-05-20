@@ -316,9 +316,16 @@ end
 execute(stmt::Handle) = SQLExecute(getptr(stmt))
 
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
-    @odbc(:SQLExecDirect,
-        (Ptr{Cvoid},Ptr{SQLCHAR},Int),
-        stmt,query,SQL_NTS)
+    if Sys.islinux()
+        q = transcode(sqlwcharsize(), query)
+        @odbc(:SQLExecDirectW,
+            (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
+            stmt,q,SQL_NTS)
+    else
+        @odbc(:SQLExecDirect,
+            (Ptr{Cvoid},Ptr{SQLCHAR},Int),
+            stmt,query,SQL_NTS)
+    end
 end
 
 function execdirect(stmt::Handle, sql)
