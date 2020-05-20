@@ -259,10 +259,10 @@ end
 disconnect(h::Handle) = h.type == SQL_HANDLE_DBC ? @checksuccess(h, SQLDisconnect(h.ptr)) : SQL_SUCCESS
 
 function SQLPrepare(stmt::Ptr{Cvoid},query::AbstractString)
-    q = transcode(sqlwcharsize(), query)
-    @odbc(:SQLPrepareW,
-        (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
-        stmt,q,length(q))
+    # q = transcode(sqlwcharsize(), query)
+    @odbc(:SQLPrepare,
+        (Ptr{Cvoid},Ptr{SQLCHAR},Int16),
+        stmt,query,SQL_NTS)
 end
 
 function prepare(dbc::Handle, sql)
@@ -316,16 +316,16 @@ end
 execute(stmt::Handle) = SQLExecute(getptr(stmt))
 
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
-    if Sys.islinux()
-        q = transcode(sqlwcharsize(), query)
-        @odbc(:SQLExecDirectW,
-            (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
-            stmt,q,length(q))
-    else
+    # if Sys.islinux()
+    #     q = transcode(sqlwcharsize(), query)
+    #     @odbc(:SQLExecDirectW,
+    #         (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
+    #         stmt,q,length(q))
+    # else
         @odbc(:SQLExecDirect,
             (Ptr{Cvoid},Ptr{SQLCHAR},Int),
             stmt,query,SQL_NTS)
-    end
+    # end
 end
 
 function execdirect(stmt::Handle, sql)
