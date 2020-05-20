@@ -153,10 +153,11 @@ end
 
 gettype(h::Handle) = h.type
 getptr(h::Handle) = h.ptr == C_NULL ? error("invalid odbc handle") : h.ptr
+getptr(x::Ptr) = x
 
 const ODBC_ENV = Ref{Handle}()
 
-function setupenv(; kw...)
+function setupenv(; trace::Bool=false, tracefile::String="", kw...)
     if isdefined(ODBC_ENV, :x)
         finalize(ODBC_ENV[])
     end
@@ -176,9 +177,43 @@ function setupenv(; kw...)
     return
 end
 
+const ODBC_DBC = Ref{Ptr{Cvoid}}()
+
+function setdebug(trace, tracefile)
+    if !isdefined(ODBC_DBC, :x) || ODBC_DBC[] == C_NULL
+        SQLAllocHandle(SQL_HANDLE_DBC, getptr(ODBC_ENV[]), ODBC_DBC)
+    end
+    if trace
+        SQLSetConnectAttr(ODBC_DBC[], SQL_ATTR_TRACE, SQL_OPT_TRACE_OFF)
+        if tracefile != ""
+            SQLSetConnectAttr(ODBC_DBC[], SQL_ATTR_TRACEFILE, tracefile)
+        end
+        SQLSetConnectAttr(ODBC_DBC[], SQL_ATTR_TRACE, SQL_OPT_TRACE_ON)
+    else
+        SQLSetConnectAttr(ODBC_DBC[], SQL_ATTR_TRACE, SQL_OPT_TRACE_OFF)
+    end
+end
+
 function __init__()
     setupenv()
     return
+end
+
+const SQL_ATTR_TRACE = SQLINTEGER(104)
+const SQL_ATTR_TRACEFILE = SQLINTEGER(105)
+const SQL_OPT_TRACE_OFF = SQLUINTEGER(0)
+const SQL_OPT_TRACE_ON = SQLUINTEGER(1)
+
+function SQLSetConnectAttr(dbc, attr::SQLINTEGER, value::SQLUINTEGER)
+    @odbc(:SQLSetConnectAttr,
+        (Ptr{Cvoid}, SQLINTEGER, SQLUINTEGER, SQLINTEGER),
+        getptr(dbc), attr, value, SQL_IS_UINTEGER)
+end
+
+function SQLSetConnectAttr(dbc, attr::SQLINTEGER, value::String)
+    @odbc(:SQLSetConnectAttr,
+        (Ptr{Cvoid}, SQLINTEGER, Ptr{UInt8}, SQLINTEGER),
+        getptr(dbc), attr, value, sizeof(value))
 end
 
 const SQL_DRIVER_COMPLETE = UInt16(1)
@@ -322,6 +357,7 @@ end
 
 const SQL_ATTR_ROW_ARRAY_SIZE = 27
 const SQL_IS_UINTEGER = -5
+const SQL_IS_INTEGER = -6
 
 function SQLSetStmtAttr(stmt::Ptr{Cvoid},attribute,value,value_length)
     @odbc(:SQLSetStmtAttrW,

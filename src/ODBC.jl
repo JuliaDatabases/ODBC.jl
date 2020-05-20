@@ -24,19 +24,7 @@ tracing will still be on, and will stay on until explicitly turned off.
 The iODBC driver manager supports passing `stderr` as the `tracefile`, which will
 print all tracing information into the julia session/repl.
 """
-function setdebug(debug::Bool=true, tracefile::String=joinpath(tempdir(), "odbc.log"))
-    if debug
-        API.writeinientry("odbc.ini", "ODBC", "Trace", "1")
-        API.writeinientry("odbc.ini", "ODBC", "TraceFile", tracefile)
-        API.setupenv()
-        @info "Enabled tracing of odbc library calls to $tracefile and reset odbc environment (connections will probably need to be remade)"
-    else
-        API.writeinientry("odbc.ini", "ODBC", "Trace", "0")
-        API.setupenv()
-        @info "Disabled tracing of odbc library calls and reset odbc enviornment (connections will probably need to be remade)"
-    end
-    return
-end
+setdebug(debug::Bool=true, tracefile::String=joinpath(tempdir(), "odbc.log")) = API.setdebug(debug, tracefile)
 
 """
     ODBC.setunixODBC(; kw...)
