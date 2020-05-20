@@ -320,7 +320,7 @@ function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
         q = transcode(sqlwcharsize(), query)
         @odbc(:SQLExecDirectW,
             (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
-            stmt,q,SQL_NTS)
+            stmt,q,length(q))
     else
         @odbc(:SQLExecDirect,
             (Ptr{Cvoid},Ptr{SQLCHAR},Int),
