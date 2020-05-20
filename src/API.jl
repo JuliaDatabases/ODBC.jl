@@ -4,16 +4,17 @@ using unixODBC_jll
 const unixODBC_dm = unixODBC_jll.libodbc
 const unixODBC_inst = unixODBC_jll.libodbcinst
 
-const odbc32_dm = "odbc32"
-const odbc32_inst = "odbccp32"
-
-@static if !Sys.iswindows()
+@static if Sys.iswindows()
+    const odbc32_dm = "odbc32"
+    const odbc32_inst = "odbccp32"
+    const iODBC_dm = odbc32_dm
+    const iODBC_inst = odbc32_inst
+else
     using iODBC_jll
     const iODBC_dm = iODBC_jll.libiodbc
     const iODBC_inst = iODBC_jll.libiodbcinst
-else
-    const iODBC_dm = odbc32_dm
-    const iODBC_inst = odbc32_inst
+    const odbc32_dm = unixODBC_jll.libodbc
+    const odbc32_inst = unixODBC_jll.libodbcinst
 end
 
 @enum DM_TYPE unixODBC iODBC odbc32
