@@ -285,6 +285,7 @@ const SQL_SUCCESS_WITH_INFO = Int16(1)
 # error codes
 const SQL_ERROR             = Int16(-1)
 const SQL_INVALID_HANDLE    = Int16(-2)
+const SQL_NTS               = -3
 
 # status codes
 const SQL_STILL_EXECUTING   = Int16(2)
