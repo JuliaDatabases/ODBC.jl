@@ -229,3 +229,11 @@ res, st = state
 # @test_broken length(res) == 4
 ret = columntable(res)
 # @test_broken length(ret[1]) == 4
+
+DBInterface.execute(conn, """CREATE TABLE Employee2
+                 (
+                     ID INT NOT NULL AUTO_INCREMENT,
+                     望研 VARCHAR(255) CHARACTER SET utf8mb4,
+                     PRIMARY KEY (ID)
+                 )""")
+DBInterface.execute(conn, "INSERT INTO Employee2 (望研) VALUES ('hey'), ('ho')")

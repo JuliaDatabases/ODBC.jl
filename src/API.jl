@@ -258,11 +258,16 @@ end
 
 disconnect(h::Handle) = h.type == SQL_HANDLE_DBC ? @checksuccess(h, SQLDisconnect(h.ptr)) : SQL_SUCCESS
 
+function cwstring(s::AbstractString)
+    bytes = codeunits(String(s))
+    0 in bytes && throw(ArgumentError("embedded NULs are not allowed in input strings: $(repr(s))"))
+    return push!(transcode(sqlwcharsize(), bytes), 0)
+end
+
 function SQLPrepare(stmt::Ptr{Cvoid},query::AbstractString)
-    # q = transcode(sqlwcharsize(), query)
-    @odbc(:SQLPrepare,
-        (Ptr{Cvoid},Ptr{SQLCHAR},Int16),
-        stmt,query,SQL_NTS)
+    @odbc(:SQLPrepareW,
+        (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
+        stmt,cwstring(query),SQL_NTS)
 end
 
 function prepare(dbc::Handle, sql)
@@ -316,16 +321,9 @@ end
 execute(stmt::Handle) = SQLExecute(getptr(stmt))
 
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
-    # if Sys.islinux()
-    #     q = transcode(sqlwcharsize(), query)
-    #     @odbc(:SQLExecDirectW,
-    #         (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
-    #         stmt,q,length(q))
-    # else
-        @odbc(:SQLExecDirect,
-            (Ptr{Cvoid},Ptr{SQLCHAR},Int),
-            stmt,query,SQL_NTS)
-    # end
+    @odbc(:SQLExecDirect,
+        (Ptr{Cvoid},Ptr{SQLCHAR},Int),
+        stmt,cwstring(query),SQL_NTS)
 end
 
 function execdirect(stmt::Handle, sql)
