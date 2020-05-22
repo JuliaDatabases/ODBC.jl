@@ -10,7 +10,7 @@ rm(tracefile)
 
 PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
 ODBC.adddriver("ODBC_Test_MariaDB", MariaDB_Connector_ODBC_jll.libmaodbc_path)
-ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="host.docker.internal", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
+ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="localhost", PLUGIN_DIR=PLUGIN_DIR, Option=67108864)
 
 conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB", "root")
 DBInterface.close!(conn)
