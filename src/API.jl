@@ -321,8 +321,8 @@ end
 execute(stmt::Handle) = SQLExecute(getptr(stmt))
 
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
-    @odbc(:SQLExecDirect,
-        (Ptr{Cvoid},Ptr{SQLCHAR},Int),
+    @odbc(:SQLExecDirectW,
+        (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
         stmt,cwstring(query),SQL_NTS)
 end
 
@@ -356,8 +356,8 @@ function numrows(stmt::Handle)
 end
 
 function SQLDescribeCol(stmt,i,nm::Vector,len::Vector,dt::Vector,cs::Vector,dd::Vector,nul::Vector)
-    @odbc(:SQLDescribeCol,
-        (Ptr{Cvoid},SQLUSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},Ptr{SQLSMALLINT},Ptr{SQLULEN},Ptr{SQLSMALLINT},Ptr{SQLSMALLINT}),
+    @odbc(:SQLDescribeColW,
+        (Ptr{Cvoid},SQLUSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},Ptr{SQLSMALLINT},Ptr{SQLULEN},Ptr{SQLSMALLINT},Ptr{SQLSMALLINT}),
         stmt,i,nm,length(nm),pointer(len, i),pointer(dt, i),pointer(cs, i),pointer(dd, i),pointer(nul, i))
 end
 

@@ -237,3 +237,5 @@ DBInterface.execute(conn, """CREATE TABLE Employee2
                      PRIMARY KEY (ID)
                  )""")
 DBInterface.execute(conn, "INSERT INTO Employee2 (望研) VALUES ('hey'), ('ho')")
+ret = DBInterface.execute(conn, "select * from Employee2") |> columntable
+@test length(ret.望研) == 2
