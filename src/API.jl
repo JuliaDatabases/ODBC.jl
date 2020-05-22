@@ -267,7 +267,7 @@ end
 function SQLPrepare(stmt::Ptr{Cvoid},query::AbstractString)
     @odbc(:SQLPrepareW,
         (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
-        stmt,cwstring(query),SQL_NTS)
+        stmt,cwstring(query),length(query))
 end
 
 function prepare(dbc::Handle, sql)
@@ -323,7 +323,7 @@ execute(stmt::Handle) = SQLExecute(getptr(stmt))
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
     @odbc(:SQLExecDirectW,
         (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
-        stmt,cwstring(query),SQL_NTS)
+        stmt,cwstring(query),length(query))
 end
 
 function execdirect(stmt::Handle, sql)
