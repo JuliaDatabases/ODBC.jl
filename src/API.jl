@@ -265,9 +265,15 @@ function cwstring(s::AbstractString)
 end
 
 function SQLPrepare(stmt::Ptr{Cvoid},query::AbstractString)
-    @odbc(:SQLPrepareW,
-        (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
-        stmt,cwstring(query),length(query))
+    @static if Sys.iswindows()
+        @odbc(:SQLPrepare,
+            (Ptr{Cvoid},Ptr{SQLCHAR},Int16),
+            stmt,query,length(query))
+    else
+        @odbc(:SQLPrepareW,
+            (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
+            stmt,cwstring(query),length(query))
+    end
 end
 
 function prepare(dbc::Handle, sql)
@@ -321,9 +327,15 @@ end
 execute(stmt::Handle) = SQLExecute(getptr(stmt))
 
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
-    @odbc(:SQLExecDirectW,
-        (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
-        stmt,cwstring(query),length(query))
+    @static if Sys.iswindows()
+        @odbc(:SQLExecDirect,
+            (Ptr{Cvoid},Ptr{SQLCHAR},Int),
+            stmt,query,length(query))
+    else
+        @odbc(:SQLExecDirectW,
+            (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
+            stmt,cwstring(query),length(query))
+    end
 end
 
 function execdirect(stmt::Handle, sql)
