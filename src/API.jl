@@ -261,14 +261,14 @@ disconnect(h::Handle) = h.type == SQL_HANDLE_DBC ? @checksuccess(h, SQLDisconnec
 function cwstring(s::AbstractString)
     bytes = codeunits(String(s))
     0 in bytes && throw(ArgumentError("embedded NULs are not allowed in input strings: $(repr(s))"))
-    return push!(transcode(sqlwcharsize(), bytes), 0)
+    return transcode(sqlwcharsize(), bytes)
 end
 
 function SQLPrepare(stmt::Ptr{Cvoid},query::AbstractString)
     q = cwstring(query)
     @odbc(:SQLPrepareW,
         (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
-        stmt,q,SQL_NTS)
+        stmt,q,length(q))
 end
 
 function prepare(dbc::Handle, sql)
@@ -325,7 +325,7 @@ function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
     q = cwstring(query)
     @odbc(:SQLExecDirectW,
         (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
-        stmt,q,SQL_NTS)
+        stmt,q,length(q))
 end
 
 function execdirect(stmt::Handle, sql)
