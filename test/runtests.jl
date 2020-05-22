@@ -10,7 +10,7 @@ rm(tracefile)
 
 PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
 ODBC.adddriver("ODBC_Test_MariaDB", MariaDB_Connector_ODBC_jll.libmaodbc_path)
-ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="localhost", PLUGIN_DIR=PLUGIN_DIR, Option=67108864)
+ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="localhost", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
 
 conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB", "root")
 DBInterface.close!(conn)
@@ -45,7 +45,7 @@ DBInterface.execute(conn, """INSERT INTO Employee (OfficeNo, DeptNo, EmpNo, Wage
                  (1, 2, 1301, 3.14, 10000.50, 1.001, '12:00:00', '2015-8-3', '2015-9-5 12:31:30', '2015-9-5 12:31:30', 'A', 'John', 'abc', 'HR', b'1'),
                  (1, 2, 1422, 3.14, 20000.25, 2.002, '13:00:00', '2015-8-4', '2015-10-12 13:12:14', '2015-10-12 13:12:14', 'B', 'Tom', 'def', 'HR', b'1'),
                  (1, 2, 1567, 3.14, 30000.00, 3.003, '12:30:00', '2015-6-2', '2015-9-5 10:05:10', '2015-9-5 10:05:10', 'C', 'Jim', 'ghi', 'Management', b'0'),
-                 (1, 2, 3200, 3.14, 15000.50, 2.5, '12:30:00', '2015-7-25', '2015-10-10 12:12:25', '2015-10-10 12:12:25', 'D', 'hey ho', 'jkl', 'Accounts', b'1');
+                 (1, 2, 3200, 3.14, 15000.50, 2.5, '12:30:00', '2015-7-25', '2015-10-10 12:12:25', '2015-10-10 12:12:25', 'D', '望研測来白制父委供情治当認米注。規', 'jkl', 'Accounts', b'1');
               """)
 
 expected = (
@@ -61,7 +61,7 @@ expected = (
   LastLogin  = Union{Missing, Dates.DateTime}[DateTime("2015-09-05T12:31:30"), DateTime("2015-10-12T13:12:14"), DateTime("2015-09-05T10:05:10"), DateTime("2015-10-10T12:12:25")],
   LastLogin2 = Union{Missing, Dates.DateTime}[DateTime("2015-09-05T12:31:30"), DateTime("2015-10-12T13:12:14"), DateTime("2015-09-05T10:05:10"), DateTime("2015-10-10T12:12:25")],
   Initial    = Union{Missing, String}["A", "B", "C", "D"],
-  Name       = Union{Missing, String}["John", "Tom", "Jim", "hey ho"],
+  Name       = Union{Missing, String}["John", "Tom", "Jim", "望研測来白制父委供情治当認米注。規"],
   Photo      = Union{Missing, Vector{UInt8}}[b"abc", b"def", b"ghi", b"jkl"],
   JobType    = Union{Missing, String}["HR", "HR", "Management", "Accounts"],
   Senior     = Union{Missing, Bool}[true, true, false, true],
