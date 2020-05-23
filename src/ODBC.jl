@@ -1,244 +1,184 @@
 module ODBC
 
-using Tables, CategoricalArrays, WeakRefStrings, DataFrames, Dates, DecFP
-
-export DataFrame, odbcdf
+using Printf, Dates, UUIDs
+using DecFP, DBInterface, Tables
 
 include("API.jl")
-
-"just a block of memory; T is the element type, `len` is total # of **bytes** pointed to, and `elsize` is size of each element"
-mutable struct Block{T}
-    ptr::Ptr{T}    # pointer to a block of memory
-    len::Int       # total # of bytes in block
-    elsize::Int    # size between elements in bytes
-end
+include("utils.jl")
+include("dbinterface.jl")
 
 """
-Block allocator:
-    -Takes an element type, and number of elements to allocate in a linear block
-    -Optionally specify an extra dimension of elements that make up each element (i.e. container types)
+    ODBC.setdebug(debug::Bool=true, tracefile::String=joinpath(tempdir(), "odbc.log"))
+
+Turn on ODBC library call tracing. This prints debug information to `tracefile` upon every
+entry and exit from calls to the underlying ODBC library (unixODBC, iODBC, or odbc32).
+Debugging can be turned off by passing `false`.
+
+Note that setting tracing on/off requires resetting the ODBC environment, which means
+any open statements/connections will be closed/invalid.
+
+Also note that due to the persistent nature of ODBC config, setting tracing will
+persist acrosss Julia sessions, i.e. if you turn tracing on, then quit julia and start again
+tracing will still be on, and will stay on until explicitly turned off.
+
+The iODBC driver manager supports passing `stderr` as the `tracefile`, which will
+print all tracing information into the julia session/repl.
 """
-function Block(::Type{T}, elements::Int, extradim::Integer=1) where {T}
-    len = sizeof(T) * elements * extradim
-    block = Block{T}(convert(Ptr{T}, Libc.malloc(len)), len, sizeof(T) * extradim)
-    finalizer(x->Libc.free(x.ptr), block)
-    return block
-end
-
-# used for getting messages back from ODBC driver manager; SQLDrivers, SQLError, etc.
-Base.string(block::Block, len::Integer) = String(transcode(UInt8, unsafe_wrap(Array, block.ptr, len, own=false)))
-
-struct ODBCError <: Exception
-    msg::String
-end
-
-const BUFLEN = 1024
-
-function ODBCError(handle::Ptr{Cvoid}, handletype::Int16)
-    i = Int16(1)
-    state = ODBC.Block(ODBC.API.SQLWCHAR, 6)
-    native = Ref{ODBC.API.SQLINTEGER}()
-    error_msg = ODBC.Block(ODBC.API.SQLWCHAR, BUFLEN)
-    msg_length = Ref{ODBC.API.SQLSMALLINT}()
-    while ODBC.API.SQLGetDiagRec(handletype, handle, i, state.ptr, native, error_msg.ptr, BUFLEN, msg_length) == ODBC.API.SQL_SUCCESS
-        st  = string(state, 5)
-        msg = string(error_msg, msg_length[])
-        println("[ODBC] $st: $msg")
-        i += 1
-    end
-    return true
-end
-
-# Macros to to check if a function returned a success value or not
-macro CHECK(handle, handletype, func)
-    str = string(func)
-    esc(quote
-        ret = $func
-        ret != ODBC.API.SQL_SUCCESS && ret != ODBC.API.SQL_SUCCESS_WITH_INFO && ret != API.SQL_NO_DATA && ODBCError($handle, $handletype) &&
-            throw(ODBCError("$($str) failed; return code: $ret => $(ODBC.API.RETURN_VALUES[ret])"))
-        ret
-    end)
-end
-
-"List ODBC drivers that have been installed and registered"
-function drivers()
-    descriptions = String[]
-    attributes   = String[]
-    driver_desc = Block(ODBC.API.SQLWCHAR, BUFLEN)
-    desc_length = Ref{ODBC.API.SQLSMALLINT}()
-    driver_attr = Block(ODBC.API.SQLWCHAR, BUFLEN)
-    attr_length = Ref{ODBC.API.SQLSMALLINT}()
-    dir = ODBC.API.SQL_FETCH_FIRST
-    while ODBC.API.SQLDrivers(ENV[], dir, driver_desc.ptr, BUFLEN, desc_length, driver_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
-        push!(descriptions, string(driver_desc, desc_length[]))
-        push!(attributes,   string(driver_attr, attr_length[]))
-        dir = ODBC.API.SQL_FETCH_NEXT
-    end
-    return [descriptions attributes]
-end
-
-"List ODBC DSNs, both user and system, that have been previously defined"
-function dsns()
-    descriptions = String[]
-    attributes   = String[]
-    dsn_desc    = Block(ODBC.API.SQLWCHAR, BUFLEN)
-    desc_length = Ref{ODBC.API.SQLSMALLINT}()
-    dsn_attr    = Block(ODBC.API.SQLWCHAR, BUFLEN)
-    attr_length = Ref{ODBC.API.SQLSMALLINT}()
-    dir = ODBC.API.SQL_FETCH_FIRST
-    while ODBC.API.SQLDataSources(ENV[], dir, dsn_desc.ptr, BUFLEN, desc_length, dsn_attr.ptr, BUFLEN, attr_length) == ODBC.API.SQL_SUCCESS
-        push!(descriptions, string(dsn_desc, desc_length[]))
-        push!(attributes,   string(dsn_attr, attr_length[]))
-        dir = ODBC.API.SQL_FETCH_NEXT
-    end
-    return [descriptions attributes]
-end
-
-"""
-A DSN represents an established ODBC connection.
-It is passed to most other ODBC methods as a first argument
-"""
-mutable struct DSN
-    dsn::String
-    dbc_ptr::Ptr{Cvoid}
-    stmt_ptr::Ptr{Cvoid}
-    stmt_ptr2::Ptr{Cvoid}
-end
-
-Base.show(io::IO,conn::DSN) = print(io, "ODBC.DSN($(conn.dsn))")
-
-const dsn = DSN("", C_NULL, C_NULL, C_NULL)
-
-"""
-Construct a `DSN` type by connecting to a valid ODBC DSN or by specifying a valid connection string.
-Takes optional 2nd and 3rd arguments for `username` and `password`, respectively.
-1st argument `dsn` can be either the name of a pre-defined ODBC DSN or a valid connection string.
-A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
-"""
-function DSN(connectionstring::AbstractString, username::AbstractString=String(""), password::AbstractString=String(""); prompt::Bool=true)
-    dbc = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_DBC, ODBC.ENV[])
-    dsns = ODBC.dsns()
-    found = false
-    for d in dsns[:,1]
-        connectionstring == d && (found = true)
-    end
-    if found
-        @CHECK dbc ODBC.API.SQL_HANDLE_DBC ODBC.API.SQLConnect(dbc, connectionstring, username, password)
+function setdebug(debug::Bool=true, tracefile::String=joinpath(tempdir(), "odbc.log"))
+    if debug
+        API.setdebug(true, tracefile)
+        @info "Enabled tracing of odbc library calls to $tracefile"
     else
-        connectionstring = ODBCDriverConnect!(dbc, connectionstring, prompt)
+        API.setdebug(false, tracefile)
+        @info "Disabled tracing of odbc library calls"
     end
-    stmt = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dbc)
-    stmt2 = ODBCAllocHandle(ODBC.API.SQL_HANDLE_STMT, dbc)
-    global dsn
-    dsn.dsn = connectionstring
-    dsn.dbc_ptr = dbc
-    dsn.stmt_ptr = stmt
-    dsn.stmt_ptr2 = stmt2
-    return DSN(connectionstring, dbc, stmt, stmt2)
-end
-
-"disconnect a connected `DSN`"
-function disconnect!(conn::DSN)
-    ODBCFreeStmt!(conn.stmt_ptr)
-    ODBCFreeStmt!(conn.stmt_ptr2)
-    ODBC.API.SQLDisconnect(conn.dbc_ptr)
-    return nothing
-end
-
-mutable struct Statement
-    dsn::DSN
-    stmt::Ptr{Cvoid}
-    query::String
-    task::Task
-end
-
-# used to 'clear' a statement of bound columns, resultsets,
-# and other bound parameters in preparation for a subsequent query
-function ODBCFreeStmt!(stmt)
-    ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_CLOSE)
-    ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_UNBIND)
-    ODBC.API.SQLFreeStmt(stmt, ODBC.API.SQL_RESET_PARAMS)
-end
-
-# "Allocate ODBC handles for interacting with the ODBC Driver Manager"
-function ODBCAllocHandle(handletype, parenthandle)
-    handle = Ref{Ptr{Cvoid}}()
-    API.SQLAllocHandle(handletype, parenthandle, handle)
-    handle = handle[]
-    if handletype == API.SQL_HANDLE_ENV
-        API.SQLSetEnvAttr(handle, API.SQL_ATTR_ODBC_VERSION, API.SQL_OV_ODBC3)
-    end
-    return handle
-end
-
-# "Alternative connect function that allows user to create datasources on the fly through opening the ODBC admin"
-function ODBCDriverConnect!(dbc::Ptr{Cvoid}, conn_string, prompt::Bool)
-    @static if Sys.iswindows()
-        driver_prompt = prompt ? API.SQL_DRIVER_PROMPT : API.SQL_DRIVER_NOPROMPT
-        window_handle = prompt ? ccall((:GetForegroundWindow, :user32), Ptr{Cvoid}, () ) : C_NULL
-    else
-        driver_prompt = API.SQL_DRIVER_NOPROMPT
-        window_handle = C_NULL
-    end
-    out_conn = Block(API.SQLWCHAR, BUFLEN)
-    out_buff = Ref{Int16}()
-    @CHECK dbc API.SQL_HANDLE_DBC API.SQLDriverConnect(dbc, window_handle, conn_string, out_conn.ptr, BUFLEN, out_buff, driver_prompt)
-    connection_string = string(out_conn, out_buff[])
-    return connection_string
-end
-
-"`prepare` prepares an SQL statement to be executed"
-function prepare(dsn::DSN, query::AbstractString)
-    stmt = ODBCAllocHandle(API.SQL_HANDLE_STMT, dsn.dbc_ptr)
-    @CHECK stmt API.SQL_HANDLE_STMT API.SQLPrepare(stmt, query)
-    return Statement(dsn, stmt, query, Task(1))
-end
-
-function execute!(statement::Statement, values)
-    stmt = statement.stmt
-    values2 = Any[cast(x) for x in values]
-    strlens = zeros(API.SQLLEN, length(values2))
-    for (i, v) in enumerate(values2)
-        if ismissing(v)
-            strlens[i] = API.SQL_NULL_DATA
-            @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindParameter(stmt, i, API.SQL_PARAM_INPUT,
-                API.SQL_C_CHAR, API.SQL_CHAR, 0, 0, C_NULL, 0, pointer(strlens, i))
-        else
-            T = typeof(v)
-            ctype, sqltype = API.julia2C[T], API.julia2SQL[T]
-            csize, len, dgts = sqllength(v), clength(v), digits(v)
-            strlens[i] = len
-            ptr = getpointer(T, values2, i)
-            # println("ctype: $ctype, sqltype: $sqltype, digits: $dgts, len: $len, csize: $csize")
-            @CHECK stmt API.SQL_HANDLE_STMT API.SQLBindParameter(stmt, i, API.SQL_PARAM_INPUT,
-                ctype, sqltype, csize, dgts, ptr, len, pointer(strlens, i))
-        end
-    end
-    GC.@preserve values2 strlens execute!(statement)
     return
 end
 
-function execute!(statement::Statement)
-    stmt = statement.stmt
-    @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecute(stmt)
-    return
-end
+"""
+    ODBC.setunixODBC(; kw...)
 
-"`execute!` is a minimal method for just executing an SQL `query` string. No results are checked for or returned."
-function execute!(dsn::DSN, query::AbstractString, stmt=dsn.stmt_ptr)
-    ODBCFreeStmt!(stmt)
-    @CHECK stmt API.SQL_HANDLE_STMT API.SQLExecDirect(stmt, query)
-    return
-end
+Set the ODBC driver manager used to unixODBC. By default, ODBC.jl sets the `ODBCINI` and
+`ODBCSYSINI` environment variables to the ODBC.jl-managed location
+(`realpath(joinpath(dirname(pathof(ODBC)), "../config/"))`), but users may override
+these (or provide additional environment variables) via `kw...` keyword arguments
+this this function. The env variables will be set before allocating the ODBC environemnt.
 
-include("Sink.jl")
-include("Query.jl")
-# include("sqlreplmode.jl")
+While a unixODBC driver manager shared library is available for every platform, do note
+that individual ODBC driver libraries may not be compatible with unixODBC on your system;
+for example, if a driver library is built against iODBC, but unixODBC is the driver manager.
+"""
+setunixODBC(; kw...) = API.setunixODBC(; kw...)
 
-const ENV = Ref{Ptr{Cvoid}}()
+"""
+    ODBC.setiODBC(; kw...)
 
-function __init__()
-    ENV[] = ODBC.ODBCAllocHandle(ODBC.API.SQL_HANDLE_ENV, ODBC.API.SQL_NULL_HANDLE)
-end
+Set the ODBC driver manager used to iODBC. By default, ODBC.jl sets the `ODBCINI` and
+`ODBCINSTINI` environment variables to the ODBC.jl-managed location
+(`realpath(joinpath(dirname(pathof(ODBC)), "../config/"))`), but users may override
+these (or provide additional environment variables) via `kw...` keyword arguments
+this this function. The env variables will be set before allocating the ODBC environemnt.
+
+While the iODBC driver manager shared library is available for non-windows platforms, do note
+that individual ODBC driver libraries may not be compatible with unixODBC on your system;
+for example, if a driver library is built against unixODBC, but iODBC is the driver manager.
+"""
+setiODBC(; kw...) = API.setiODBC(; kw...)
+
+"""
+    ODBC.setodbc32(; kw...)
+
+Set the ODBC driver manager used to odbc32. On windows, ODBC.jl uses the system-wide
+configurations for drivers and datasources. Drivers and datasources can still be added
+via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`, but you must
+have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
+"""
+setodbc32(; kw...) = API.setodbc32(; kw...)
+
+# driver/dsn management
+"""
+    ODBC.drivers() -> Dict
+
+List installed ODBC drivers. The primary config location for installed drivers on non-windows platforms is
+`realpath(joinpath(dirname(pathof(ODBC)), "../config/odbcinst.ini"))`, i.e. an ODBC.jl-managed
+location. Other system/user locations may also be checked (and are used by default on windows)
+by the underlying ODBC driver manager, but for the most consistent results, aim to allow ODBC.jl to manage
+installed drivers/datasources via `ODBC.addriver`, `ODBC.removedriver`, etc.
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
+"""
+drivers() = API.getdrivers()
+
+"""
+    ODBC.dsns() -> Dict
+
+List installed ODBC datasources. The primary config location for installed datasources on non-windows platforms is
+`realpath(joinpath(dirname(pathof(ODBC)), "../config/odbc.ini"))`, i.e. an ODBC.jl-managed
+location. Other system/user locations may also be checked (and are by default on windows) by the underlying ODBC
+driver manager, but for the most consistent results, aim to allow ODBC.jl to manage
+installed drivers/datasources via `ODBC.adddsn`, `ODBC.removedsn`, etc.
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
+"""
+dsns() = API.getdsns()
+
+"""
+    ODBC.adddriver(name, libpath; kw...)
+
+Install a new ODBC driver. `name` is a user-provided "friendly" name to identify
+the driver. `libpath` is the absolute path to the ODBC driver shared library.
+Other key-value driver properties can be provided by the `kw...` keyword arguments.
+
+This method is provided to try and provide the simplest/easiest/most consistent setup
+experience for installing a new driver. Editing configuration files by hand is error-prone
+and it's easy to miss adding something that is required.
+
+While ODBC.jl supports all 3 major ODBC driver managers (unixODBC, iODBC, and odbc32),
+be aware that most DBMS ODBC driver libraries are built against only one of the 3 and
+can lead to compatibility issues if a different driver manager is used. This is mainly
+an issue for driver libraries built against iODBC and then tried to use with unixODBC
+or vice-versa.
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
+"""
+adddriver(name, libpath; kw...) = API.adddriver(name, libpath; kw...)
+
+"""
+    ODBC.removedriver(name; removedsns::Bool=true)
+
+Remove an installed ODBC driver by `name` (as returned from `ODBC.drivers()`).
+`removedsns=true` also removes any datasources that were specified to use the driver.
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
+"""
+removedriver(name; removedsns::Bool=true) = API.removedriver(name, removedsns)
+
+"""
+    ODBC.adddsn(name, driver; kw...)
+
+Install a new ODBC datasource. `name` is a user-provided "friendly" name to identify
+the datasource (dsn). `driver` is the "friendly" driver name that should be used to
+connect to the datasource (valid driver options can be seen from `ODBC.drivers()`).
+Additional connection key-value properties can be provided by the `kw...` keyword arguments.
+
+Datasources can be connected by calling `DBInterface.connect(ODBC.Connection, dsn, user, pwd)`,
+where `dsn` is the friendly datasource name, `user` is the username, and `pwd` is the password.
+
+An alternative approach to installing datasources is to generate a valid "connection string"
+that includes all connection properties in a single string passed to `DBInterface.connect`.
+[www.connectionstrings.com](https://www.connectionstrings.com/) is a convenient resource
+that provides connection string templates for various database systems.
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
+"""
+adddsn(name, driver; kw...) = API.adddsn(name, driver; kw...)
+
+"""
+    ODBC.removedsn(name)
+
+Remove an installed datasource by `name` (as returned from `ODBC.dsns()`).
+
+On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
+datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
+CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
+"""
+removedsn(name) = API.removedsn(name)
 
 end #ODBC module

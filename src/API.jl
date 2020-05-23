@@ -1,754 +1,589 @@
-"""
-ODBC API Function Definitions
-By Jacob Quinn, 2016
-In general, the ODBC functions are implemented to mirror the C header files (sql.h,sqlext.h,sqltypes.h,sqlucode.h)
-A few liberties are taken in utliizing standard Julia functions and idioms
-Format:
-  * function name
-  * URL reference
-  * short function description
-  * valid const definitions
-  * relevant notes
-  * working and tested status
-  * function definition code
-
-Contents
- * Macros and Utility Functions
- * Handle Functions
- * Connection Functions
- * Resultset Metadata Functions
- * Query Functions
- * Resultset Retrieval Functions
- * DBMS Meta Functions
- * Error Handling and Diagnostics
-"""
 module API
 
-using WeakRefStrings, Dates
+using unixODBC_jll
+const unixODBC_dm = unixODBC_jll.libodbc
+const unixODBC_inst = unixODBC_jll.libodbcinst
 
-include("types.jl")
+@static if Sys.iswindows()
+    const odbc32_dm = "odbc32"
+    const odbc32_inst = "odbccp32"
+    const iODBC_dm = odbc32_dm
+    const iODBC_inst = odbc32_inst
+else
+    using iODBC_jll
+    const iODBC_dm = iODBC_jll.libiodbc
+    const iODBC_inst = iODBC_jll.libiodbcinst
+    const odbc32_dm = unixODBC_jll.libodbc
+    const odbc32_inst = unixODBC_jll.libodbcinst
+end
 
-#### Macros and Utility Functions ####
+@enum DM_TYPE unixODBC iODBC odbc32
 
-"""
-# MAXFETCHSIZE sets the default rowset fetch size
-# used in retrieving resultset blocks from queries
-"""
-const MAXFETCHSIZE = 65535
+@static if Sys.iswindows()
+    const odbc_dm = Ref(odbc32)
+elseif Sys.isapple()
+    const odbc_dm = Ref(iODBC)
+else
+    const odbc_dm = Ref(unixODBC)
+end
 
-# success codes
-const SQL_SUCCESS           = Int16(0)
-const SQL_SUCCESS_WITH_INFO = Int16(1)
+function setunixODBC(; kw...)
+    odbc_dm[] = unixODBC
+    setupenv(; kw...)
+    return
+end
 
-# error codes
-const SQL_ERROR             = Int16(-1)
-const SQL_INVALID_HANDLE    = Int16(-2)
+function setiODBC(; kw...)
+    odbc_dm[] = iODBC
+    setupenv(; kw...)
+    return
+end
 
-# status codes
-const SQL_STILL_EXECUTING   = Int16(2)
-const SQL_NO_DATA           = Int16(100)
+function setodbc32(; kw...)
+    odbc_dm[] = odbc32
+    setupenv(; kw...)
+    return
+end
 
-const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
-                           SQL_NO_DATA => "SQL_NO_DATA",
-                           SQL_INVALID_HANDLE  => "SQL_INVALID_HANDLE",
-                           SQL_STILL_EXECUTING => "SQL_STILL_EXECUTING")
+const SQLWCHAR = Cushort
+const SQLWCHAR32 = UInt32
+
+sqlwcharsize() = odbc_dm[] == iODBC ? SQLWCHAR32 : SQLWCHAR
+
+include("consts.jl")
+include("apitypes.jl")
+
+str(x::Vector{UInt8}, len) = String(x[1:len])
+str(x::Vector{UInt16}, len) = transcode(String, view(x, 1:len))
+str(x::Vector{UInt32}, len) = transcode(String, x[1:len])
+str(x::Vector{UInt32}) = unsafe_string(pointer(transcode(UInt8, x)))
+
+function swapsqlwchar(expr)
+    for i = 1:length(expr.args)
+        if expr.args[i] == :(Ptr{SQLWCHAR})
+            expr.args[i] = :(Ptr{SQLWCHAR32})
+        end
+    end
+    return expr
+end
 
 macro odbc(func,args,vals...)
-    if Sys.iswindows()
-        esc(:(ccall( ($func, $odbc_dm), stdcall, SQLRETURN, $args, $(vals...))))
-    else
-        esc(:(ccall( ($func, $odbc_dm),          SQLRETURN, $args, $(vals...))))
-    end
+    esc(quote
+        if odbc_dm[] == iODBC
+            ccall( ($func, iODBC_dm),          SQLRETURN, $(swapsqlwchar(args)), $(vals...))
+        elseif odbc_dm[] == unixODBC
+            ccall( ($func, unixODBC_dm),          SQLRETURN, $args, $(vals...))
+        else # odbc_dm[] == odbc32
+            ccall( ($func, odbc32_dm), stdcall, SQLRETURN, $args, $(vals...))
+        end
+    end)
 end
 
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712400(v=vs.85).aspx"
-function SQLDrivers(env::Ptr{Cvoid},
-                    dir,
-                    driver_desc::Ptr{SQLWCHAR},
-                    desclen,
-                    desc_length::Ref{SQLSMALLINT},
-                    driver_attr::Ptr{SQLWCHAR},
-                    attrlen,
-                    attr_length::Ref{SQLSMALLINT})
-    @odbc(:SQLDriversW,
-                (Ptr{Cvoid}, SQLUSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}),
-                env, dir, driver_desc, desclen, desc_length, driver_attr, attrlen, attr_length)
+macro odbcinst(func,args,vals...)
+    esc(quote
+        if odbc_dm[] == iODBC
+            ccall( ($func, iODBC_inst),          SQLRETURN, $(swapsqlwchar(args)), $(vals...))
+        elseif odbc_dm[] == unixODBC
+            ccall( ($func, unixODBC_inst),          SQLRETURN, $args, $(vals...))
+        else # odbc_dm[] == odbc32
+            ccall( ($func, odbc32_inst), stdcall, SQLRETURN, $args, $(vals...))
+        end
+    end)
 end
 
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711004(v=vs.85).aspx"
-function SQLDataSources(env::Ptr{Cvoid},
-                        dir,
-                        dsn_desc::Ptr{SQLWCHAR},
-                        desclen,
-                        desc_length::Ref{SQLSMALLINT},
-                        dsn_attr::Ptr{SQLWCHAR},
-                        attrlen,
-                        attr_length::Ref{SQLSMALLINT})
-    @odbc(:SQLDataSourcesW,
-                (Ptr{Cvoid}, SQLUSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}, Ptr{SQLWCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}),
-                env, dir, dsn_desc, desclen, desc_length, dsn_attr, attrlen, attr_length)
+macro checksuccess(h, expr)
+    esc(quote
+        ret = $expr
+        if ret == SQL_SUCCESS_WITH_INFO
+            @warn diagnostics($h)
+        elseif ret == SQL_ERROR || ret == SQL_INVALID_HANDLE
+            error(diagnostics($h))
+        end
+        ret
+    end)
 end
 
-#### Handle Functions ####
-
-# SQLAllocHandle
-#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712455(v=vs.85).aspx"
-# Description: allocates an environment, connection, statement, or descriptor handle
-# Valid handle types
 const SQL_HANDLE_ENV  = Int16(1)
 const SQL_HANDLE_DBC  = Int16(2)
 const SQL_HANDLE_STMT = Int16(3)
 const SQL_HANDLE_DESC = Int16(4)
 const SQL_NULL_HANDLE = C_NULL
 
-#Status: Tested on Windows, Linux, Mac 32/64-bit
 function SQLAllocHandle(handletype::SQLSMALLINT, parenthandle::Ptr{Cvoid}, handle::Ref{Ptr{Cvoid}})
     @odbc(:SQLAllocHandle,
-                (SQLSMALLINT, Ptr{Cvoid}, Ref{Ptr{Cvoid}}),
-                handletype, parenthandle, handle)
+        (SQLSMALLINT, Ptr{Cvoid}, Ref{Ptr{Cvoid}}),
+        handletype, parenthandle, handle)
 end
 
-# SQLFreeHandle
-#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710123(v=vs.85).aspx"
-# Description: frees resources associated with a specific environment, connection, statement, or descriptor handle
-# See SQLAllocHandle for valid handle types
-# Status: Tested on Windows, Linux, Mac 32/64-bit
 function SQLFreeHandle(handletype::SQLSMALLINT,handle::Ptr{Cvoid})
     @odbc(:SQLFreeHandle,
-                (SQLSMALLINT, Ptr{Cvoid}),
-                handletype, handle)
+        (SQLSMALLINT, Ptr{Cvoid}),
+        handletype, handle)
 end
 
-# SQLSetEnvAttr
-#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709285(v=vs.85).aspx"
-# Description: sets attributes that govern aspects of environments
-# Valid attributes; valid values for attribute are indented
-const SQL_ATTR_CONNECTION_POOLING = 201
-const SQL_CP_OFF = UInt(0)
-const SQL_CP_ONE_PER_DRIVER = UInt(1)
-const SQL_CP_ONE_PER_HENV = UInt(2)
-const SQL_CP_DEFAULT = SQL_CP_OFF
-const SQL_ATTR_CP_MATCH = 202
-const SQL_CP_RELAXED_MATCH = UInt(1)
-const SQL_CP_STRICT_MATCH = UInt(0)
 const SQL_ATTR_ODBC_VERSION = 200
-const SQL_OV_ODBC2 = 2
 const SQL_OV_ODBC3 = 3
-const SQL_ATTR_OUTPUT_NTS = 10001
-const SQL_TRUE = 1
-const SQL_FALSE = 0
 
-#Status: Tested on Windows, Linux, Mac 32/64-bit
-function SQLSetEnvAttr(env_handle::Ptr{Cvoid}, attribute::Int, value::Integer)
+function SQLSetEnvAttr(env_handle::Ptr{Cvoid}, attribute, value)
     @odbc(:SQLSetEnvAttr,
-                (Ptr{Cvoid}, Int, UInt, Int), env_handle, attribute, value, 0)
+        (Ptr{Cvoid}, SQLINTEGER, UInt, SQLINTEGER),
+        env_handle, attribute, value, 0)
 end
 
-# SQLGetEnvAttr
-#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709276(v=vs.85).aspx"
-# Description: returns the current setting of an environment attribute
-# Valid attributes: See SQLSetEnvAttr
-# Status:
-function SQLGetEnvAttr(env::Ptr{Cvoid},attribute::Int,value::Array{Int,1},bytes_returned::Array{Int,1})
-    @odbc(:SQLGetEnvAttr,
-                (Ptr{Cvoid}, Int, Ptr{Int}, Int, Ptr{Int}),
-                env, attribute, value, 0, bytes_returned)
+mutable struct Handle
+    type::Int16
+    ptr::Ptr{Cvoid}
+    function Handle(type, parent=SQL_NULL_HANDLE)
+        ref = Ref{Ptr{Cvoid}}()
+        @checksuccess parent SQLAllocHandle(type, parent isa Handle ? parent.ptr : parent, ref)
+        ptr = ref[]
+        ptr == C_NULL && error("error creating ODBC.API.Handle; null pointer encountered")
+        if type == SQL_HANDLE_ENV
+            @checksuccess parent SQLSetEnvAttr(ptr, SQL_ATTR_ODBC_VERSION, SQL_OV_ODBC3)
+        end
+        h = new(type, ptr)
+        finalizer(h) do x
+            if x.ptr != C_NULL
+                SQLFreeHandle(x.type, x.ptr)
+                x.ptr = C_NULL
+            end
+        end
+        return h
+    end
 end
 
-# SQLSetConnectAttr
-#"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713605(v=vs.85).aspx"
-# Description: sets attributes that govern aspects of connections.
-# Valid attributes
-const SQL_ATTR_ACCESS_MODE = 101
-const SQL_MODE_READ_ONLY = UInt(1)
-const SQL_MODE_READ_WRITE = UInt(0)
-#const SQL_ATTR_ASYNC_DBC_EVENT
-#pointer
-#const SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE
-#const SQL_ASYNC_DBC_ENABLE_ON = UInt()
-#const SQL_ASYNC_DBC_ENABLE_OFF = UInt()
-#const SQL_ATTR_ASYNC_DBC_PCALLBACK
-#pointer
-#const SQL_ATTR_ASYNC_DBC_PCONTEXT
-#pointer
-const SQL_ATTR_ASYNC_ENABLE = 4
-const SQL_ASYNC_ENABLE_OFF = UInt(0)
-const SQL_ASYNC_ENABLE_ON = UInt(1)
-const SQL_ATTR_AUTOCOMMIT = 102
-const SQL_AUTOCOMMIT_OFF = UInt(0)
-const SQL_AUTOCOMMIT_ON = UInt(1)
-const SQL_ATTR_CONNECTION_TIMEOUT = 113
-#uint of how long you want the connection timeout
-const SQL_ATTR_CURRENT_CATALOG = 109
-#string/Ptr{UInt8} of default database to use
-#const SQL_ATTR_DBC_INFO_TOKEN
-#pointer
-const SQL_ATTR_ENLIST_IN_DTC = 1207
-#pointer: Pass a DTC OLE transaction object that specifies the transaction to export to
-# SQL Server, or SQL_DTC_DONE to end the connection's DTC association.
-const SQL_ATTR_LOGIN_TIMEOUT = 103
-#uint of how long you want the login timeout
-const SQL_ATTR_METADATA_ID = 10014
-#SQL_TRUE, SQL_FALSE
-const SQL_ATTR_ODBC_CURSORS = 110
-const SQL_CUR_USE_IF_NEEDED = UInt(0)
-const SQL_CUR_USE_ODBC = UInt(1)
-const SQL_CUR_USE_DRIVER = UInt(2)
-const SQL_ATTR_PACKET_SIZE = 112
-#uint for network packet size
-const SQL_ATTR_QUIET_MODE = 111
-#window handle pointer
-const SQL_ATTR_TRACE = 104
-const SQL_OPT_TRACE_OFF = UInt(0)
-const SQL_OPT_TRACE_ON = UInt(1)
-const SQL_ATTR_TRACEFILE = 105
-#A null-terminated character string containing the name of the trace file.
-const SQL_ATTR_TRANSLATE_LIB = 106
-# A null-terminated character string containing the name of a library containing the functions SQLDriverToDataSource and
-# SQLDataSourceToDriver that the driver accesses to perform tasks such as character set translation.
-const SQL_ATTR_TRANSLATE_OPTION = 107
-#A 32-bit flag value that is passed to the translation DLL.
-const SQL_ATTR_TXN_ISOLATION = 108
-#A 32-bit bitmask that sets the transaction isolation level for the current connection.
+gettype(h::Handle) = h.type
+getptr(h::Handle) = h.ptr == C_NULL ? error("invalid odbc handle") : h.ptr
+getptr(x::Ptr) = x
 
-#Valid value_length
-const SQL_IS_POINTER = -4
-const SQL_IS_INTEGER = -6
-const SQL_IS_UINTEGER = -5
-const SQL_NTS = -3
+const ODBC_ENV = Ref{Handle}()
 
-#length of string or binary stream
-#Status:
-function SQLSetConnectAttr(dbc::Ptr{Cvoid},attribute::Int,value::UInt,value_length::Int)
-    @odbc(:SQLSetConnectAttrW,
-                (Ptr{Cvoid},Int,UInt,Int),
-                dbc,attribute,value,value_length)
+function setupenv(; trace::Bool=false, tracefile::String="", kw...)
+    if isdefined(ODBC_ENV, :x)
+        finalize(ODBC_ENV[])
+    end
+    delete!(ENV, "ODBCINI")
+    delete!(ENV, "ODBCSYSINI")
+    delete!(ENV, "ODBCINSTINI")
+    ENV["ODBCINI"] = realpath(joinpath(@__DIR__, "../config/odbc.ini"))
+    if odbc_dm[] == iODBC
+        ENV["ODBCINSTINI"] = realpath(joinpath(@__DIR__, "../config/odbcinst.ini"))
+    elseif odbc_dm[] == unixODBC
+        ENV["ODBCSYSINI"] = realpath(joinpath(@__DIR__, "../config"))
+    end
+    for (k, v) in pairs(kw)
+        ENV[k] = v
+    end
+    ODBC_ENV[] = Handle(SQL_HANDLE_ENV)
+    return
 end
 
-function SQLSetConnectAttr(dbc::Ptr{Cvoid},attribute::Int,value::Array{Int},value_length::Int)
-    @odbc(:SQLSetConnectAttrW,
-                (Ptr{Cvoid},Int,Ptr{Int},Int),
-                dbc,attribute,value,value_length)
+const ODBC_DBC = Ref{Ptr{Cvoid}}()
+
+function setdebug(trace, tracefile)
+    if !isdefined(ODBC_DBC, :x) || ODBC_DBC[] == C_NULL
+        SQLAllocHandle(SQL_HANDLE_DBC, getptr(ODBC_ENV[]), ODBC_DBC)
+    end
+    if trace
+        SQLSetConnectAttr(ODBC_DBC[], SQL_ATTR_TRACE, SQL_OPT_TRACE_OFF)
+        if tracefile != ""
+            SQLSetConnectAttr(ODBC_DBC[], SQL_ATTR_TRACEFILE, tracefile)
+        end
+        SQLSetConnectAttr(ODBC_DBC[], SQL_ATTR_TRACE, SQL_OPT_TRACE_ON)
+    else
+        SQLSetConnectAttr(ODBC_DBC[], SQL_ATTR_TRACE, SQL_OPT_TRACE_OFF)
+    end
 end
 
-#SQLGetConnectAttr
-#Description: returns the current setting of a connection attribute.
-#Valid attributes: see SQLSetConnectAttr in addition to those below
-const SQL_ATTR_AUTO_IPD = 10001
-#SQL_TRUE, SQL_FALSE
-const SQL_ATTR_CONNECTION_DEAD = 1209
-const SQL_CD_TRUE = 1
-const SQL_CD_FALSE = 0
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710297(v=vs.85).aspx"
-function SQLGetConnectAttr(dbc::Ptr{Cvoid},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
-    @odbc(:SQLGetConnectAttrW,
-                (Ptr{Cvoid},Int,Ptr{Cvoid},Int,Ptr{Int}),
-                dbc,attribute,value,sizeof(T)*N,bytes_returned)
+function __init__()
+    setupenv()
+    return
 end
 
-#SQLSetStmtAttr
-#Description: sets attributes related to a statement.
-#Valid attributes
-const SQL_ATTR_ROW_STATUS_PTR = 25
-const SQL_ATTR_ROWS_FETCHED_PTR  = 26
-const SQL_ATTR_ROW_ARRAY_SIZE = 27
-const SQL_ATTR_CURSOR_TYPE = 6
-const SQL_ATTR_CURSOR_SCROLLABLE = -1
-const SQL_NONSCROLLABLE = 0
-const SQL_SCROLLABLE = 1
-const SQL_CURSOR_DYNAMIC = UInt(2)
-const SQL_CURSOR_STATIC = UInt(3)
-#this sets the rowset size for ExtendedFetch and FetchScroll
-#Valid value_length: See SQLSetConnectAttr; SQL_IS_POINTER, SQL_IS_INTEGER, SQL_IS_UINTEGER, SQL_NTS
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712631(v=vs.85).aspx"
-function SQLSetStmtAttr(stmt::Ptr{Cvoid},attribute,value::Ref{SQLLEN},value_length)
-    @odbc(:SQLSetStmtAttrW,
-                (Ptr{Cvoid},SQLINTEGER,Ref{SQLLEN},SQLINTEGER),
-                stmt,attribute,value,value_length)
+const SQL_ATTR_TRACE = SQLINTEGER(104)
+const SQL_ATTR_TRACEFILE = SQLINTEGER(105)
+const SQL_OPT_TRACE_OFF = SQLUINTEGER(0)
+const SQL_OPT_TRACE_ON = SQLUINTEGER(1)
+
+function SQLSetConnectAttr(dbc, attr::SQLINTEGER, value::SQLUINTEGER)
+    @odbc(:SQLSetConnectAttr,
+        (Ptr{Cvoid}, SQLINTEGER, SQLUINTEGER, SQLINTEGER),
+        getptr(dbc), attr, value, SQL_IS_UINTEGER)
 end
 
-function SQLSetStmtAttr(stmt::Ptr{Cvoid},attribute,value,value_length)
-    @odbc(:SQLSetStmtAttrW,
-                (Ptr{Cvoid},SQLINTEGER,SQLULEN,SQLINTEGER),
-                stmt,attribute,value,value_length)
+function SQLSetConnectAttr(dbc, attr::SQLINTEGER, value::String)
+    @odbc(:SQLSetConnectAttr,
+        (Ptr{Cvoid}, SQLINTEGER, Ptr{UInt8}, SQLINTEGER),
+        getptr(dbc), attr, value, sizeof(value))
 end
 
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715438(v=vs.85).aspx"
-function SQLGetStmtAttr(stmt::Ptr{Cvoid},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
-    @odbc(:SQLGetStmtAttrW,
-                (Ptr{Cvoid},Int,Ptr{Cvoid},Int,Ptr{Int}),
-                stmt,attribute,value,sizeof(T)*N,bytes_returned)
-end
-
-#SQLFreeStmt
-#Description: stops processing associated with a specific statement,
-# closes any open cursors associated with the statement,
-# discards pending results, or, optionally,
-# frees all resources associated with the statement handle.
-#Valid param
-const SQL_CLOSE = UInt16(0)
-const SQL_RESET_PARAMS = UInt16(3)
-const SQL_UNBIND = UInt16(2)
-
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709284(v=vs.85).aspx"
-function SQLFreeStmt(stmt::Ptr{Cvoid},param::UInt16)
-    @odbc(:SQLFreeStmt,
-                (Ptr{Cvoid},UInt16),
-                stmt, param)
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713560(v=vs.85).aspx"
-function SQLSetDescField(desc::Ptr{Cvoid},i::Int16,field_id::Int16,value::Array{T,N}) where {T,N}
-    @odbc(:SQLSetDescFieldW,
-                (Ptr{Cvoid},Int16,Int16,Ptr{Cvoid},Int),
-                desc,i,field_id,value,length(value))
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716370(v=vs.85).aspx"
-function SQLGetDescField(desc::Ptr{Cvoid},i::Int16,attribute::Int16,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
-    @odbc(:SQLGetDescFieldW,
-                (Ptr{Cvoid},Int16,Int16,Ptr{Cvoid},Int,Ptr{Int}),
-                desc,i,attribute,value,sizeof(T)*N,bytes_returned)
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710921(v=vs.85).aspx"
-function SQLGetDescRec(desc::Ptr{Cvoid},i::Int16,name::Array{UInt8,1},name_length::Array{Int16,1},type_ptr::Array{Int16,1},subtype_ptr::Array{Int16,1},length_ptr::Array{Int,1},precision_ptr::Array{Int16,1},scale_ptr::Array{Int16,1},nullable_ptr::Array{Int16,1},)
-    @odbc(:SQLGetDescRecW,
-                (Ptr{Cvoid},Int16,Ptr{UInt8},Int16,Ptr{Int16},Ptr{Int16},Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16},Ptr{Int16}),
-                desc,i,name,length(name),name_length,type_ptr,subtype_ptr,length_ptr,precision_ptr,scale_ptr,nullable_ptr)
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715378(v=vs.85).aspx"
-function SQLCopyDesc(source_desc::Ptr{Cvoid},dest_desc::Ptr{Cvoid})
-    @odbc(:SQLCopyDesc,
-                (Ptr{Cvoid},Ptr{Cvoid}),
-                source_desc,dest_desc)
-end
-
-### Connection Functions ###
-# SQLConnect
-# Description: establishes connections to a driver and a data source
-# Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711810(v=vs.85).aspx"
-function SQLConnect(dbc::Ptr{Cvoid},dsn,username,password)
-    @odbc(:SQLConnectW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
-                dbc,transcode(SQLWCHAR,dsn),length(transcode(SQLWCHAR,dsn)),transcode(SQLWCHAR,username),length(transcode(SQLWCHAR,username)),transcode(SQLWCHAR,password),length(transcode(SQLWCHAR,password)))
-end
-
-#SQLDriverConnect
-#Description:
-#Valid driver_prompt
 const SQL_DRIVER_COMPLETE = UInt16(1)
 const SQL_DRIVER_COMPLETE_REQUIRED = UInt16(3)
 const SQL_DRIVER_NOPROMPT = UInt16(0)
 const SQL_DRIVER_PROMPT = UInt16(2)
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715433(v=vs.85).aspx"
-function SQLDriverConnect(dbc::Ptr{Cvoid},window_handle::Ptr{Cvoid},conn_string,out_conn::Ptr{SQLWCHAR},out_len,out_buff::Ref{Int16},driver_prompt)
-    @odbc(:SQLDriverConnectW,
-                (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
-                dbc,window_handle,transcode(SQLWCHAR,conn_string),length(transcode(SQLWCHAR,conn_string)),out_conn,out_len,out_buff,driver_prompt)
+
+function SQLDriverConnect(dbc::Ptr{Cvoid},window_handle::Ptr{Cvoid},connstr,out,out_buff::Ref{Int16},driver_prompt)
+    @odbc(:SQLDriverConnect,
+        (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
+        dbc,window_handle,connstr,sizeof(connstr),out,sizeof(out),out_buff,driver_prompt)
 end
-#SQLBrowseConnect
- #Description: supports an iterative method of discovering and enumerating the attributes and attribute values required to connect to a data source
- #Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714565(v=vs.85).aspx"
-function SQLBrowseConnect(dbc::Ptr{Cvoid},instring::AbstractString,outstring::Array{SQLWCHAR,1},indicator::Array{Int16,1})
-    @odbc(:SQLBrowseConnectW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{Int16}),
-                dbc,transcode(SQLWCHAR,instring),length(transcode(SQLWCHAR,instring)),transcode(SQLWCHAR,outstring),length(transcode(SQLWCHAR,outstring)),indicator)
+
+function driverconnect(connstr)
+    dbc = Handle(SQL_HANDLE_DBC, ODBC_ENV[])
+    out = Vector{UInt8}(undef, 1024)
+    outref = Ref{Int16}()
+    @checksuccess dbc SQLDriverConnect(getptr(dbc), C_NULL, connstr, out, outref, 0)
+    return dbc
 end
-#SQLDisconnect
- #Description: closes the connection associated with a specific connection handle
- #Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713946(v=vs.85).aspx"
+
+function SQLConnect(dbc::Ptr{Cvoid},dsn,usr,pwd)
+    @odbc(:SQLConnect,
+        (Ptr{Cvoid},Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT),
+        dbc,dsn,sizeof(dsn),usr,sizeof(usr),pwd,sizeof(pwd))
+end
+
+function connect(dsn,usr,pwd)
+    dbc = Handle(SQL_HANDLE_DBC, ODBC_ENV[])
+    @checksuccess dbc SQLConnect(getptr(dbc), dsn, usr, pwd)
+    return dbc
+end
+
+# connect(dsn, user, pwd) = driverconnect("DSN=$dsn;UID=$user;PWD=$pwd")
+
 function SQLDisconnect(dbc::Ptr{Cvoid})
     @odbc(:SQLDisconnect,
-                (Ptr{Cvoid},),
-                dbc)
-end
-#SQLGetFunctions
-#Descriptions:
-#Valid functionid
-
-#supported will be SQL_TRUE or SQL_FALSE
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709291(v=vs.85).aspx"
-function SQLGetFunctions(dbc::Ptr{Cvoid},functionid::UInt16,supported::Array{UInt16,1})
-    @odbc(:SQLGetFunctions,
-                (Ptr{Cvoid},UInt16,Ptr{UInt16}),
-                dbc,functionid,supported)
+        (Ptr{Cvoid},),
+        dbc)
 end
 
-#SQLGetInfo
-#Description:
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711681(v=vs.85).aspx"
-function SQLGetInfo(dbc::Ptr{Cvoid},attribute::Int,value::Array{T,N},bytes_returned::Array{Int,1}) where {T,N}
-    @odbc(:SQLGetInfoW,
-                (Ptr{Cvoid},Int,Ptr{Cvoid},Int,Ptr{Int}),
-                dbc,attribute,value,sizeof(T)*N,bytes_returned)
+disconnect(h::Handle) = h.type == SQL_HANDLE_DBC ? @checksuccess(h, SQLDisconnect(h.ptr)) : SQL_SUCCESS
+
+function cwstring(s::AbstractString)
+    bytes = codeunits(String(s))
+    0 in bytes && throw(ArgumentError("embedded NULs are not allowed in input strings: $(repr(s))"))
+    return transcode(sqlwcharsize(), bytes)
 end
 
-#### Query Functions ####
-#SQLNativeSql
-#Description: returns the SQL string as modified by the driver
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714575(v=vs.85).aspx"
-function SQLNativeSql(dbc::Ptr{Cvoid},query_string::AbstractString,output_string::Array{SQLWCHAR,1},length_ind::Array{Int,1})
-    @odbc(:SQLNativeSql,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int,Ptr{SQLWCHAR},Int,Ptr{Int}),
-                dbc,transcode(SQLWCHAR,query_string),length(transcode(SQLWCHAR,query_string)),output_string,length(output_string),length_ind)
+function SQLPrepare(stmt::Ptr{Cvoid},query::AbstractString)
+    @static if Sys.iswindows()
+        @odbc(:SQLPrepare,
+            (Ptr{Cvoid},Ptr{SQLCHAR},Int16),
+            stmt,query,length(query))
+    else
+        q = cwstring(query)
+        @odbc(:SQLPrepareW,
+            (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
+            stmt,q,length(q))
+    end
 end
 
-#SQLGetTypeInfo
-#Description:
-#valid sqltype
-#const SQL_ALL_TYPES =
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714632(v=vs.85).aspx"
-function SQLGetTypeInfo(stmt::Ptr{Cvoid},sqltype::Int16)
-    @odbc(:SQLGetTypeInfo,
-                (Ptr{Cvoid},Int16),
-                stmt,sqltype)
+function prepare(dbc::Handle, sql)
+    stmt = Handle(SQL_HANDLE_STMT, getptr(dbc))
+    @checksuccess stmt SQLPrepare(getptr(stmt), sql)
+    return stmt
 end
 
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713824(v=vs.85).aspx"
-function SQLPutData(stmt::Ptr{Cvoid},data::Array{T},data_length::Int) where {T}
-    @odbc(:SQLPutData,
-                (Ptr{Cvoid},Ptr{Cvoid},Int),
-                stmt,data,data_length)
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710926(v=vs.85).aspx"
-function SQLPrepare(stmt::Ptr{Cvoid},query_string::AbstractString)
-    @odbc(:SQLPrepareW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
-                stmt,transcode(SQLWCHAR,query_string),length(transcode(SQLWCHAR,query_string)))
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713584(v=vs.85).aspx"
-function SQLExecute(stmt::Ptr{Cvoid})
-    @odbc(:SQLExecute,
-                (Ptr{Cvoid},),
-                stmt)
-end
-
-#SQLExecDirect
-#Description: executes a preparable statement
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713611(v=vs.85).aspx"
-function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
-    @odbc(:SQLExecDirectW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
-                stmt,transcode(SQLWCHAR,query),length(transcode(SQLWCHAR,query)))
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714112(v=vs.85).aspx"
-function SQLCancel(stmt::Ptr{Cvoid})
-    @odbc(:SQLCancel,
-                (Ptr{Cvoid},),
-                stmt)
-end
-
-#### Resultset Metadata Functions ####
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715393(v=vs.85).aspx"
-function SQLNumResultCols(stmt::Ptr{Cvoid},cols::Ref{Int16})
-    @odbc(:SQLNumResultCols,
-                (Ptr{Cvoid},Ref{Int16}),
-                stmt, cols)
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711835(v=vs.85).aspx"
-function SQLRowCount(stmt::Ptr{Cvoid},rows::Ref{Int})
-    @odbc(:SQLRowCount,
-                (Ptr{Cvoid},Ref{Int}),
-                stmt, rows)
-end
-
-# "http://msdn.microsoft.com/en-us/library/windows/desktop/ms713558(v=vs.85).aspx"
-# function SQLColAttribute(stmt::Ptr{Cvoid},x::Int,)
-# = @odbc(:SQLColAttributeW,
-#                 (Ptr{Cvoid},UInt16,UInt16,Ptr,Int16,Ptr{Int16},Ptr{Int}),
-#                 stmt,x,)
-# end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716289(v=vs.85).aspx"
-function SQLDescribeCol(stmt,x,nm::Ptr{SQLWCHAR},nmlen,len::Ref{Int16},dt::Ref{Int16},cs::Ref{SQLULEN},dd::Ref{Int16},nul::Ref{Int16})
-    @odbc(:SQLDescribeColW,
-                (Ptr{Cvoid},SQLUSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ref{SQLSMALLINT},Ref{SQLSMALLINT},Ref{SQLULEN},Ref{SQLSMALLINT},Ref{SQLSMALLINT}),
-                stmt,x,nm,nmlen,len,dt,cs,dd,nul)
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710188(v=vs.85).aspx"
-function SQLDescribeParam(stmt::Ptr{Cvoid},x::Int,sqltype::Array{Int16,1},column_size::Array{Int,1},decimal_digits::Array{Int16,1},nullable::Array{Int16,1})
-    @odbc(:SQLDescribeParam,
-                (Ptr{Cvoid},UInt16,Ptr{Int16},Ptr{Int},Ptr{Int16},Ptr{Int16}),
-                stmt,x,sqltype,column_size,decimal_digits,nullable)
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712366(v=vs.85).aspx"
-function SQLParamData(stmt::Ptr{Cvoid},ptr_buffer::Array{Ptr{Cvoid},1})
-    @odbc(:SQLParamData,
-                (Ptr{Cvoid},Ptr{Cvoid}),
-                stmt,ptr_buffer)
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715409(v=vs.85).aspx"
-function SQLNumParams(stmt::Ptr{Cvoid},param_count::Array{Int16,1})
+function SQLNumParams(stmt::Ptr{Cvoid},param_count::Ref{SQLSMALLINT})
     @odbc(:SQLNumParams,
-                (Ptr{Cvoid},Ptr{Int16}),
-                stmt,param_count)
+        (Ptr{Cvoid},Ptr{SQLSMALLINT}),
+        stmt,param_count)
 end
 
-#### Resultset Retrieval Functions ####
-#SQLBindParameter
-#Description:
-#valid iotype
+function numparams(stmt::Handle)
+    out = Ref{SQLSMALLINT}()
+    @checksuccess stmt SQLNumParams(getptr(stmt), out)
+    return out[]
+end
+
 const SQL_PARAM_INPUT = Int16(1)
 const SQL_PARAM_OUTPUT = Int16(4)
 const SQL_PARAM_INPUT_OUTPUT = Int16(2)
-#const SQL_PARAM_INPUT_OUTPUT_STREAM = Int16()
-#const SQL_PARAM_OUTPUT_STREAM = Int16()
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710963(v=vs.85).aspx"
+
 function SQLBindParameter(stmt::Ptr{Cvoid},x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value,param_size::Int,len::Ptr{SQLLEN})
     @odbc(:SQLBindParameter,
-                (Ptr{Cvoid},UInt16,Int16,Int16,Int16,UInt,Int16,Ptr{Cvoid},Int,Ptr{SQLLEN}),
-                stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,len)
-end
-SQLSetParam = SQLBindParameter
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711010(v=vs.85).aspx"
-function SQLBindCols(stmt::Ptr{Cvoid},x,ctype,mem,jlsize,indicator::Vector{SQLLEN})
-    @odbc(:SQLBindCol,
-                (Ptr{Cvoid},SQLUSMALLINT,SQLSMALLINT,Ptr{Cvoid},SQLLEN,Ptr{SQLLEN}),
-                stmt,x,ctype,mem,jlsize,indicator)
+        (Ptr{Cvoid},UInt16,Int16,Int16,Int16,UInt,Int16,Ptr{Cvoid},Int,Ptr{SQLLEN}),
+        stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,len)
 end
 
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711707(v=vs.85).aspx"
-function SQLSetCursorName(stmt::Ptr{Cvoid},cursor::AbstractString)
-    @odbc(:SQLSetCursorNameW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
-                stmt,transcode(SQLWCHAR,cursor),length(transcode(SQLWCHAR,cursor)))
+const SQL_CLOSE = UInt16(0)
+
+function SQLFreeStmt(stmt::Ptr{Cvoid},param::UInt16)
+    @odbc(:SQLFreeStmt,
+        (Ptr{Cvoid},UInt16),
+        stmt, param)
 end
 
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716209(v=vs.85).aspx"
-function SQLGetCursorName(stmt::Ptr{Cvoid},cursor::Array{UInt8,1},cursor_length::Array{Int16,1})
-    @odbc(:SQLGetCursorNameW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{Int16}),
-                stmt,transcode(SQLWCHAR,cursor),length(transcode(SQLWCHAR,cursor)),cursor_length)
+function freestmt(stmt)
+    if stmt.ptr != C_NULL
+        @checksuccess stmt SQLFreeStmt(getptr(stmt), SQL_CLOSE)
+    end
 end
 
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715441(v=vs.85).aspx"
-function SQLGetData(stmt::Ptr{Cvoid},i,ctype,mem,jlsize,indicator::Ref{SQLLEN})
-    @odbc(:SQLGetData,
-                (Ptr{Cvoid},SQLUSMALLINT,SQLSMALLINT,Ptr{Cvoid},SQLLEN,Ptr{SQLLEN}),
-                stmt,i,ctype,mem,jlsize,indicator)
+function SQLExecute(stmt::Ptr{Cvoid})
+    @odbc(:SQLExecute,
+        (Ptr{Cvoid},),
+        stmt)
 end
 
-#SQLFetchScroll
-#Description:
-#valid fetch_orientation
+execute(stmt::Handle) = SQLExecute(getptr(stmt))
+
+function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
+    @static if Sys.iswindows()
+        @odbc(:SQLExecDirect,
+            (Ptr{Cvoid},Ptr{SQLCHAR},Int),
+            stmt,query,SQL_NTS)
+    else
+        q = cwstring(query)
+        @odbc(:SQLExecDirectW,
+            (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
+            stmt,q,length(q))
+    end
+end
+
+function execdirect(stmt::Handle, sql)
+    @checksuccess stmt SQLExecDirect(getptr(stmt), sql)
+    return stmt
+end
+
+function SQLNumResultCols(stmt::Ptr{Cvoid},cols::Ref{Int16})
+    @odbc(:SQLNumResultCols,
+        (Ptr{Cvoid},Ref{Int16}),
+        stmt, cols)
+end
+
+function numcols(stmt::Handle)
+    out = Ref{SQLSMALLINT}()
+    @checksuccess stmt SQLNumResultCols(getptr(stmt), out)
+    return out[]
+end
+
+function SQLRowCount(stmt::Ptr{Cvoid},rows::Ref{SQLLEN})
+    @odbc(:SQLRowCount,
+        (Ptr{Cvoid},Ref{SQLLEN}),
+        stmt, rows)
+end
+
+function numrows(stmt::Handle)
+    out = Ref{SQLLEN}()
+    @checksuccess stmt SQLRowCount(getptr(stmt), out)
+    return out[]
+end
+
+function SQLDescribeCol(stmt,i,nm::Vector,len::Vector,dt::Vector,cs::Vector,dd::Vector,nul::Vector)
+    @odbc(:SQLDescribeColW,
+        (Ptr{Cvoid},SQLUSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},Ptr{SQLSMALLINT},Ptr{SQLULEN},Ptr{SQLSMALLINT},Ptr{SQLSMALLINT}),
+        stmt,i,nm,length(nm),pointer(len, i),pointer(dt, i),pointer(cs, i),pointer(dd, i),pointer(nul, i))
+end
+
+const SQL_ATTR_ROW_ARRAY_SIZE = 27
+const SQL_IS_UINTEGER = -5
+const SQL_IS_INTEGER = -6
+
+function SQLSetStmtAttr(stmt::Ptr{Cvoid},attribute,value,value_length)
+    @odbc(:SQLSetStmtAttrW,
+        (Ptr{Cvoid},SQLINTEGER,SQLULEN,SQLINTEGER),
+        stmt,attribute,value,value_length)
+end
+
+setrowset(stmt::Handle, rowset) = @checksuccess stmt SQLSetStmtAttr(getptr(stmt), SQL_ATTR_ROW_ARRAY_SIZE, rowset, SQL_IS_UINTEGER)
+
+const SQL_ATTR_ROWS_FETCHED_PTR  = 26
+
+function SQLSetStmtAttr(stmt::Ptr{Cvoid},attribute,value::Ref{SQLLEN},value_length)
+    @odbc(:SQLSetStmtAttrW,
+        (Ptr{Cvoid},SQLINTEGER,Ref{SQLLEN},SQLINTEGER),
+        stmt,attribute,value,value_length)
+end
+
+const SQL_NTS = -3
+
+function setrowsfetched(stmt)
+    rowsfetchedref = Ref{SQLLEN}(0)
+    SQLSetStmtAttr(getptr(stmt), SQL_ATTR_ROWS_FETCHED_PTR, rowsfetchedref, SQL_NTS)
+    return rowsfetchedref
+end
+
 const SQL_FETCH_NEXT = Int16(1)
-const SQL_FETCH_PRIOR = Int16(4)
-const SQL_FETCH_FIRST = Int16(2)
-const SQL_FETCH_LAST = Int16(3)
-const SQL_FETCH_ABSOLUTE = Int16(5)
-const SQL_FETCH_RELATIVE = Int16(6)
-const SQL_FETCH_BOOKMARK = Int16(8)
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714682(v=vs.85).aspx"
+
 function SQLFetchScroll(stmt::Ptr{Cvoid},fetch_orientation::Int16,fetch_offset::Int)
     @odbc(:SQLFetchScroll,
-                (Ptr{Cvoid},Int16,Int),
-                stmt,fetch_orientation,fetch_offset)
+        (Ptr{Cvoid},Int16,Int),
+        stmt,fetch_orientation,fetch_offset)
 end
 
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713591(v=vs.85).aspx"
-function SQLExtendedFetch(stmt::Ptr{Cvoid},fetch_orientation::UInt16,fetch_offset::Int,row_count_ptr::Array{Int,1},row_status_array::Array{Int16,1})
-    @odbc(:SQLExtendedFetch,
-                (Ptr{Cvoid},UInt16,Int,Ptr{Int},Ptr{Int16}),
-                stmt,fetch_orientation,fetch_offset,row_count_ptr,row_status_array)
+fetch(stmt::Handle) = @checksuccess stmt SQLFetchScroll(getptr(stmt), SQL_FETCH_NEXT, 0)
+
+function SQLBindCol(stmt::Ptr{Cvoid},x,ctype,mem,jlsize,indicator::Vector{SQLLEN})
+    @odbc(:SQLBindCol,
+        (Ptr{Cvoid},SQLUSMALLINT,SQLSMALLINT,Ptr{Cvoid},SQLLEN,Ptr{SQLLEN}),
+        stmt,x,ctype,mem,jlsize,indicator)
 end
 
-#SQLSetPos
-#Description:
-#valid operation
-const SQL_POSITION = UInt16(0) #SQLSetPos
-const SQL_REFRESH = UInt16(1) #SQLSetPos
-const SQL_UPDATE = UInt16(2) #SQLSetPos
-const SQL_DELETE = UInt16(3) #SQLSetPos
-#valid lock_type
-const SQL_LOCK_NO_CHANGE = UInt16(0) #SQLSetPos
-const SQL_LOCK_EXCLUSIVE = UInt16(1) #SQLSetPos
-const SQL_LOCK_UNLOCK = UInt16(2) #SQLSetPos
-#Status
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713507(v=vs.85).aspx"
-function SQLSetPos(stmt::Ptr{Cvoid},rownumber::T,operation::UInt16,lock_type::UInt16) where {T}
-    @odbc(:SQLSetPos,
-                (Ptr{Cvoid},UInt64,UInt16,UInt16),
-                stmt,rownumber,operation,lock_type)
-end #T can be Uint64 or UInt16 it seems
+function SQLGetData(stmt::Ptr{Cvoid},i,ctype,mem,jlsize,indicator::Vector{SQLLEN})
+    @odbc(:SQLGetData,
+        (Ptr{Cvoid},SQLUSMALLINT,SQLSMALLINT,Ptr{Cvoid},SQLLEN,Ptr{SQLLEN}),
+        stmt,i,ctype,mem,jlsize,indicator)
+end
 
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714673(v=vs.85).aspx"
 function SQLMoreResults(stmt::Ptr{Cvoid})
     @odbc(:SQLMoreResults,
-                (Ptr{Cvoid},),
-                stmt)
+        (Ptr{Cvoid},),
+        stmt)
 end
 
-#SQLEndTran
-#Description:
-#valid completion_type
-const SQL_COMMIT = Int16(0) #SQLEndTran
-const SQL_ROLLBACK = Int16(1) #SQLEndTran
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716544(v=vs.85).aspx"
-function SQLEndTran(handletype::Int16,handle::Ptr{Cvoid},completion_type::Int16)
-    @odbc(:SQLEndTran,
-                (Int16,Ptr{Cvoid},Int16),
-                handletype,handle,completion_type)
-end
+moreresults(stmt::Handle) = @checksuccess stmt SQLMoreResults(getptr(stmt))
 
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709301(v=vs.85).aspx"
-function SQLCloseCursor(stmt::Ptr{Cvoid})
-    @odbc(:SQLCloseCursor,
-                (Ptr{Cvoid},),
-                stmt)
-end
-
-#SQLBulkOperations
-#Description:
-#valid operation
-const SQL_ADD = UInt16(4) #SQLBulkOperations
-const SQL_UPDATE_BY_BOOKMARK = UInt16(5) #SQLBulkOperations
-const SQL_DELETE_BY_BOOKMARK = UInt16(6) #SQLBulkOperations
-const SQL_FETCH_BY_BOOKMARK = UInt16(7) #SQLBulkOperations
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms712471(v=vs.85).aspx"
-function SQLBulkOperations(stmt::Ptr{Cvoid},operation::UInt16)
-    @odbc(:SQLBulkOperations,
-                (Ptr{Cvoid},UInt16),
-                stmt,operation)
-end
-
-#### DBMS Meta Functions ####
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711683(v=vs.85).aspx"
-function SQLColumns(stmt::Ptr{Cvoid},catalog::AbstractString,schema::AbstractString,table::AbstractString,column::AbstractString)
-    @odbc(:SQLColumnsW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
-                stmt,transcode(SQLWCHAR,catalog),length(transcode(SQLWCHAR,catalog)),transcode(SQLWCHAR,schema),length(transcode(SQLWCHAR,schema)),transcode(SQLWCHAR,table),length(transcode(SQLWCHAR,table)),transcode(SQLWCHAR,column),length(transcode(SQLWCHAR,column)))
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716336(v=vs.85).aspx"
-function SQLColumnPrivileges(stmt::Ptr{Cvoid},catalog::AbstractString,schema::AbstractString,table::AbstractString,column::AbstractString)
-    @odbc(:SQLColumnPrivilegesW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
-                stmt,transcode(SQLWCHAR,catalog),length(transcode(SQLWCHAR,catalog)),transcode(SQLWCHAR,schema),length(transcode(SQLWCHAR,schema)),transcode(SQLWCHAR,table),length(transcode(SQLWCHAR,table)),transcode(SQLWCHAR,column),length(transcode(SQLWCHAR,column)))
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms709315(v=vs.85).aspx"
-function SQLForeignKeys(stmt::Ptr{Cvoid},pkcatalog::AbstractString,pkschema::AbstractString,pktable::AbstractString,fkcatalog::AbstractString,fkschema::AbstractString,fktable::AbstractString)
-    @odbc(:SQLForeignKeysW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
-                stmt,transcode(SQLWCHAR,catalog),length(transcode(SQLWCHAR,pkcatalog)),transcode(SQLWCHAR,schema),length(transcode(SQLWCHAR,pkschema)),transcode(SQLWCHAR,table),length(transcode(SQLWCHAR,pktable)),transcode(SQLWCHAR,catalog),length(transcode(SQLWCHAR,fkcatalog)),transcode(SQLWCHAR,schema),length(transcode(SQLWCHAR,fkschema)),transcode(SQLWCHAR,table),length(transcode(SQLWCHAR,fktable)))
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711005(v=vs.85).aspx"
-function SQLPrimaryKeys(stmt::Ptr{Cvoid},catalog::AbstractString,schema::AbstractString,table::AbstractString)
-    @odbc(:SQLPrimaryKeysW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
-                stmt,transcode(SQLWCHAR,catalog),length(transcode(SQLWCHAR,catalog)),transcode(SQLWCHAR,schema),length(transcode(SQLWCHAR,schema)),transcode(SQLWCHAR,table),length(transcode(SQLWCHAR,table)))
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711701(v=vs.85).aspx"
-function SQLProcedureColumns(stmt::Ptr{Cvoid},catalog::AbstractString,schema::AbstractString,proc::AbstractString,column::AbstractString)
-    @odbc(:SQLProcedureColumnsW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
-                stmt,transcode(SQLWCHAR,catalog),length(transcode(SQLWCHAR,catalog)),transcode(SQLWCHAR,schema),length(transcode(SQLWCHAR,schema)),proc,length(proc),transcode(SQLWCHAR,column),length(transcode(SQLWCHAR,column)))
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms715368(v=vs.85).aspx"
-function SQLProcedures(stmt::Ptr{Cvoid},catalog::AbstractString,schema::AbstractString,proc::AbstractString)
-    @odbc(:SQLProceduresW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
-                stmt,transcode(SQLWCHAR,catalog),length(transcode(SQLWCHAR,catalog)),transcode(SQLWCHAR,schema),length(transcode(SQLWCHAR,schema)),proc,length(proc))
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711831(v=vs.85).aspx"
-function SQLTables(stmt::Ptr{Cvoid},catalog::AbstractString,schema::AbstractString,table::AbstractString,table_type::AbstractString)
-    @odbc(:SQLTablesW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
-                stmt,transcode(SQLWCHAR,catalog),length(transcode(SQLWCHAR,catalog)),transcode(SQLWCHAR,schema),length(transcode(SQLWCHAR,schema)),transcode(SQLWCHAR,table),length(transcode(SQLWCHAR,table)),table_type,length(table_type))
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms713565(v=vs.85).aspx"
-function SQLTablePrivileges(stmt::Ptr{Cvoid},catalog::AbstractString,schema::AbstractString,table::AbstractString)
-    @odbc(:SQLTablePrivilegesW,
-                (Ptr{Cvoid},Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16),
-                stmt,transcode(SQLWCHAR,catalog),length(transcode(SQLWCHAR,catalog)),transcode(SQLWCHAR,schema),length(transcode(SQLWCHAR,schema)),transcode(SQLWCHAR,table),length(transcode(SQLWCHAR,table)))
-end
-
-#SQLStatistics
-#Description:
-#valid unique
-const SQL_INDEX_ALL = UInt16(1)
-const SQL_INDEX_CLUSTERED = UInt16(1)
-const SQL_INDEX_HASHED = UInt16(2)
-const SQL_INDEX_OTHER = UInt16(3)
-const SQL_INDEX_UNIQUE = UInt16(0)
-#valid reserved
-const SQL_ENSURE = UInt16(1)
-const SQL_QUICK = UInt16(0)
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms711022(v=vs.85).aspx"
-function SQLStatistics(stmt::Ptr{Cvoid},catalog::AbstractString,schema::AbstractString,table::AbstractString,unique::UInt16,reserved::UInt16)
-    @odbc(:SQLStatisticsW,
-                (Ptr{Cvoid},Ptr{UInt8},Int16,Ptr{UInt8},Int16,Ptr{UInt8},Int16,UInt16,UInt16),
-                stmt,transcode(SQLWCHAR,catalog),length(transcode(SQLWCHAR,catalog)),transcode(SQLWCHAR,schema),length(transcode(SQLWCHAR,schema)),transcode(SQLWCHAR,table),length(transcode(SQLWCHAR,table)),unique,reserved)
-end
-
-#SQLSpecialColumns
-#Description:
-#valid id_type
-const SQL_BEST_ROWID        = Int16(1) #SQLSpecialColumns
-const SQL_ROWVER            = Int16(2) #SQLSpecialColumns
-#valid scope
-const SQL_SCOPE_CURROW      = Int16(0) #SQLSpecialColumns
-const SQL_SCOPE_SESSION     = Int16(2) #SQLSpecialColumns
-const SQL_SCOPE_TRANSACTION = Int16(1) #SQLSpecialColumns
-#valid nullable
-const SQL_NO_NULLS          = Int16(0) #SQLSpecialColumns
-const SQL_NULLABLE          = Int16(1) #SQLSpecialColumns
-#const SQL_NULLABLE_UNKNOWN = Int16() #SQLSpecialColumns
-#Status:
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms714602(v=vs.85).aspx"
-function SQLSpecialColumns(stmt::Ptr{Cvoid},id_type::Int16,catalog::AbstractString,schema::AbstractString,table::AbstractString,scope::Int16,nullable::Int16)
-    @odbc(:SQLSpecialColumnsW,
-                (Ptr{Cvoid},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Ptr{SQLWCHAR},Int16,Int16,Int16),
-                stmt,id_type,transcode(SQLWCHAR,catalog),length(transcode(SQLWCHAR,catalog)),transcode(SQLWCHAR,schema),length(transcode(SQLWCHAR,schema)),transcode(SQLWCHAR,table),length(transcode(SQLWCHAR,table)),scope,nullable)
-end
-
-#### Error Handling Functions ####
-#TODO: add consts
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms710181(v=vs.85).aspx"
-function SQLGetDiagField(handletype::Int16,handle::Ptr{Cvoid},i::Int16,diag_id::Int16,diag_info::Array{SQLWCHAR,1},buffer_length::Int16,diag_length::Array{Int16,1})
-    @odbc(:SQLGetDiagFieldW,
-                (Int16,Ptr{Cvoid},Int16,Int16,Ptr{SQLWCHAR},Int16,Ptr{Int16}),
-                handletype,handle,i,diag_id,transcode(SQLWCHAR,diag_info),buffer_length,transcode(SQLWCHAR,msg_length))
-end
-
-"http://msdn.microsoft.com/en-us/library/windows/desktop/ms716256(v=vs.85).aspx"
-function SQLGetDiagRec(handletype,handle,i,state::Ptr{SQLWCHAR},native::Ref{SQLINTEGER},error_msg,errlen,msg_length)
+function SQLGetDiagRec(handletype, handle, i, state, native, error_msg, msg_length)
     @odbc(:SQLGetDiagRecW,
-                (SQLSMALLINT,Ptr{Cvoid},SQLSMALLINT,Ptr{SQLWCHAR},Ref{SQLINTEGER},Ptr{SQLWCHAR},SQLSMALLINT,Ref{SQLSMALLINT}),
-                handletype,handle,i,state,native,error_msg,errlen,msg_length)
+        (SQLSMALLINT,Ptr{Cvoid},SQLSMALLINT,Ptr{SQLWCHAR},Ref{SQLINTEGER},Ptr{SQLWCHAR},SQLSMALLINT,Ref{SQLSMALLINT}),
+        handletype,handle,i,state,native,error_msg,length(error_msg),msg_length)
 end
 
-end # module
+function diagnostics(h::Handle)
+    state = Vector{sqlwcharsize()}(undef, 6)
+    native = Ref{SQLINTEGER}()
+    error = Vector{sqlwcharsize()}(undef, 1024)
+    len = Ref{SQLSMALLINT}()
+    i = 1
+    io = IOBuffer()
+    while SQLGetDiagRec(gettype(h), getptr(h), i, state, native, error, len) == SQL_SUCCESS
+        write(io, "$(str(state, 5)): $(str(error, len[]))")
+        i += 1
+    end
+    return String(take!(io))
+end
+
+const SQL_BS_SELECT_EXPLICIT = 0x00000001
+const SQL_BS_ROW_COUNT_EXPLICIT = 0x00000002
+const SQL_BS_SELECT_PROC = 0x00000004
+const SQL_BS_ROW_COUNT_PROC = 0x00000008
+
+function getinfosqluinteger(dbc::Handle, type=121)
+    ref = Ref{SQLUINTEGER}()
+    len = Ref{SQLSMALLINT}()
+    @checksuccess dbc @odbc(:SQLGetInfo,
+        (Ptr{Cvoid}, SQLUSMALLINT, Ref{SQLUINTEGER}, SQLSMALLINT, Ref{SQLSMALLINT}),
+        getptr(dbc), type, ref, 0, len)
+    return ref[]
+end
+
+function getvalue(section, entry, default, filename)
+    buf = Vector{UInt8}(undef, 1024)
+    ret = ccall( (:SQLGetPrivateProfileString, iODBC_inst), Cint,
+        (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, Cint, Ptr{UInt8}), 
+        section, entry, default, buf, 1024, filename)
+    return String(buf[1:ret])
+end
+
+function getconfigmode()
+    ref = Ref{UInt16}()
+    ccall( (:SQLGetConfigMode, iODBC_inst), Bool,
+        (Ref{UInt16},),
+        ref)
+    return ref[]
+end
+
+function setconfigmode(mode)
+    ret = ccall( (:SQLSetConfigMode, iODBC_inst), Bool,
+        (UInt16,),
+        mode)
+    return ret
+end
+
+macro checkinst(expr)
+    esc(quote
+        ret = $expr
+        if ret == 0
+            error(installererror())
+        end
+        ret
+    end)
+end
+
+function installererror()
+    buf = Vector{UInt8}(undef, 512)
+    code = Ref{UInt16}()
+    len = Ref{UInt16}()
+    i = 1
+    err = ""
+    while @checkinst(@odbcinst(:SQLInstallerError,
+        (UInt16, Ref{UInt16}, Ptr{UInt8}, UInt16, Ref{UInt16}),
+        i, code, buf, sizeof(buf), len)) != SQL_NO_DATA
+        err *= str(buf, len[])
+        i += 1
+    end
+    return err
+end
+
+function getdrivers()
+    name = Vector{UInt8}(undef, 1024)
+    desc = Vector{UInt8}(undef, 1024)
+    namelen = Ref{SQLSMALLINT}()
+    desclen = Ref{SQLSMALLINT}()
+    drivers = Dict{String, String}()
+    while @checksuccess(ODBC_ENV[], @odbc(:SQLDrivers,
+        (Ptr{Cvoid}, SQLUSMALLINT, Ptr{SQLCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}, Ptr{SQLCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}),
+        getptr(ODBC_ENV[]), SQL_FETCH_NEXT, name, sizeof(name), namelen, desc, sizeof(desc), desclen)) == SQL_SUCCESS
+        drivers[str(name, namelen[])] = str(desc, desclen[])
+    end
+    return drivers
+end
+
+function adddriver(name, path; kw...)
+    ex = length(kw) > 0 ? "\0" * join((string(k, "=", v) for (k, v) in kw), '\0') : ""
+    driver = "$name\0Driver=$path$ex\0\0"
+    out = Vector{UInt8}(undef, 1024)
+    ref = Ref{UInt16}()
+    usage = Ref{UInt16}()
+    ret = @checkinst @odbcinst(:SQLInstallDriverEx,
+        (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, UInt16, Ref{UInt16}, UInt16, Ref{UInt16}),
+        driver, C_NULL, out, length(out), ref, 2, usage)
+    return ret
+end
+
+function removedriver(name, removedsns)
+    usage = Ref{UInt16}()
+    ret = @checkinst @odbcinst(:SQLRemoveDriver,
+        (Ptr{UInt8}, Bool, Ref{UInt16}),
+        name, removedsns, usage)
+    return ret
+end
+
+function getdsns()
+    name = Vector{UInt8}(undef, 1024)
+    desc = Vector{UInt8}(undef, 1024)
+    namelen = Ref{SQLSMALLINT}()
+    desclen = Ref{SQLSMALLINT}()
+    dsns = Dict{String, String}()
+    while @checksuccess(ODBC_ENV[], @odbc(:SQLDataSources,
+        (Ptr{Cvoid}, SQLUSMALLINT, Ptr{SQLCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}, Ptr{SQLCHAR}, SQLSMALLINT, Ref{SQLSMALLINT}),
+        getptr(ODBC_ENV[]), SQL_FETCH_NEXT, name, sizeof(name), namelen, desc, sizeof(desc), desclen)) == SQL_SUCCESS
+        dsns[str(name, namelen[])] = str(desc, desclen[])
+    end
+    return dsns
+end
+
+function writeinientry(file, section, key, value)
+    @checkinst @odbcinst(:SQLWritePrivateProfileString,
+        (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}),
+        section, string(key), string(value), file)
+end
+
+function adddsn(name, driver; kw...)
+    ret = @checkinst @odbcinst(:SQLWriteDSNToIni,
+        (Ptr{UInt8}, Ptr{UInt8}),
+        name, driver)
+    for (k, v) in kw
+        writeinientry("odbc.ini", name, k, v)
+    end
+    return
+end
+
+function removedsn(name)
+    ret = @checkinst @odbcinst(:SQLRemoveDSNFromIni,
+        (Ptr{UInt8},),
+        name)
+    return
+end
+
+end # module API
