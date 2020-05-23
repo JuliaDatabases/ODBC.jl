@@ -328,10 +328,10 @@ end
 execute(stmt::Handle) = SQLExecute(getptr(stmt))
 
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
-    @static if false # Sys.iswindows()
+    @static if Sys.iswindows()
         @odbc(:SQLExecDirect,
             (Ptr{Cvoid},Ptr{SQLCHAR},Int),
-            stmt,query,length(query))
+            stmt,query,SQL_NTS)
     else
         q = cwstring(query)
         @odbc(:SQLExecDirectW,
