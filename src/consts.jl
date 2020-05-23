@@ -276,6 +276,7 @@ const C_TYPES = Dict(
   SQL_C_USHORT => "SQL_C_USHORT",
   SQL_C_UTINYINT => "SQL_C_UTINYINT",
   SQL_C_GUID => "SQL_C_GUID",
+  SQL_C_SBIGINT => "SQL_C_SBIGINT",
 )
 
 # success codes
