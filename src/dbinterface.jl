@@ -33,7 +33,7 @@ If passing a connection string, the `connectionstring=true` keyword argument mus
 The `user` and `pwd` arguments are ignored if `connectionstring=true`.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
 """
-function Connection(dsn::AbstractString, usr="", pwd=""; connectionstring::Bool=false)
+function Connection(dsn::AbstractString, usr=nothing, pwd=nothing; connectionstring::Bool=false)
     return Connection(connectionstring ? API.driverconnect(dsn) : API.connect(dsn, usr, pwd), dsn, nothing)
 end
 

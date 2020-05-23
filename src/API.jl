@@ -239,12 +239,12 @@ end
 function SQLConnect(dbc::Ptr{Cvoid},dsn,usr,pwd)
     @odbc(:SQLConnect,
         (Ptr{Cvoid},Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT),
-        dbc,dsn,sizeof(dsn),usr,sizeof(usr),pwd,sizeof(pwd))
+        dbc,dsn,sizeof(dsn),usr,usr == C_NULL ? 0 : sizeof(usr),pwd,pwd == C_NULL ? 0 : sizeof(pwd))
 end
 
 function connect(dsn,usr,pwd)
     dbc = Handle(SQL_HANDLE_DBC, ODBC_ENV[])
-    @checksuccess dbc SQLConnect(getptr(dbc), dsn, usr, pwd)
+    @checksuccess dbc SQLConnect(getptr(dbc), dsn, something(usr, C_NULL), something(pwd, C_NULL))
     return dbc
 end
 
