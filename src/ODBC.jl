@@ -2,6 +2,7 @@ module ODBC
 
 using Printf, Dates, UUIDs
 using DecFP, DBInterface, Tables
+export DBInterface
 
 include("API.jl")
 include("utils.jl")
