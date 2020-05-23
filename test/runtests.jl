@@ -19,8 +19,8 @@ elseif Sys.iswindows()
     if Int == Int32
         libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll")
     else
-        @show readdir(joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB"))
-        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "maodbc.dll")
+        @show readdir(joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit"))
+        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit", "maodbc.dll")
     end
 else
     libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
