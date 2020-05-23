@@ -9,7 +9,17 @@ ODBC.setdebug(false)
 rm(tracefile)
 
 PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
-ODBC.adddriver("ODBC_Test_MariaDB", MariaDB_Connector_ODBC_jll.libmaodbc_path)
+@show ENV["TRAVIS_BUILD_DIR"]
+if Sys.islinux()
+    if Int == Int32
+        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb32/lib/libmaodbc.so")
+    else
+        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb64/lib/libmaodbc.so")
+    end
+else
+    libpath = MariaDB_Connector_ODBC_jll.libmaodbcpath
+end
+ODBC.adddriver("ODBC_Test_MariaDB", libpath)
 ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="localhost", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
 
 conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB", "root")
