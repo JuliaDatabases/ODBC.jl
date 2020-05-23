@@ -9,7 +9,6 @@ ODBC.setdebug(false)
 rm(tracefile)
 
 PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
-@show ENV["TRAVIS_BUILD_DIR"]
 if Sys.islinux()
     if Int == Int32
         libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb32/lib/libmaodbc.so")
@@ -18,9 +17,10 @@ if Sys.islinux()
     end
 elseif Sys.iswindows()
     if Int == Int32
-        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win32/maodbc.dll")
+        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll")
     else
-        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win64/maodbc.dll")
+        @show readdir(joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win64"))
+        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win64", "maodbc.dll")
     end
 else
     libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
