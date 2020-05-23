@@ -17,12 +17,10 @@ if Sys.islinux()
         libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb64/lib/libmaodbc.so")
     end
 elseif Sys.iswindows()
-    @show readdir("C:\\mariadb64")
-    @show readdir("C:\\mariadb64\\lib")
     if Int == Int32
-        libpath = "C:\\mariadb32\\lib\\libmaodbc.dll"
+        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win32/maodbc.dll")
     else
-        libpath = "C:\\mariadb64\\lib\\libmaodbc.dll"
+        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win64/maodbc.dll")
     end
 else
     libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
