@@ -158,7 +158,7 @@ mutable struct Cursor{columnar, knownlength}
 end
 
 # takes a recently executed statement handle and handles any produced resultsets
-function Cursor(stmt; iterate_rows::Bool=false, debug::Bool=false)
+function Cursor(stmt; iterate_rows::Bool=false, normalizenames::Bool=false, debug::Bool=false)
     cols = API.numcols(stmt)
     rows = API.numrows(stmt)
     debug && println("rows = $rows, cols = $cols")
@@ -176,8 +176,7 @@ function Cursor(stmt; iterate_rows::Bool=false, debug::Bool=false)
     for i = 1:cols
         API.SQLDescribeCol(API.getptr(stmt), i, cname, namelengths, sqltypes, columnsizes, decimaldigits, nullables)
         nm = API.str(cname, namelengths[i])
-        debug && @show nm
-        names[i] = Symbol(nm)
+        names[i] = normalizenames ? normalizename(nm) : Symbol(nm)
         sqltype = sqltypes[i]
         ctype, jltype = fetchtypes(sqltype)
         ctypes[i] = ctype

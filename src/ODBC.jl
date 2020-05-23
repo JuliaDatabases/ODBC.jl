@@ -1,6 +1,6 @@
 module ODBC
 
-using Printf, Dates, UUIDs
+using Printf, Dates, UUIDs, Unicode
 using DecFP, DBInterface, Tables
 export DBInterface
 

@@ -347,3 +347,17 @@ function fetchtypes(x)
         return (API.SQL_C_CHAR, String)
     end
 end
+
+const RESERVED = Set(["local", "global", "export", "let",
+    "for", "struct", "while", "const", "continue", "import",
+    "function", "if", "else", "try", "begin", "break", "catch",
+    "return", "using", "baremodule", "macro", "finally",
+    "module", "elseif", "end", "quote", "do"])
+
+normalizename(name::Symbol) = name
+function normalizename(name::String)::Symbol
+    uname = strip(Unicode.normalize(name))
+    id = Base.isidentifier(uname) ? uname : map(c->Base.is_id_char(c) ? c : '_', uname)
+    cleansed = string((isempty(id) || !Base.is_id_start_char(id[1]) || id in RESERVED) ? "_" : "", id)
+    return Symbol(replace(cleansed, r"(_)\1+"=>"_"))
+end
