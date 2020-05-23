@@ -64,7 +64,7 @@ before_install:
 before_script:
   - if [ "$TRAVIS_OS_NAME" == "osx" ]; then brew install mysql; brew services start mysql; fi
   - if [ "$TRAVIS_OS_NAME" == "linux" ]; then curl -O https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.1.7/mariadb-connector-odbc-3.1.7-ga-debian-x86_64.tar.gz; mkdir mariadb64; tar xfz mariadb-connector-odbc-3.1.7-ga-debian-x86_64.tar.gz -C mariadb64; curl -O https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.1.7/mariadb-connector-odbc-3.1.7-ga-debian-i686.tar.gz; mkdir mariadb32; tar xfz mariadb-connector-odbc-3.1.7-ga-debian-i686.tar.gz -C mariadb32; fi
-  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then curl -O https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.1.7/mariadb-connector-odbc-3.1.7-win64.msi; echo 'making dir'; mkdir C:\mariadb64; echo 'msiexecing'; lessmsi x mariadb-connector-odbc-3.1.7-win64.msi C:\mariadb64\; fi
+  - if [ "$TRAVIS_OS_NAME" == "windows" ]; then curl -O https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.1.7/mariadb-connector-odbc-3.1.7-win64.msi; echo 'making dir'; mkdir /c/mariadb64; echo 'msiexecing'; lessmsi x mariadb-connector-odbc-3.1.7-win64.msi /c/mariadb64/; fi
 
 notifications:
   email: false
