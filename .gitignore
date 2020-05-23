@@ -4,3 +4,4 @@
 /deps/builds
 /deps/usr
 CMakeLists.txt.user
+config/
