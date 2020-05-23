@@ -320,9 +320,9 @@ function fetchtypes(x)
     elseif x == API.SQL_NUMERIC
         return (API.SQL_C_CHAR, DecFP.Dec64)
     elseif x == API.SQL_SMALLINT
-        return (API.SQL_C_SHORT, Int16)
+        return (API.SQL_C_SSHORT, Int16)
     elseif x == API.SQL_INTEGER
-        return (API.SQL_C_LONG, Int32)
+        return (API.SQL_C_SLONG, Int32)
     elseif x == API.SQL_REAL
         return (API.SQL_C_FLOAT, Float32)
     elseif x == API.SQL_FLOAT || x == API.SQL_DOUBLE
@@ -330,9 +330,9 @@ function fetchtypes(x)
     elseif x == API.SQL_BIT
         return (API.SQL_C_BIT, Bool)
     elseif x == API.SQL_TINYINT
-        return (API.SQL_C_TINYINT, Int8)
+        return (API.SQL_C_STINYINT, Int8)
     elseif x == API.SQL_BIGINT
-        return (API.SQL_C_BIGINT, Int64)
+        return (API.SQL_C_SBIGINT, Int64)
     elseif x == API.SQL_BINARY || x == API.SQL_VARBINARY || x == API.SQL_LONGVARBINARY
         return (API.SQL_C_BINARY, Vector{UInt8})
     elseif x == API.SQL_TYPE_DATE
