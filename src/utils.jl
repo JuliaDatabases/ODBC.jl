@@ -117,13 +117,13 @@ mutable struct Buffer
             return new(newarray(Float64, nullable, rows))
         elseif ctype == API.SQL_C_FLOAT
             return new(newarray(Float32, nullable, rows))
-        elseif ctype == API.SQL_C_TINYINT
+        elseif ctype == API.SQL_C_STINYINT
             return new(newarray(Int8, nullable, rows))
-        elseif ctype == API.SQL_C_SHORT
+        elseif ctype == API.SQL_C_SSHORT
             return new(newarray(Int16, nullable, rows))
-        elseif ctype == API.SQL_C_LONG
+        elseif ctype == API.SQL_C_SLONG
             return new(newarray(Int32, nullable, rows))
-        elseif ctype == API.SQL_C_BIGINT
+        elseif ctype == API.SQL_C_SBIGINT
             return new(newarray(Int64, nullable, rows))
         elseif ctype == API.SQL_C_BIT
             return new(newarray(Bool, nullable, rows))
