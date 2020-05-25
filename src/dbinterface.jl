@@ -180,7 +180,7 @@ function Cursor(stmt; iterate_rows::Bool=false, normalizenames::Bool=false, debu
         nm = API.str(cname, namelengths[i])
         names[i] = normalizenames ? normalizename(nm) : Symbol(nm)
         sqltype = sqltypes[i]
-        ctype, jltype = fetchtypes(sqltype)
+        ctype, jltype = fetchtypes(sqltype, columnsizes[i])
         ctypes[i] = ctype
         types[i] = nullables[i] == API.SQL_NO_NULLS ? jltype : Union{Missing, jltype}
         # Some drivers return 0 size for variable length or large fields

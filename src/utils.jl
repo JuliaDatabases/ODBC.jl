@@ -313,12 +313,20 @@ jlcast(::Type{String}, bytes) = String(bytes)
 # given the SQL type as described by the driver library
 # what is the C storage needed for data transfer, and
 # final Julia type (that may involve conversions from C layout)
-function fetchtypes(x)
+function fetchtypes(x, prec)
     if x == API.SQL_DECIMAL
-        # return (API.SQL_C_NUMERIC, DecFP.Dec64)
-        return (API.SQL_C_CHAR, DecFP.Dec64)
+        if prec > 16
+            return (API.SQL_C_CHAR, DecFP.Dec128)
+        else
+            # return (API.SQL_C_NUMERIC, DecFP.Dec64)
+            return (API.SQL_C_CHAR, DecFP.Dec64)
+        end
     elseif x == API.SQL_NUMERIC
-        return (API.SQL_C_CHAR, DecFP.Dec64)
+        if prec > 16
+            return (API.SQL_C_CHAR, DecFP.Dec128)
+        else
+            return (API.SQL_C_CHAR, DecFP.Dec64)
+        end
     elseif x == API.SQL_SMALLINT
         return (API.SQL_C_SSHORT, Int16)
     elseif x == API.SQL_INTEGER

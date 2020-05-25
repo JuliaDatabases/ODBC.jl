@@ -255,3 +255,13 @@ DBInterface.execute(conn, """CREATE TABLE Employee2
 DBInterface.execute(conn, "INSERT INTO Employee2 (望研) VALUES ('hey'), ('ho')")
 ret = DBInterface.execute(conn, "select * from Employee2") |> columntable
 @test length(ret.望研) == 2
+
+DBInterface.execute(conn, """CREATE TABLE big_decimal
+                 (
+                     ID INT NOT NULL AUTO_INCREMENT,
+                     `dec` DECIMAL(20, 2),
+                     PRIMARY KEY (ID)
+                 )""")
+DBInterface.execute(conn, "INSERT INTO big_decimal (`dec`) VALUES (123456789012345678.91)")
+ret = DBInterface.execute(conn, "select * from big_decimal") |> columntable
+@test ret.dec[1] == d128"1.2345678901234567891e17"
