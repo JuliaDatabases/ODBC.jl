@@ -49,6 +49,8 @@ A great resource for building valid connection strings is [http://www.connection
 """
 DBInterface.connect(::Type{Connection}, args...; kw...) = Connection(args...; kw...)
 
+Base.isopen(c::Connection) = c.dbc.ptr != C_NULL && API.getconnectattr(c.dbc, API.SQL_ATTR_CONNECTION_DEAD) == API.SQL_CD_FALSE
+
 "disconnect a connected `Connection`"
 function disconnect!(conn::Connection)
     API.disconnect(conn.dbc)
