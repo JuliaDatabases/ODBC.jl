@@ -1,11 +1,3 @@
-"""
-    ODBC.Connection
-
-A `Connection` represents an established ODBC connection.
-It is passed to most other ODBC methods as a first argument
-See `DBInterface.execute` for information on making ODBC connections
-to database systems.
-"""
 mutable struct Connection <: DBInterface.Connection
     dbc::API.Handle
     dsn::String
@@ -38,7 +30,7 @@ function Connection(dsn::AbstractString, usr=nothing, pwd=nothing; connectionstr
 end
 
 """
-    DBInterface.connect(dsn_or_connectionstring, user, password; connectionstring::Bool=false)
+    DBInterface.connect(ODBC.Connection, dsn_or_connectionstring, user, password; connectionstring::Bool=false)
 
 Construct a `Connection` type by connecting to a valid ODBC Connection or by specifying a datasource name or valid connection string.
 Takes optional 2nd and 3rd arguments for named datasources `username` and `password`, respectively.
