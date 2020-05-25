@@ -70,9 +70,9 @@ end
 macro odbc(func,args,vals...)
     esc(quote
         if odbc_dm[] == iODBC
-            ccall( ($func, iODBC_dm),          SQLRETURN, $(swapsqlwchar(args)), $(vals...))
+            ccall( ($func, iODBC_dm), SQLRETURN, $(swapsqlwchar(args)), $(vals...))
         elseif odbc_dm[] == unixODBC
-            ccall( ($func, unixODBC_dm),          SQLRETURN, $args, $(vals...))
+            ccall( ($func, unixODBC_dm), SQLRETURN, $args, $(vals...))
         else # odbc_dm[] == odbc32
             ccall( ($func, odbc32_dm), stdcall, SQLRETURN, $args, $(vals...))
         end
@@ -82,9 +82,9 @@ end
 macro odbcinst(func,args,vals...)
     esc(quote
         if odbc_dm[] == iODBC
-            ccall( ($func, iODBC_inst),          SQLRETURN, $(swapsqlwchar(args)), $(vals...))
+            ccall( ($func, iODBC_inst), SQLRETURN, $(swapsqlwchar(args)), $(vals...))
         elseif odbc_dm[] == unixODBC
-            ccall( ($func, unixODBC_inst),          SQLRETURN, $args, $(vals...))
+            ccall( ($func, unixODBC_inst), SQLRETURN, $args, $(vals...))
         else # odbc_dm[] == odbc32
             ccall( ($func, odbc32_inst), stdcall, SQLRETURN, $args, $(vals...))
         end
@@ -217,6 +217,23 @@ function SQLSetConnectAttr(dbc, attr::SQLINTEGER, value::String)
         getptr(dbc), attr, value, sizeof(value))
 end
 
+const SQL_ATTR_CONNECTION_DEAD = 1209
+const SQL_CD_TRUE = 1
+const SQL_CD_FALSE = 0
+
+function SQLGetConnectAttr(dbc, attr, ret)
+    ref = Ref{SQLINTEGER}()
+    @odbc(:SQLGetConnectAttr,
+        (Ptr{Cvoid}, SQLINTEGER, Ref{SQLUINTEGER}, SQLINTEGER, Ref{SQLINTEGER}),
+        getptr(dbc), attr, ret, 0, ref)
+end
+
+function getconnectattr(dbc, attr)
+    ret = Ref{SQLUINTEGER}()
+    SQLGetConnectAttr(dbc, attr, ret)
+    return ret[]
+end
+
 const SQL_DRIVER_COMPLETE = UInt16(1)
 const SQL_DRIVER_COMPLETE_REQUIRED = UInt16(3)
 const SQL_DRIVER_NOPROMPT = UInt16(0)
@@ -256,7 +273,12 @@ function SQLDisconnect(dbc::Ptr{Cvoid})
         dbc)
 end
 
-disconnect(h::Handle) = h.type == SQL_HANDLE_DBC ? @checksuccess(h, SQLDisconnect(h.ptr)) : SQL_SUCCESS
+function disconnect(h::Handle)
+    if h.type == SQL_HANDLE_DBC
+        @checksuccess(h, SQLDisconnect(h.ptr))
+        finalize(h)
+    end
+end
 
 function cwstring(s::AbstractString)
     bytes = codeunits(String(s))
@@ -451,43 +473,6 @@ function diagnostics(h::Handle)
         i += 1
     end
     return String(take!(io))
-end
-
-const SQL_BS_SELECT_EXPLICIT = 0x00000001
-const SQL_BS_ROW_COUNT_EXPLICIT = 0x00000002
-const SQL_BS_SELECT_PROC = 0x00000004
-const SQL_BS_ROW_COUNT_PROC = 0x00000008
-
-function getinfosqluinteger(dbc::Handle, type=121)
-    ref = Ref{SQLUINTEGER}()
-    len = Ref{SQLSMALLINT}()
-    @checksuccess dbc @odbc(:SQLGetInfo,
-        (Ptr{Cvoid}, SQLUSMALLINT, Ref{SQLUINTEGER}, SQLSMALLINT, Ref{SQLSMALLINT}),
-        getptr(dbc), type, ref, 0, len)
-    return ref[]
-end
-
-function getvalue(section, entry, default, filename)
-    buf = Vector{UInt8}(undef, 1024)
-    ret = ccall( (:SQLGetPrivateProfileString, iODBC_inst), Cint,
-        (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, Cint, Ptr{UInt8}), 
-        section, entry, default, buf, 1024, filename)
-    return String(buf[1:ret])
-end
-
-function getconfigmode()
-    ref = Ref{UInt16}()
-    ccall( (:SQLGetConfigMode, iODBC_inst), Bool,
-        (Ref{UInt16},),
-        ref)
-    return ref[]
-end
-
-function setconfigmode(mode)
-    ret = ccall( (:SQLSetConfigMode, iODBC_inst), Bool,
-        (UInt16,),
-        mode)
-    return ret
 end
 
 macro checkinst(expr)
