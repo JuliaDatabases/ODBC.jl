@@ -106,7 +106,7 @@ Supported keyword arguments include:
   * `normalizenames::Bool`: normalize column names to valid Julia identifiers; this can be convenient when working with the results in, for example, a `DataFrame` where you can access columns like `df.col1`
   * `debug::Bool`: for printing additional debug information during the query/result process.
 """
-function DBInterface.execute(stmt::Statement, params=(); debug::Bool=true, kw...)
+function DBInterface.execute(stmt::Statement, params=(); debug::Bool=false, kw...)
     API.freestmt(stmt.stmt)
     clear!(stmt.dsn)
     paramcheck(stmt, params)
@@ -137,7 +137,7 @@ This is an alternative execution path to `DBInterface.execute` with a prepared s
 This method is faster/less overhead for one-time executions, but prepared statements will
 have more benefit for repeated executions (even with different parameters).
 """
-function DBInterface.execute(conn::Connection, sql::AbstractString, params=(); debug::Bool=true, kw...)
+function DBInterface.execute(conn::Connection, sql::AbstractString, params=(); debug::Bool=false, kw...)
     clear!(conn)
     stmt = API.Handle(API.SQL_HANDLE_STMT, API.getptr(conn.dbc))
     bindings = bindparams(stmt, params, nothing)
