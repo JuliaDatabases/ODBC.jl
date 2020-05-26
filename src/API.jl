@@ -234,6 +234,20 @@ function getconnectattr(dbc, attr)
     return ret[]
 end
 
+const SQL_BS_SELECT_EXPLICIT = 0x00000001
+const SQL_BS_ROW_COUNT_EXPLICIT = 0x00000002
+const SQL_BS_SELECT_PROC = 0x00000004
+const SQL_BS_ROW_COUNT_PROC = 0x00000008
+
+function getinfosqluinteger(dbc::Handle, type=121)
+    ref = Ref{SQLUINTEGER}()
+    len = Ref{SQLSMALLINT}()
+    @checksuccess dbc @odbc(:SQLGetInfo,
+        (Ptr{Cvoid}, SQLUSMALLINT, Ref{SQLUINTEGER}, SQLSMALLINT, Ref{SQLSMALLINT}),
+        getptr(dbc), type, ref, 0, len)
+    return ref[]
+end
+
 const SQL_DRIVER_COMPLETE = UInt16(1)
 const SQL_DRIVER_COMPLETE_REQUIRED = UInt16(3)
 const SQL_DRIVER_NOPROMPT = UInt16(0)

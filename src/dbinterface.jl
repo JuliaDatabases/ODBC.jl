@@ -153,8 +153,8 @@ end
 
 # takes a recently executed statement handle and handles any produced resultsets
 function Cursor(stmt; iterate_rows::Bool=false, normalizenames::Bool=false, debug::Bool=false)
-    cols = API.numcols(stmt)
     rows = API.numrows(stmt)
+    cols = API.numcols(stmt)
     debug && println("rows = $rows, cols = $cols")
     # Allocate arrays to hold each column's metadata
     names = Vector{Symbol}(undef, cols)
