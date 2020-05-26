@@ -192,7 +192,7 @@ DBInterface.execute(stmt, [missing, missing, missing, missing, missing, missing,
 DBInterface.close!(stmt)
 
 stmt = DBInterface.prepare(conn, "select * from Employee")
-res = DBInterface.execute(stmt) |> columntable
+res = DBInterface.execute(stmt; ignore_driver_row_count=true) |> columntable
 DBInterface.close!(stmt)
 for i = 1:length(expected)
     if i != 11 && i != 1
