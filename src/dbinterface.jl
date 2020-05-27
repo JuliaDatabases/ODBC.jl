@@ -92,16 +92,21 @@ end
 @noinline paramcheck(stmt, params) = length(params) == stmt.nparams || error("stmt requires $(stmt.nparams) params, only $(length(params)) provided")
 
 """
-    DBInterface.execute(stmt, params=(); kw...) -> ODBC.Cursor
+    DBInterface.execute(stmt, params=(); iterate_rows::Bool=false, ignore_driver_row_count::Bool=false, normalizenames::Bool=false, debug::Bool=false) -> ODBC.Cursor
 
 Execute a prepare statement, binding any parameters beforehand. Returns a `Cursor`
 object, even if the statement is not resultset-producing (cursor will have zero rows and/or columns).
 The `Cursor` object satisfies the [Tables.jl](https://juliadata.github.io/Tables.jl/dev/)
 interface as a source, so any valid sink can be used for inspecting results (a list of integrations
-is maintained [here](https://github.com/JuliaData/Tables.jl/blob/master/INTEGRATIONS.md)). Supported keyword arguments include `iterate_rows::Bool` for forcing row iteration of the 
-resultset, and `debug::Bool` for printing additional debug information during the query/result process.
+is maintained [here](https://github.com/JuliaData/Tables.jl/blob/master/INTEGRATIONS.md)).
+
+Supported keyword arguments include:
+  * `iterate_rows::Bool`: for forcing row iteration of the resultset
+  * `ignore_driver_row_count::Bool`: for ignoring the row count returned from the database driver; in some cases (Netezza), the driver may return an incorrect or "prefetched" number for the row count instead of the actual row count; this allows ignoring those numbers and fetching the resultset until truly exhausted
+  * `normalizenames::Bool`: normalize column names to valid Julia identifiers; this can be convenient when working with the results in, for example, a `DataFrame` where you can access columns like `df.col1`
+  * `debug::Bool`: for printing additional debug information during the query/result process.
 """
-function DBInterface.execute(stmt::Statement, params=(); debug::Bool=true, kw...)
+function DBInterface.execute(stmt::Statement, params=(); debug::Bool=false, kw...)
     API.freestmt(stmt.stmt)
     clear!(stmt.dsn)
     paramcheck(stmt, params)
@@ -114,20 +119,25 @@ function DBInterface.execute(stmt::Statement, params=(); debug::Bool=true, kw...
 end
 
 """
-    DBInterface.execute(conn, sql, params=(); kw...) -> ODBC.Cursor
+    DBInterface.execute(conn, sql, params=(); iterate_rows::Bool=false, ignore_driver_row_count::Bool=false, normalizenames::Bool=false, debug::Bool=false) -> ODBC.Cursor
 
 Send a query directly to connection for execution. Returns a `Cursor`
 object, even if the statement is not resultset-producing (cursor will have zero rows and/or columns).
 The `Cursor` object satisfies the [Tables.jl](https://juliadata.github.io/Tables.jl/dev/)
 interface as a source, so any valid sink can be used for inspecting results (a list of integrations
-is maintained [here](https://github.com/JuliaData/Tables.jl/blob/master/INTEGRATIONS.md)). Supported keyword arguments include `iterate_rows::Bool` for forcing row iteration of the 
-resultset, and `debug::Bool` for printing additional debug information during the query/result process.
+is maintained [here](https://github.com/JuliaData/Tables.jl/blob/master/INTEGRATIONS.md)).
+
+Supported keyword arguments include:
+  * `iterate_rows::Bool`: for forcing row iteration of the resultset
+  * `ignore_driver_row_count::Bool`: for ignoring the row count returned from the database driver; in some cases (Netezza), the driver may return an incorrect or "prefetched" number for the row count instead of the actual row count; this allows ignoring those numbers and fetching the resultset until truly exhausted
+  * `normalizenames::Bool`: normalize column names to valid Julia identifiers; this can be convenient when working with the results in, for example, a `DataFrame` where you can access columns like `df.col1`
+  * `debug::Bool`: for printing additional debug information during the query/result process.
 
 This is an alternative execution path to `DBInterface.execute` with a prepared statement.
 This method is faster/less overhead for one-time executions, but prepared statements will
 have more benefit for repeated executions (even with different parameters).
 """
-function DBInterface.execute(conn::Connection, sql::AbstractString, params=(); debug::Bool=true, kw...)
+function DBInterface.execute(conn::Connection, sql::AbstractString, params=(); debug::Bool=false, kw...)
     clear!(conn)
     stmt = API.Handle(API.SQL_HANDLE_STMT, API.getptr(conn.dbc))
     API.enableasync(stmt)
@@ -153,7 +163,7 @@ mutable struct Cursor{columnar, knownlength}
 end
 
 # takes a recently executed statement handle and handles any produced resultsets
-function Cursor(stmt; iterate_rows::Bool=false, normalizenames::Bool=false, debug::Bool=false)
+function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=false, normalizenames::Bool=false, debug::Bool=false)
     rows = API.numrows(stmt)
     cols = API.numcols(stmt)
     debug && println("rows = $rows, cols = $cols")
@@ -188,10 +198,10 @@ function Cursor(stmt; iterate_rows::Bool=false, normalizenames::Bool=false, debu
     end
     metadata = [["column name", names...] ["column type", types...] ["sql type", map(x->API.SQL_TYPES[x], sqltypes)...] ["c type", map(x->API.C_TYPES[x], ctypes)...] ["sizes", map(Int, columnsizes)...] ["nullable", map(x->x != API.SQL_NO_NULLS, nullables)...] ["long data", longtexts...]]
     columnar = knownlength = true
-    if any(longtexts) || rows <= 0 || iterate_rows
+    if any(longtexts) || rows <= 0 || iterate_rows || ignore_driver_row_count
         rowset = 1
         columnar = false
-        knownlength = rows > 0
+        knownlength = rows > 0 && !ignore_driver_row_count
     else
         rowset = rows
     end

@@ -248,10 +248,15 @@ function getconnectattr(dbc, attr)
     return ret[]
 end
 
+const SQL_BATCH_SUPPORT = 121
 const SQL_BS_SELECT_EXPLICIT = 0x00000001
 const SQL_BS_ROW_COUNT_EXPLICIT = 0x00000002
 const SQL_BS_SELECT_PROC = 0x00000004
 const SQL_BS_ROW_COUNT_PROC = 0x00000008
+
+const SQL_FORWARD_ONLY_CURSOR_ATTRIBUTES2 = 147
+const SQL_CA2_CRC_EXACT = 0x00001000
+const SQL_CA2_CRC_APPROXIMATE = 0x00002000
 
 function getinfosqluinteger(dbc::Handle, type=121)
     ref = Ref{SQLUINTEGER}()
