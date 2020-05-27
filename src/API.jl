@@ -253,33 +253,33 @@ const SQL_DRIVER_COMPLETE_REQUIRED = UInt16(3)
 const SQL_DRIVER_NOPROMPT = UInt16(0)
 const SQL_DRIVER_PROMPT = UInt16(2)
 
-function SQLDriverConnect(dbc::Ptr{Cvoid},window_handle::Ptr{Cvoid},connstr,out,out_buff::Ref{Int16},driver_prompt)
-    @odbc(:SQLDriverConnect,
-        (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
-        dbc,window_handle,connstr,sizeof(connstr),out,sizeof(out),out_buff,driver_prompt)
+function SQLDriverConnect(dbc::Ptr{Cvoid},connstr)
+    c = transcode(sqlwcharsize(), connstr)
+    push!(c, sqlwcharsize()(0))
+    @odbc(:SQLDriverConnectW,
+        (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
+        dbc,C_NULL,c,SQL_NTS,C_NULL,0,C_NULL,0)
 end
 
 function driverconnect(connstr)
     dbc = Handle(SQL_HANDLE_DBC, ODBC_ENV[])
-    out = Vector{UInt8}(undef, 1024)
-    outref = Ref{Int16}()
-    @checksuccess dbc SQLDriverConnect(getptr(dbc), C_NULL, connstr, out, outref, 0)
+    @checksuccess dbc SQLDriverConnect(getptr(dbc), connstr)
     return dbc
 end
 
-function SQLConnect(dbc::Ptr{Cvoid},dsn,usr,pwd)
-    @odbc(:SQLConnect,
-        (Ptr{Cvoid},Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT),
-        dbc,dsn,sizeof(dsn),usr,usr == C_NULL ? 0 : sizeof(usr),pwd,pwd == C_NULL ? 0 : sizeof(pwd))
-end
+# function SQLConnect(dbc::Ptr{Cvoid},dsn,usr,pwd)
+#     @odbc(:SQLConnectW,
+#         (Ptr{Cvoid},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT),
+#         dbc,pointer(dsn),length(dsn),usr,usr == C_NULL ? 0 : length(usr),pwd,pwd == C_NULL ? 0 : length(pwd))
+# end
 
-function connect(dsn,usr,pwd)
-    dbc = Handle(SQL_HANDLE_DBC, ODBC_ENV[])
-    @checksuccess dbc SQLConnect(getptr(dbc), dsn, something(usr, C_NULL), something(pwd, C_NULL))
-    return dbc
-end
+# function connect(dsn,usr,pwd)
+#     dbc = Handle(SQL_HANDLE_DBC, ODBC_ENV[])
+#     @checksuccess dbc SQLConnect(getptr(dbc), dsn, something(usr, C_NULL), something(pwd, C_NULL))
+#     return dbc
+# end
 
-# connect(dsn, user, pwd) = driverconnect("DSN=$dsn;UID=$user;PWD=$pwd")
+connect(dsn, user, pwd) = driverconnect(string("DSN=", dsn, user === nothing ? "" : ";UID=$user", pwd === nothing ? "" : ";PWD=$pwd"))
 
 function SQLDisconnect(dbc::Ptr{Cvoid})
     @odbc(:SQLDisconnect,
