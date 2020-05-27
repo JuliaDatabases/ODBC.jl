@@ -130,6 +130,7 @@ have more benefit for repeated executions (even with different parameters).
 function DBInterface.execute(conn::Connection, sql::AbstractString, params=(); debug::Bool=true, kw...)
     clear!(conn)
     stmt = API.Handle(API.SQL_HANDLE_STMT, API.getptr(conn.dbc))
+    API.enableasync(stmt)
     bindings = bindparams(stmt, params, nothing)
     debug && println("executing statement: $sql")
     GC.@preserve bindings (API.execdirect(stmt, sql))

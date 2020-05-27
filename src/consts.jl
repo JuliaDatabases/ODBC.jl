@@ -282,6 +282,7 @@ const C_TYPES = Dict(
 # success codes
 const SQL_SUCCESS           = Int16(0)
 const SQL_SUCCESS_WITH_INFO = Int16(1)
+const SQL_STILL_EXECUTING   = Int16(2)
 
 # error codes
 const SQL_ERROR             = Int16(-1)

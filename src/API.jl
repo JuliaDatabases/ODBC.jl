@@ -69,13 +69,27 @@ end
 
 macro odbc(func,args,vals...)
     esc(quote
+        ret = SQL_SUCCESS
         if odbc_dm[] == iODBC
-            ccall( ($func, iODBC_dm), SQLRETURN, $(swapsqlwchar(args)), $(vals...))
+            while true
+                ret = ccall( ($func, iODBC_dm), SQLRETURN, $(swapsqlwchar(args)), $(vals...))
+                ret == SQL_STILL_EXECUTING || break
+                sleep(0.001)
+            end
         elseif odbc_dm[] == unixODBC
-            ccall( ($func, unixODBC_dm), SQLRETURN, $args, $(vals...))
+            while true
+                ret = ccall( ($func, unixODBC_dm), SQLRETURN, $args, $(vals...))
+                ret == SQL_STILL_EXECUTING || break
+                sleep(0.001)
+            end
         else # odbc_dm[] == odbc32
-            ccall( ($func, odbc32_dm), stdcall, SQLRETURN, $args, $(vals...))
+            while true
+                ret = ccall( ($func, odbc32_dm), stdcall, SQLRETURN, $args, $(vals...))
+                ret == SQL_STILL_EXECUTING || break
+                sleep(0.001)
+            end
         end
+        ret
     end)
 end
 
@@ -254,11 +268,13 @@ const SQL_DRIVER_NOPROMPT = UInt16(0)
 const SQL_DRIVER_PROMPT = UInt16(2)
 
 function SQLDriverConnect(dbc::Ptr{Cvoid},connstr)
+    # need to call SQLDriverConnectW to ensure our application gets labelled "unicode"
+    # and subsequent library calls behave properly
     c = transcode(sqlwcharsize(), connstr)
     push!(c, sqlwcharsize()(0))
     @odbc(:SQLDriverConnectW,
         (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
-        dbc,C_NULL,c,SQL_NTS,C_NULL,0,C_NULL,0)
+        dbc,C_NULL,c,SQL_NTS,C_NULL,0,C_NULL,SQL_DRIVER_NOPROMPT)
 end
 
 function driverconnect(connstr)
@@ -266,18 +282,6 @@ function driverconnect(connstr)
     @checksuccess dbc SQLDriverConnect(getptr(dbc), connstr)
     return dbc
 end
-
-# function SQLConnect(dbc::Ptr{Cvoid},dsn,usr,pwd)
-#     @odbc(:SQLConnectW,
-#         (Ptr{Cvoid},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLWCHAR},SQLSMALLINT),
-#         dbc,pointer(dsn),length(dsn),usr,usr == C_NULL ? 0 : length(usr),pwd,pwd == C_NULL ? 0 : length(pwd))
-# end
-
-# function connect(dsn,usr,pwd)
-#     dbc = Handle(SQL_HANDLE_DBC, ODBC_ENV[])
-#     @checksuccess dbc SQLConnect(getptr(dbc), dsn, something(usr, C_NULL), something(pwd, C_NULL))
-#     return dbc
-# end
 
 connect(dsn, user, pwd) = driverconnect(string("DSN=", dsn, user === nothing ? "" : ";UID=$user", pwd === nothing ? "" : ";PWD=$pwd"))
 
@@ -301,20 +305,15 @@ function cwstring(s::AbstractString)
 end
 
 function SQLPrepare(stmt::Ptr{Cvoid},query::AbstractString)
-    # @static if Sys.iswindows()
-    #     @odbc(:SQLPrepare,
-    #         (Ptr{Cvoid},Ptr{SQLCHAR},Int16),
-    #         stmt,query,length(query))
-    # else
-        q = cwstring(query)
-        @odbc(:SQLPrepareW,
-            (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
-            stmt,q,length(q))
-    # end
+    q = cwstring(query)
+    @odbc(:SQLPrepareW,
+        (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
+        stmt,q,length(q))
 end
 
 function prepare(dbc::Handle, sql)
     stmt = Handle(SQL_HANDLE_STMT, getptr(dbc))
+    enableasync(stmt)
     @checksuccess stmt SQLPrepare(getptr(stmt), sql)
     return stmt
 end
@@ -364,16 +363,10 @@ end
 execute(stmt::Handle) = SQLExecute(getptr(stmt))
 
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
-    # @static if Sys.iswindows()
-    #     @odbc(:SQLExecDirect,
-    #         (Ptr{Cvoid},Ptr{SQLCHAR},Int),
-    #         stmt,query,SQL_NTS)
-    # else
-        q = cwstring(query)
-        @odbc(:SQLExecDirectW,
-            (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
-            stmt,q,length(q))
-    # end
+    q = cwstring(query)
+    @odbc(:SQLExecDirectW,
+        (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
+        stmt,q,length(q))
 end
 
 function execdirect(stmt::Handle, sql)
@@ -415,6 +408,9 @@ const SQL_ATTR_ROW_ARRAY_SIZE = 27
 const SQL_IS_UINTEGER = -5
 const SQL_IS_INTEGER = -6
 
+const SQL_ATTR_ASYNC_ENABLE = 4
+const SQL_ASYNC_ENABLE_ON = 1
+
 function SQLSetStmtAttr(stmt::Ptr{Cvoid},attribute,value,value_length)
     @odbc(:SQLSetStmtAttrW,
         (Ptr{Cvoid},SQLINTEGER,SQLULEN,SQLINTEGER),
@@ -422,6 +418,7 @@ function SQLSetStmtAttr(stmt::Ptr{Cvoid},attribute,value,value_length)
 end
 
 setrowset(stmt::Handle, rowset) = @checksuccess stmt SQLSetStmtAttr(getptr(stmt), SQL_ATTR_ROW_ARRAY_SIZE, rowset, SQL_IS_UINTEGER)
+enableasync(stmt::Handle) = SQLSetStmtAttr(getptr(stmt), SQL_ATTR_ASYNC_ENABLE, SQL_ASYNC_ENABLE_ON, SQL_IS_UINTEGER)
 
 const SQL_ATTR_ROWS_FETCHED_PTR  = 26
 
