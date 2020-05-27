@@ -507,9 +507,9 @@ function installererror()
     len = Ref{UInt16}()
     i = 1
     err = ""
-    while @checkinst(@odbcinst(:SQLInstallerError,
+    while @odbcinst(:SQLInstallerError,
         (UInt16, Ref{UInt16}, Ptr{UInt8}, UInt16, Ref{UInt16}),
-        i, code, buf, sizeof(buf), len)) != SQL_NO_DATA
+        i, code, buf, sizeof(buf), len) != SQL_NO_DATA
         err *= str(buf, len[])
         i += 1
     end
