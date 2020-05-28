@@ -273,13 +273,17 @@ const SQL_DRIVER_NOPROMPT = UInt16(0)
 const SQL_DRIVER_PROMPT = UInt16(2)
 
 function SQLDriverConnect(dbc::Ptr{Cvoid},connstr)
-    # need to call SQLDriverConnectW to ensure our application gets labelled "unicode"
-    # and subsequent library calls behave properly
-    c = transcode(sqlwcharsize(), connstr)
-    # push!(c, sqlwcharsize()(0))
-    @odbc(:SQLDriverConnectW,
-        (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
-        dbc,C_NULL,c,length(c),C_NULL,0,C_NULL,SQL_DRIVER_NOPROMPT)
+    if odbc_dm[] == iODBC
+        @odbc(:SQLDriverConnect,
+            (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
+            dbc,C_NULL,connstr,SQL_NTS,C_NULL,0,C_NULL,SQL_DRIVER_NOPROMPT)
+    else
+        c = transcode(sqlwcharsize(), connstr)
+        push!(c, sqlwcharsize()(0))
+        @odbc(:SQLDriverConnectW,
+            (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
+            dbc,C_NULL,c,SQL_NTS,C_NULL,0,C_NULL,SQL_DRIVER_NOPROMPT)
+    end
 end
 
 function driverconnect(connstr)
