@@ -283,9 +283,15 @@ function SQLDriverConnect(dbc::Ptr{Cvoid},connstr)
     # and subsequent library calls behave properly
     c = transcode(sqlwcharsize(), connstr)
     push!(c, sqlwcharsize()(0))
-    @odbc(:SQLDriverConnectW,
+    ret = @odbc(:SQLDriverConnectW,
         (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
         dbc,C_NULL,c,SQL_NTS,C_NULL,0,C_NULL,SQL_DRIVER_NOPROMPT)
+    if ret == SQL_ERROR
+        ret = @odbc(:SQLDriverConnect,
+            (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
+            dbc,C_NULL,connstr,SQL_NTS,C_NULL,0,C_NULL,SQL_DRIVER_NOPROMPT)
+    end
+    return ret
 end
 
 function driverconnect(connstr)

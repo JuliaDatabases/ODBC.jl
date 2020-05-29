@@ -26,11 +26,11 @@ else
     libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
 end
 ODBC.adddriver("ODBC_Test_MariaDB", libpath)
-ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="localhost", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
+ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="localhost", UID="root", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
 
-conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB", "root")
+conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB")
 DBInterface.close!(conn)
-conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB", "root")
+conn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=localhost;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4;USER=root")
 
 DBInterface.execute(conn, "DROP DATABASE if exists mysqltest")
 DBInterface.execute(conn, "CREATE DATABASE mysqltest")
