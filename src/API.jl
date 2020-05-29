@@ -172,6 +172,12 @@ getptr(x::Ptr) = x
 
 const ODBC_ENV = Ref{Handle}()
 
+const ODBCINI = realpath(joinpath(@__DIR__, "../config/odbc.ini"))
+const ODBCINSTINI = realpath(joinpath(@__DIR__, "../config/odbcinst.ini"))
+
+@assert isfile(ODBCINI) || error("error finding ODBC/config/odbc.ini file; please Pkg.build(\"ODBC\") again")
+@assert isfile(ODBCINSTINI) || error("error finding ODBC/config/odbcinst.ini file; please Pkg.build(\"ODBC\") again")
+
 function setupenv(; trace::Bool=false, tracefile::String="", kw...)
     if isdefined(ODBC_ENV, :x)
         finalize(ODBC_ENV[])
@@ -179,9 +185,9 @@ function setupenv(; trace::Bool=false, tracefile::String="", kw...)
     delete!(ENV, "ODBCINI")
     delete!(ENV, "ODBCSYSINI")
     delete!(ENV, "ODBCINSTINI")
-    ENV["ODBCINI"] = realpath(joinpath(@__DIR__, "../config/odbc.ini"))
+    ENV["ODBCINI"] = ODBCINI
     if odbc_dm[] == iODBC
-        ENV["ODBCINSTINI"] = realpath(joinpath(@__DIR__, "../config/odbcinst.ini"))
+        ENV["ODBCINSTINI"] = ODBCINSTINI
     elseif odbc_dm[] == unixODBC
         ENV["ODBCSYSINI"] = realpath(joinpath(@__DIR__, "../config"))
     end
