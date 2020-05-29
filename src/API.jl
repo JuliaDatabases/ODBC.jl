@@ -361,7 +361,7 @@ end
 
 function freestmt(stmt)
     if stmt.ptr != C_NULL
-        @checksuccess stmt SQLFreeStmt(getptr(stmt), SQL_CLOSE)
+        SQLFreeStmt(getptr(stmt), SQL_CLOSE)
     end
 end
 
