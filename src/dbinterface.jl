@@ -16,16 +16,16 @@ function clear!(conn::Connection)
 end
 
 """
-    ODBC.Connection(dsn_or_connectionstring, user, password; connectionstring::Bool=false)
+    ODBC.Connection(dsn_or_connectionstring, user, password)
 
 Construct a `Connection` type by connecting to a valid ODBC Connection or by specifying a datasource name or valid connection string.
 Takes optional 2nd and 3rd arguments for named datasources `username` and `password`, respectively.
 1st argument `dsn` can be either the name of a pre-defined ODBC Connection or a valid connection string.
-If passing a connection string, the `connectionstring=true` keyword argument must also be passed.
-The `user` and `pwd` arguments are ignored if `connectionstring=true`.
+The `user` and `pwd` arguments are ignored if the first argument is a connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
 """
-function Connection(dsn::AbstractString, usr=nothing, pwd=nothing; connectionstring::Bool=false)
+function Connection(dsn::AbstractString, usr=nothing, pwd=nothing)
+    connectionstring = occursin('=', dsn)
     return Connection(connectionstring ? API.driverconnect(dsn) : API.connect(dsn, usr, pwd), dsn, nothing)
 end
 
@@ -35,8 +35,7 @@ end
 Construct a `Connection` type by connecting to a valid ODBC Connection or by specifying a datasource name or valid connection string.
 Takes optional 2nd and 3rd arguments for named datasources `username` and `password`, respectively.
 1st argument `dsn` can be either the name of a pre-defined ODBC Connection or a valid connection string.
-If passing a connection string, the `connectionstring=true` keyword argument must also be passed.
-The `user` and `pwd` arguments are ignored if `connectionstring=true`.
+The `user` and `pwd` arguments are ignored if the first argument is a connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
 """
 DBInterface.connect(::Type{Connection}, args...; kw...) = Connection(args...; kw...)
