@@ -210,7 +210,7 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
     # we need bindings regardless of row vs. column fetching
     bindings = getbindings(stmt, columnar, ctypes, sqltypes, columnsizes, nullables, longtexts, rowset)
     if columnar && cols > 0
-         # will be populated by call to SQLFetchScroll
+        # will be populated by call to SQLFetchScroll
         rowsfetchedref = API.setrowsfetched(stmt)
         API.fetch(stmt)
         rowsfetched = rowsfetchedref[]
@@ -319,6 +319,9 @@ Base.eltype(x::Cursor{false, knownlength}) where {knownlength} = Row
 
 function Base.iterate(x::Cursor{false}, st=1)
     status = API.SQLFetchScroll(API.getptr(x.stmt), API.SQL_FETCH_NEXT, 0)
+    while status == API.SQL_STILL_EXECUTING
+        status = API.SQLFetchScroll(API.getptr(x.stmt), API.SQL_FETCH_NEXT, 0)
+    end
     status == API.SQL_SUCCESS || status == API.SQL_SUCCESS_WITH_INFO || return nothing
     x.current_rownumber = st
     for (i, binding) in enumerate(x.bindings)
