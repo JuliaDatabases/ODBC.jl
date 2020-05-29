@@ -1,4 +1,4 @@
-dir = realpath(joinpath(@__DIR__, "../config"))
+dir = joinpath(@__DIR__, "../config")
 mkdir(dir)
 open(joinpath(dir, "odbc.ini"), "w") do io
     write(io, "[ODBC Data Sources]\n\n[ODBC]\nTrace=0\nTraceFile=stderr\n")
