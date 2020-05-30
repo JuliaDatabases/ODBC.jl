@@ -11,11 +11,7 @@ ccast(x::Date) = API.SQLDate(x)
 ccast(x::DateTime) = API.SQLTimestamp(x)
 ccast(x::Time) = API.SQLTime(x)
 ccast(x::DecFP.DecimalFloatingPoint) = string(x)
-function ccast(x::String)
-    c = transcode(API.sqlwcharsize(), x)
-    push!(c, 0)
-    return c
-end
+ccast(x::String) = transcode(API.sqlwcharsize(), x)
 
 function newarray(T, nullable, rows)
     if nullable == API.SQL_NO_NULLS
@@ -263,7 +259,6 @@ mutable struct Binding
         b.bufferlength = bufferlength(b.value)
         b.strlen_or_indptr = [Int(x === missing ? API.SQL_NULL_DATA : bufferlength(b.value))]
         bindparam(stmt, i, b)
-        @show b
         return b
     end
 

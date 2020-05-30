@@ -48,7 +48,7 @@ end
 
 load(conn::Connection, table::AbstractString="odbcjl_"*Random.randstring(5); kw...) = x->load(x, conn, table; kw...)
 
-function load(itr, conn::Connection, name::AbstractString="odbcjl_"*Random.randstring(5); append::Bool=true, quoteidentifiers::Bool=true, debug::Bool=true, limit::Integer=typemax(Int64), kw...)
+function load(itr, conn::Connection, name::AbstractString="odbcjl_"*Random.randstring(5); append::Bool=true, quoteidentifiers::Bool=true, debug::Bool=false, limit::Integer=typemax(Int64), kw...)
     # get data
     rows = Tables.rows(itr)
     sch = Tables.schema(rows)
