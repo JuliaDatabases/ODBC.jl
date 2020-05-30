@@ -164,12 +164,12 @@ for i = 1:length(expected)
 end
 
 # ODBC.load
-ODBC.load(Base.structdiff(expected, NamedTuple{(:LastLogin2, :Wage,)}), conn, "Employee_copy"; limit=3)
+ODBC.load(Base.structdiff(expected, NamedTuple{(:LastLogin2, :Wage,)}), conn, "Employee_copy"; limit=4, columnsuffix=Dict(:Name=>"CHARACTER SET utf8mb4"))
 res = DBInterface.execute(conn, "select * from Employee_copy") |> columntable
 @test length(res) == 14
-@test length(res[1]) == 3
+@test length(res[1]) == 4
 for nm in keys(res)
-    @test isequal(res[nm], expected[nm][1:3])
+    @test isequal(res[nm], expected[nm][1:4])
 end
 
 # now test insert/parameter binding
