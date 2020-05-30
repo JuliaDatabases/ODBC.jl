@@ -48,7 +48,7 @@ end
 
 load(conn::Connection, table::AbstractString="odbcjl_"*Random.randstring(5); kw...) = x->load(x, conn, table; kw...)
 
-function load(itr, conn::Connection, name::AbstractString="odbcjl_"*Random.randstring(5); append::Bool=true, quoteidentifiers::Bool=true, debug::Bool=true, kw...)
+function load(itr, conn::Connection, name::AbstractString="odbcjl_"*Random.randstring(5); append::Bool=true, quoteidentifiers::Bool=true, debug::Bool=true, limit::Integer=typemax(Int64), kw...)
     # get data
     rows = Tables.rows(itr)
     sch = Tables.schema(rows)
@@ -74,6 +74,7 @@ function load(itr, conn::Connection, name::AbstractString="odbcjl_"*Random.rands
         params = chop(repeat("?,", length(sch.names)))
         stmt = DBInterface.prepare(conn, "INSERT INTO $name VALUES ($params)")
         for (i, row) in enumerate(rows)
+	    i > limit && break
             debug && @info "inserting row $i; $(Tables.Row(row))"
             DBInterface.execute(stmt, Tables.Row(row); debug=debug)
         end
