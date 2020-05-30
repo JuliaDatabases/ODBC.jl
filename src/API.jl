@@ -220,16 +220,33 @@ function __init__()
     return
 end
 
+const SQL_COMMIT = 0
+const SQL_ROLLBACK = 1
+
+function SQLEndTran(dbc, type)
+    @odbc(:SQLEndTran,
+        (SQLSMALLINT, Ptr{Cvoid}, SQLSMALLINT),
+        SQL_HANDLE_DBC, getptr(dbc), type)
+end
+
+endtran(dbc, commit::Bool) = @checksuccess dbc SQLEndTran(dbc, commit ? SQL_COMMIT : SQL_ROLLBACK)
+
 const SQL_ATTR_TRACE = SQLINTEGER(104)
 const SQL_ATTR_TRACEFILE = SQLINTEGER(105)
 const SQL_OPT_TRACE_OFF = SQLUINTEGER(0)
 const SQL_OPT_TRACE_ON = SQLUINTEGER(1)
+
+const SQL_ATTR_AUTOCOMMIT = SQLINTEGER(102)
+const SQL_AUTOCOMMIT_OFF = SQLUINTEGER(0)
+const SQL_AUTOCOMMIT_ON = SQLUINTEGER(1)
 
 function SQLSetConnectAttr(dbc, attr::SQLINTEGER, value::SQLUINTEGER)
     @odbc(:SQLSetConnectAttr,
         (Ptr{Cvoid}, SQLINTEGER, SQLUINTEGER, SQLINTEGER),
         getptr(dbc), attr, value, SQL_IS_UINTEGER)
 end
+
+setcommitmode(dbc, on::Bool) = @checksuccess dbc SQLSetConnectAttr(dbc, SQL_ATTR_AUTOCOMMIT, on ? SQL_AUTOCOMMIT_ON : SQL_AUTOCOMMIT_OFF)
 
 function SQLSetConnectAttr(dbc, attr::SQLINTEGER, value::String)
     @odbc(:SQLSetConnectAttr,
@@ -271,6 +288,31 @@ function getinfosqluinteger(dbc::Handle, type=121)
         (Ptr{Cvoid}, SQLUSMALLINT, Ref{SQLUINTEGER}, SQLSMALLINT, Ref{SQLSMALLINT}),
         getptr(dbc), type, ref, 0, len)
     return ref[]
+end
+
+const SQL_IDENTIFIER_QUOTE_CHAR = 29
+
+function getinfostring(dbc::Handle, type)
+    buf = Vector{UInt8}(undef, 6)
+    len = Ref{SQLSMALLINT}()
+    @checksuccess dbc @odbc(:SQLGetInfo,
+        (Ptr{Cvoid}, SQLUSMALLINT, Ptr{UInt8}, SQLSMALLINT, Ref{SQLSMALLINT}),
+        getptr(dbc), type, buf, sizeof(buf), len)
+    return str(buf, len[])
+end
+
+const SQL_ALL_TYPES = 0
+
+function SQLGetTypeInfo(stmt)
+    @odbc(:SQLGetTypeInfo,
+        (Ptr{Cvoid}, SQLSMALLINT),
+        getptr(stmt), SQL_ALL_TYPES)
+end
+
+function gettypes(dbc)
+    stmt = Handle(SQL_HANDLE_STMT, getptr(dbc))
+    SQLGetTypeInfo(stmt)
+    return stmt
 end
 
 const SQL_DRIVER_COMPLETE = UInt16(1)
@@ -351,11 +393,14 @@ const SQL_PARAM_INPUT = Int16(1)
 const SQL_PARAM_OUTPUT = Int16(4)
 const SQL_PARAM_INPUT_OUTPUT = Int16(2)
 
-function SQLBindParameter(stmt::Ptr{Cvoid},x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value,param_size::Int,len::Ptr{SQLLEN})
+function SQLBindParameter(stmt,x::Int,iotype::Int16,ctype::Int16,sqltype::Int16,column_size::Int,decimal_digits::Int,param_value,param_size::Int,len::Ptr{SQLLEN})
     @odbc(:SQLBindParameter,
         (Ptr{Cvoid},UInt16,Int16,Int16,Int16,UInt,Int16,Ptr{Cvoid},Int,Ptr{SQLLEN}),
-        stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,len)
+        getptr(stmt),x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,len)
 end
+
+bindparam(stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,len) =
+    @checksuccess stmt SQLBindParameter(stmt,x,iotype,ctype,sqltype,column_size,decimal_digits,param_value,param_size,len)
 
 const SQL_CLOSE = UInt16(0)
 
@@ -377,7 +422,7 @@ function SQLExecute(stmt::Ptr{Cvoid})
         stmt)
 end
 
-execute(stmt::Handle) = SQLExecute(getptr(stmt))
+execute(stmt::Handle) = @checksuccess stmt SQLExecute(getptr(stmt))
 
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
     q = cwstring(query)

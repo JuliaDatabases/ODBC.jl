@@ -1,12 +1,13 @@
 module ODBC
 
-using Printf, Dates, UUIDs, Unicode
+using Printf, Dates, UUIDs, Unicode, Random
 using DecFP, DBInterface, Tables
 export DBInterface
 
 include("API.jl")
 include("utils.jl")
 include("dbinterface.jl")
+include("load.jl")
 
 """
     ODBC.setdebug(debug::Bool=true, tracefile::String=joinpath(tempdir(), "odbc.log"))

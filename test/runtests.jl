@@ -163,6 +163,15 @@ for i = 1:length(expected)
     end
 end
 
+# ODBC.load
+ODBC.load(Base.structdiff(expected, NamedTuple{(:LastLogin2, :Wage,)}), conn, "Employee_copy")
+res = DBInterface.execute(conn, "select * from Employee_copy") |> columntable
+@test length(res) == 14
+@test length(res[1]) == 5
+for nm in keys(res)
+    @test isequal(res[nm], expected[nm])
+end
+
 # now test insert/parameter binding
 DBInterface.execute(conn, "DELETE FROM Employee")
 for i = 1:length(expected)
