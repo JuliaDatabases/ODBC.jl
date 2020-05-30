@@ -172,8 +172,8 @@ getptr(x::Ptr) = x
 
 const ODBC_ENV = Ref{Handle}()
 
-const ODBCINI = realpath(joinpath(@__DIR__, "../config/odbc.ini"))
-const ODBCINSTINI = realpath(joinpath(@__DIR__, "../config/odbcinst.ini"))
+const ODBCINI = abspath(joinpath(@__DIR__, "../config/odbc.ini"))
+const ODBCINSTINI = abspath(joinpath(@__DIR__, "../config/odbcinst.ini"))
 
 @assert isfile(ODBCINI) || error("error finding ODBC/config/odbc.ini file; please Pkg.build(\"ODBC\") again")
 @assert isfile(ODBCINSTINI) || error("error finding ODBC/config/odbcinst.ini file; please Pkg.build(\"ODBC\") again")
