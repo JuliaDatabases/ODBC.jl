@@ -1,6 +1,6 @@
 # whether a julia value needs wrapped in an array in order to call pointer(value)
 # needswrapped(x::API.SQLSMALLINT) = x != API.SQL_C_CHAR && x != API.SQL_C_WCHAR && x != API.SQL_C_BINARY
-needswrapped(x::Union{String, Vector{UInt8}}) = false
+needswrapped(x::Union{String, Vector{UInt8}, Vector{UInt16}, Vector{UInt32}}) = false
 needswrapped(x::DecFP.DecimalFloatingPoint) = false
 needswrapped(x) = true
 const MISSING_BUF = [missing]
@@ -11,6 +11,11 @@ ccast(x::Date) = API.SQLDate(x)
 ccast(x::DateTime) = API.SQLTimestamp(x)
 ccast(x::Time) = API.SQLTime(x)
 ccast(x::DecFP.DecimalFloatingPoint) = string(x)
+function ccast(x::String)
+    c = transcode(API.sqlwcharsize(), x)
+    push!(c, 0)
+    return c
+end
 
 function newarray(T, nullable, rows)
     if nullable == API.SQL_NO_NULLS
@@ -28,6 +33,10 @@ end
     elseif x isa String
         return f(x)
     elseif x isa Vector{UInt8}
+        return f(x)
+    elseif x isa Vector{UInt16}
+        return f(x)
+    elseif x isa Vector{UInt32}
         return f(x)
     elseif x isa Vector{Float32}
         return f(x)
@@ -81,6 +90,8 @@ mutable struct Buffer
         Vector{Missing},
         String,
         Vector{UInt8},
+        Vector{UInt16},
+        Vector{UInt32},
         Vector{Float32},
         Vector{Float64},
         Vector{Int8},
@@ -135,6 +146,8 @@ mutable struct Buffer
             return new(newarray(API.SQLTime, nullable, rows))
         elseif ctype == API.SQL_C_GUID
             return new(newarray(UUID, nullable, rows))
+        elseif ctype == API.SQL_C_WCHAR
+            return new(Vector{API.sqlwcharsize()}(undef, columnsize * rows))
         else
             return new(Vector{UInt8}(undef, columnsize * rows))
         end
@@ -171,6 +184,7 @@ bufferlength(b::Buffer) = specialize(sizeof, b.buffer)
 # https://docs.microsoft.com/en-us/sql/odbc/reference/appendixes/column-size?view=sql-server-ver15
 columnsize(x) = 0
 columnsize(x::Union{String, Vector{UInt8}}) = sizeof(x)
+columnsize(x::Union{Vector{UInt16}, Vector{UInt32}}) = length(x)
 columnsize(x::Vector{T}) where {T <: Union{Float32, Float64}} = ndigits(trunc(Int, maxintfloat(T))) - 1
 columnsize(x::Vector{Bool}) = 1
 columnsize(x::Vector{T}) where {T <: Integer} = ndigits(typemax(T))
@@ -187,7 +201,7 @@ decimaldigits(b::Buffer) = specialize(decimaldigits, b.buffer)
 # returns (C type, SQL type) given an input julia value
 # so: for a julia value, what should the C buffer be for binding the variable
 # and what is the SQL type the driver should expect
-bindtypes(x) = API.SQL_C_CHAR, API.SQL_VARCHAR
+bindtypes(x) = API.SQL_C_WCHAR, API.SQL_WVARCHAR
 bindtypes(x::Int16) = API.SQL_C_SSHORT, API.SQL_SMALLINT
 bindtypes(x::UInt16) = API.SQL_C_USHORT, API.SQL_SMALLINT
 bindtypes(x::Int32) = API.SQL_C_SLONG, API.SQL_INTEGER
@@ -246,8 +260,10 @@ mutable struct Binding
         b.valuetype = v
         b.parametertype = p
         b.value = Buffer(x)
+        b.bufferlength = bufferlength(b.value)
         b.strlen_or_indptr = [Int(x === missing ? API.SQL_NULL_DATA : bufferlength(b.value))]
         bindparam(stmt, i, b)
+        @show b
         return b
     end
 
