@@ -37,11 +37,11 @@ end
 
 checkdupnames(names) = length(unique(map(x->lowercase(String(x)), names))) == length(names) || error("duplicate case-insensitive column names detected; sqlite doesn't allow duplicate column names and treats them case insensitive")
 
-function createtable(conn::Connection, nm::AbstractString, sch::Tables.Schema; debug::Bool=false, quoteidentifiers::Bool=true, createtableclause::AbstractString="CREATE TABLE")
+function createtable(conn::Connection, nm::AbstractString, sch::Tables.Schema; debug::Bool=false, quoteidentifiers::Bool=true, createtableclause::AbstractString="CREATE TABLE", columnsuffix=Dict())
     names = sch.names
     checkdupnames(names)
     types = [sqltype(conn, T) for T in sch.types]
-    columns = (string(quoteidentifiers ? quoteid(conn, String(names[i])) : names[i], ' ', types[i]) for i = 1:length(names))
+    columns = (string(quoteidentifiers ? quoteid(conn, String(names[i])) : names[i], ' ', types[i], ' ', get(columnsuffix, names[i], "")) for i = 1:length(names))
     debug && @info "executing create table statement: `$createtableclause $nm ($(join(columns, ", ")))`"
     return DBInterface.execute(conn, "$createtableclause $nm ($(join(columns, ", ")))")
 end
