@@ -1,8 +1,13 @@
 mutable struct Connection <: DBInterface.Connection
     dbc::API.Handle
     dsn::String
+    quoteidentifierchar::Char
+    types::Dict{Type, String}
+    alltypes::Any
     cursorstmt::Any # keep track of most recent stmt cursor to free appropriately before next execute
 end
+
+Connection(dbc::API.Handle, dsn) = Connection(dbc, dsn, '\0', Dict{Type, String}(), nothing, nothing)
 
 Base.show(io::IO, conn::Connection) = print(io, "ODBC.Connection($(conn.dsn))")
 
@@ -26,7 +31,7 @@ A great resource for building valid connection strings is [http://www.connection
 """
 function Connection(dsn::AbstractString, usr=nothing, pwd=nothing)
     connectionstring = occursin('=', dsn)
-    return Connection(connectionstring ? API.driverconnect(dsn) : API.connect(dsn, usr, pwd), dsn, nothing)
+    return Connection(connectionstring ? API.driverconnect(dsn) : API.connect(dsn, usr, pwd), dsn)
 end
 
 """
@@ -88,7 +93,7 @@ function DBInterface.prepare(conn::Connection, sql::AbstractString)
     return Statement(conn, stmt, sql, nothing, API.numparams(stmt))
 end
 
-@noinline paramcheck(stmt, params) = length(params) == stmt.nparams || error("stmt requires $(stmt.nparams) params, only $(length(params)) provided")
+@noinline paramcheck(stmt, params) = (stmt.nparams == 0 || length(params) == stmt.nparams) || error("stmt requires $(stmt.nparams) params, only $(length(params)) provided")
 
 """
     DBInterface.execute(stmt, params=(); iterate_rows::Bool=false, ignore_driver_row_count::Bool=false, normalizenames::Bool=false, debug::Bool=false) -> ODBC.Cursor
@@ -109,11 +114,11 @@ function DBInterface.execute(stmt::Statement, params=(); debug::Bool=false, kw..
     API.freestmt(stmt.stmt)
     clear!(stmt.dsn)
     paramcheck(stmt, params)
+    stmt.dsn.cursorstmt = stmt.stmt
     stmt.bindings = bindparams(stmt.stmt, params, stmt.bindings)
     debug && println("executing prepared statement: $(stmt.sql)")
     API.execute(stmt.stmt)
     c = Cursor(stmt.stmt; debug=debug, kw...)
-    stmt.dsn.cursorstmt = stmt.stmt
     return c
 end
 
@@ -139,11 +144,11 @@ have more benefit for repeated executions (even with different parameters).
 function DBInterface.execute(conn::Connection, sql::AbstractString, params=(); debug::Bool=false, kw...)
     clear!(conn)
     stmt = API.Handle(API.SQL_HANDLE_STMT, API.getptr(conn.dbc))
+    conn.cursorstmt = stmt
     API.enableasync(stmt)
     bindings = bindparams(stmt, params, nothing)
     debug && println("executing statement: $sql")
     GC.@preserve bindings (API.execdirect(stmt, sql))
-    conn.cursorstmt = stmt
     return Cursor(stmt; debug=debug, kw...)
 end
 

@@ -152,7 +152,11 @@ function update!(b::Buffer, @nospecialize(x))
         y = ccast(x)
         if needswrapped(x)
             specialize(b.buffer) do buf
-                buf[1] = y
+                if y isa eltype(buf)
+                    buf[1] = y
+                else
+                    b.buffer = Union{Missing, typeof(y)}[y]
+                end
             end
         else
             b.buffer = y
@@ -183,7 +187,7 @@ decimaldigits(b::Buffer) = specialize(decimaldigits, b.buffer)
 # returns (C type, SQL type) given an input julia value
 # so: for a julia value, what should the C buffer be for binding the variable
 # and what is the SQL type the driver should expect
-bindtypes(x) = API.SQL_C_CHAR, API.SQL_CHAR
+bindtypes(x) = API.SQL_C_CHAR, API.SQL_VARCHAR
 bindtypes(x::Int16) = API.SQL_C_SSHORT, API.SQL_SMALLINT
 bindtypes(x::UInt16) = API.SQL_C_USHORT, API.SQL_SMALLINT
 bindtypes(x::Int32) = API.SQL_C_SLONG, API.SQL_INTEGER
@@ -195,13 +199,36 @@ bindtypes(x::Int8) = API.SQL_C_STINYINT, API.SQL_TINYINT
 bindtypes(x::UInt8) = API.SQL_C_UTINYINT, API.SQL_TINYINT
 bindtypes(x::Int64) = API.SQL_C_SBIGINT, API.SQL_BIGINT
 bindtypes(x::UInt64) = API.SQL_C_UBIGINT, API.SQL_BIGINT
-bindtypes(x::Vector{UInt8}) = API.SQL_C_BINARY, API.SQL_BINARY
+bindtypes(x::Vector{UInt8}) = API.SQL_C_BINARY, API.SQL_VARBINARY
 bindtypes(x::Date) = API.SQL_C_TYPE_DATE, API.SQL_TYPE_DATE
 bindtypes(x::DateTime) = API.SQL_C_TYPE_TIMESTAMP, API.SQL_TYPE_TIMESTAMP
 bindtypes(x::Time) = API.SQL_C_TYPE_TIME, API.SQL_TYPE_TIME
-bindtypes(x::DecFP.DecimalFloatingPoint) = API.SQL_C_CHAR, API.SQL_CHAR
+bindtypes(x::DecFP.DecimalFloatingPoint) = API.SQL_C_CHAR, API.SQL_DECIMAL
 # bindtypes(x::DecFP.DecimalFloatingPoint) = API.SQL_C_NUMERIC
 bindtypes(x::UUID) = API.SQL_C_GUID, API.SQL_GUID
+
+const BINDTYPES = [
+    Int8, Int16, Int32, Int64,
+    UInt8, UInt16, UInt32, UInt64,
+    Float32, Float64, DecFP.Dec64, DecFP.Dec128,
+    Bool,
+    Vector{UInt8}, String, UUID,
+    Date, Time, DateTime
+]
+
+bindtypes(::Type{T}) where {T} = bindtypes(zero(T))
+bindtypes(::Type{Vector{UInt8}}) = bindtypes(UInt8[])
+bindtypes(::Type{String}) = bindtypes("")
+bindtypes(::Type{T}) where {T <: Dates.TimeType} = bindtypes(T(0))
+bindtypes(::Type{UUID}) = bindtypes(UUID(0))
+
+# used for create table column type definitions
+typeprecision(::Type{DecFP.Dec64}) = 16
+typeprecision(::Type{DecFP.Dec128}) = 35
+typeprecision(::Type{Float64}) = 15
+typeprecision(::Type{Float32}) = 7
+typeprecision(T) = 0
+typescale(T) = 6
 
 mutable struct Binding
     valuetype::API.SQLSMALLINT # C type for storage
@@ -243,14 +270,17 @@ end
 
 function update!(stmt, b::Binding, @nospecialize(x), i)
     update!(b.value, x)
+    v, p = bindtypes(x)
+    b.valuetype = v
+    b.parametertype = p
     b.bufferlength = bufferlength(b.value)
-    b.strlen_or_indptr[1] = Int(x === missing ? API.SQL_NULL_DATA : b.bufferlength)
+    b.strlen_or_indptr[1] = Int(x === missing ? API.SQL_NULL_DATA : bufferlength(b.value))
     bindparam(stmt, i, b)
     return
 end
 
 # unpack Binding/Buffer to call SQLBindParameter
-bindparam(stmt, i, b::Binding) = API.SQLBindParameter(API.getptr(stmt), i, API.SQL_PARAM_INPUT,
+bindparam(stmt, i, b::Binding) = API.bindparam(stmt, i, API.SQL_PARAM_INPUT,
     b.valuetype, b.parametertype, columnsize(b.value), decimaldigits(b.value), pointer(b.value), b.bufferlength, pointer(b.strlen_or_indptr))
 
 # if no bindings have been made yet, allocate them fresh

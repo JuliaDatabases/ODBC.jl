@@ -26,11 +26,11 @@ else
     libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
 end
 ODBC.adddriver("ODBC_Test_MariaDB", libpath)
-ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="localhost", UID="root", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
+ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="127.0.0.1", UID="root", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
 
 conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB")
 DBInterface.close!(conn)
-conn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=localhost;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4;USER=root")
+conn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4;USER=root")
 
 DBInterface.execute(conn, "DROP DATABASE if exists mysqltest")
 DBInterface.execute(conn, "CREATE DATABASE mysqltest")
@@ -161,6 +161,15 @@ for i = 1:length(expected)
     if i != 11
         @test isequal(res[i], expected[i])
     end
+end
+
+# ODBC.load
+ODBC.load(Base.structdiff(expected, NamedTuple{(:LastLogin2, :Wage,)}), conn, "Employee_copy"; limit=3)
+res = DBInterface.execute(conn, "select * from Employee_copy") |> columntable
+@test length(res) == 14
+@test length(res[1]) == 3
+for nm in keys(res)
+    @test isequal(res[nm], expected[nm][1:3])
 end
 
 # now test insert/parameter binding
