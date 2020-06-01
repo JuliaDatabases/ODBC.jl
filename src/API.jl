@@ -109,7 +109,7 @@ macro checksuccess(h, expr)
     esc(quote
         ret = $expr
         if ret == SQL_SUCCESS_WITH_INFO
-            @warn diagnostics($h)
+            @info diagnostics($h)
         elseif ret == SQL_ERROR || ret == SQL_INVALID_HANDLE
             error(diagnostics($h))
         end
