@@ -30,7 +30,7 @@ Once a driver or two are installed (viewable by calling `ODBC.drivers()`), you c
   * Setup a DSN, via `ODBC.adddsn("dsn name", "driver name"; kw...)`
   * Make a connection directly by using a full connection string like `ODBC.Connection(connection_string)`
 
-In setting up a DSN, you can specify all the configuration options once, then connect by just calling `ODBC.Connection("dsn name")`, optionally passing a username and password as the 2nd and 3rd arguments. Alternatively, crafting and connecting via a fully specified connection string can mean less config-file dependency.
+In setting up a DSN, you can specify all the configuration options once, then connect by just calling `ODBC.Connection("dsn name")` or `DBInterface.execute(ODBC.Connection, "dsn name")`, optionally passing a username and password as the 2nd and 3rd arguments. Alternatively, crafting and connecting via a fully specified connection string can mean less config-file dependency.
 
 ### Executing Queries
 
@@ -38,6 +38,18 @@ To execute queries, there are two paths:
   * `DBInterface.execute(conn, sql, params)`: directly execute a SQL query and return a `Cursor` for any resultset
   * `stmt = DBInterface.prepare(conn, sql); DBInterface.execute(stmt, params)`: first prepare a SQL statement, then execute, perhaps multiple times with different parameters
 Both forms of `DBInterface.execute` return a `Cursor` object that satisfies the [Tables.jl](https://juliadata.github.io/Tables.jl/stable/), so results can be utilized in whichever way is most convenient, like `DataFrame(x)`, `CSV.write("results.csv", x)` or materialzed as a plain `Matrix` (`Tables.matrix(x)`), `NamedTuple` (`Tables.columntable(x)`), or `Vector` of `NamedTuple` (`Tables.rowtable(x)`).
+
+An example of executing query is:
+
+```julia
+using DataFrames
+df = DBInterface.execute(conn, "SELECT id, wage FROM employees") |> DataFrame
+# if wage is a DecFP, maybe I want to convert to Float64 or Int64
+# convert to Float64
+df.wage = Float64.(df.wage)
+# convert to Int64
+df.wage = Int.(df.wage)
+```
 
 ### Loading data
 
