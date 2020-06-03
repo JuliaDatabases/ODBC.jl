@@ -529,15 +529,15 @@ end
 moreresults(stmt::Handle) = @checksuccess stmt SQLMoreResults(getptr(stmt))
 
 function SQLGetDiagRec(handletype, handle, i, state, native, error_msg, msg_length)
-    @odbc(:SQLGetDiagRecW,
-        (SQLSMALLINT,Ptr{Cvoid},SQLSMALLINT,Ptr{SQLWCHAR},Ref{SQLINTEGER},Ptr{SQLWCHAR},SQLSMALLINT,Ref{SQLSMALLINT}),
+    @odbc(:SQLGetDiagRec,
+        (SQLSMALLINT,Ptr{Cvoid},SQLSMALLINT,Ptr{SQLCHAR},Ref{SQLINTEGER},Ptr{SQLCHAR},SQLSMALLINT,Ref{SQLSMALLINT}),
         handletype,handle,i,state,native,error_msg,length(error_msg),msg_length)
 end
 
 function diagnostics(h::Handle)
-    state = Vector{sqlwcharsize()}(undef, 6)
+    state = Vector{UInt8}(undef, 6)
     native = Ref{SQLINTEGER}()
-    error = Vector{sqlwcharsize()}(undef, 1024)
+    error = Vector{UInt8}(undef, 1024)
     len = Ref{SQLSMALLINT}()
     i = 1
     io = IOBuffer()
