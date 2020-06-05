@@ -64,6 +64,18 @@ df.wage = Int.(df.wage)
 
 ODBC.jl attempts to provide a convenient `ODBC.load(table, conn, table_name)` function for generically loading Tables.jl-compatible sources into database tables. While the ODBC spec has some utilities for even making this possible, just note that it can be tricky to do generically in practice due to differences in database requirements for `CREATE TABLE` and column type statements.
 
+## Troubleshooting
+
+Using ODBC is notoriously complex on any system/language, so here's a collection of ideas/cases that have tripped people up in the past.
+
+### Connection issues
+
+If you're having connection issues, try to look up the documented requirements for the specific ODBC driver you're using; in particular, try to see if a specific driver manager is required, like iODBC or unixODBC. One example is in the Microsoft-provided SQL Server ODBC driver for mac/OSX which requires unixODBC as opposed to the usual OSX default iODBC. In ODBC.jl, you can easily switch between the two by just doing `ODBC.setunixODBC()` or `ODBC.setiODBC()`.
+
+### Query mangling/unicode issues
+
+Unicode support in ODBC is notoriously messy; different driver managers supports different things manually vs. automatically, drivers might require specific encodings or be flexible for all. ODBC.jl tries to stick with the most generally accepted defaults which is using the UTF-16 encoding in unixODBC and Windows, and using UTF-32 for OSX with iODBC. Sometimes, specific drivers will have configurations or allow datasource connection parameters to alter these. We don't recommend changing to anything but the defaults, but sometimes there are defaults shipped with drivers that don't match ODBC.jl's defaults. One example is the Impala ODBC driver on linux, which is correctly built against unixODBC (default driver manager on linux), but then sets a property `DriverManagerEncoding=UTF-32` in the `/opt/cloudera/impalaodbc/lib/64/cloudera.impalaodbc.ini` file which messes things up (since ODBC.jl tries to use UTF-16). This examples shows that there may be driver-provided configuration files that make affect things that sometimes take some digging to figure out. Always try to read through the driver documentation and keep an eye out for these kinds of settings, and then don't be afraid to snoop around in the installed files to see if anything seems out of place.
+
 ## API Reference
 
 ### DBMS Connections
