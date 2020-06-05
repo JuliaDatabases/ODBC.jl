@@ -12,12 +12,15 @@ ccast(x::DateTime) = API.SQLTimestamp(x)
 ccast(x::Time) = API.SQLTime(x)
 ccast(x::DecFP.DecimalFloatingPoint) = string(x)
 
+_zero(T) = zero(T)
+_zero(::Type{UUID}) = UUID(0)
+
 function newarray(T, nullable, rows)
     if nullable == API.SQL_NO_NULLS
         return Vector{T}(undef, rows)
     else
         A = Vector{Union{Missing, T}}(undef, rows)
-        fill!(A, zero(T))
+        fill!(A, _zero(T))
         return A
     end
 end

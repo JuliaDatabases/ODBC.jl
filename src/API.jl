@@ -320,25 +320,26 @@ const SQL_DRIVER_COMPLETE_REQUIRED = UInt16(3)
 const SQL_DRIVER_NOPROMPT = UInt16(0)
 const SQL_DRIVER_PROMPT = UInt16(2)
 
-function SQLDriverConnect(dbc::Ptr{Cvoid},connstr)
+function SQLDriverConnect(dbc,connstr)
     # need to call SQLDriverConnectW to ensure our application gets labelled "unicode"
     # and subsequent library calls behave properly
     c = transcode(sqlwcharsize(), connstr)
-    push!(c, sqlwcharsize()(0))
+    # push!(c, sqlwcharsize()(0))
     ret = @odbc(:SQLDriverConnectW,
         (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLWCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
-        dbc,C_NULL,c,SQL_NTS,C_NULL,0,C_NULL,SQL_DRIVER_NOPROMPT)
+        getptr(dbc),C_NULL,c,length(c),C_NULL,0,C_NULL,SQL_DRIVER_NOPROMPT)
     if ret == SQL_ERROR
+        # @warn diagnostics(dbc)
         ret = @odbc(:SQLDriverConnect,
             (Ptr{Cvoid},Ptr{Cvoid},Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLCHAR},SQLSMALLINT,Ptr{SQLSMALLINT},SQLUSMALLINT),
-            dbc,C_NULL,connstr,SQL_NTS,C_NULL,0,C_NULL,SQL_DRIVER_NOPROMPT)
+            getptr(dbc),C_NULL,connstr,SQL_NTS,C_NULL,0,C_NULL,SQL_DRIVER_NOPROMPT)
     end
     return ret
 end
 
 function driverconnect(connstr)
     dbc = Handle(SQL_HANDLE_DBC, ODBC_ENV[])
-    @checksuccess dbc SQLDriverConnect(getptr(dbc), connstr)
+    @checksuccess dbc SQLDriverConnect(dbc, connstr)
     return dbc
 end
 
