@@ -28,6 +28,15 @@ Takes optional 2nd and 3rd arguments for named datasources `username` and `passw
 1st argument `dsn` can be either the name of a pre-defined ODBC Connection or a valid connection string.
 The `user` and `pwd` arguments are ignored if the first argument is a connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
+
+Note that connecting will use the currently "set" ODBC driver manager, which by default is iODBC on OSX, unixODBC on Linux, and
+the system driver manager on Windows. If you experience cryptic connection errors, it's probably worth checking with your ODBC
+driver documentation to see if it requires a specific driver manager. For example, Microsoft-provided ODBC driver for SQL Server
+requires unixODBC on OSX, but by default, ODBC.jl sets the driver manager to iODBC, so before connecting, you would need to do:
+```julia
+ODBC.setunixODBC()
+conn = ODBC.Connection(...)
+```
 """
 function Connection(dsn::AbstractString, usr=nothing, pwd=nothing)
     connectionstring = occursin('=', dsn)
@@ -42,6 +51,15 @@ Takes optional 2nd and 3rd arguments for named datasources `username` and `passw
 1st argument `dsn` can be either the name of a pre-defined ODBC Connection or a valid connection string.
 The `user` and `pwd` arguments are ignored if the first argument is a connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
+
+Note that connecting will use the currently "set" ODBC driver manager, which by default is iODBC on OSX, unixODBC on Linux, and
+the system driver manager on Windows. If you experience cryptic connection errors, it's probably worth checking with your ODBC
+driver documentation to see if it requires a specific driver manager. For example, Microsoft-provided ODBC driver for SQL Server
+requires unixODBC on OSX, but by default, ODBC.jl sets the driver manager to iODBC, so before connecting, you would need to do:
+```julia
+ODBC.setunixODBC()
+conn = ODBC.Connection(...)
+```
 """
 DBInterface.connect(::Type{Connection}, args...; kw...) = Connection(args...; kw...)
 

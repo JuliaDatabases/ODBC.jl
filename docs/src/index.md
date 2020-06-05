@@ -32,6 +32,15 @@ Once a driver or two are installed (viewable by calling `ODBC.drivers()`), you c
 
 In setting up a DSN, you can specify all the configuration options once, then connect by just calling `ODBC.Connection("dsn name")` or `DBInterface.execute(ODBC.Connection, "dsn name")`, optionally passing a username and password as the 2nd and 3rd arguments. Alternatively, crafting and connecting via a fully specified connection string can mean less config-file dependency.
 
+Note that connecting will use the currently "set" ODBC driver manager, which by default is iODBC on OSX, unixODBC on Linux, and
+the system driver manager on Windows. If you experience cryptic connection errors, it's probably worth checking with your ODBC
+driver documentation to see if it requires a specific driver manager. For example, Microsoft-provided ODBC driver for SQL Server
+requires unixODBC on OSX, but by default, ODBC.jl sets the driver manager to iODBC, so before connecting, you would need to do:
+```julia
+ODBC.setunixODBC()
+conn = ODBC.Connection(...)
+```
+
 ### Executing Queries
 
 To execute queries, there are two paths:
