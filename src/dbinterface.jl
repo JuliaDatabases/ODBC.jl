@@ -5,9 +5,10 @@ mutable struct Connection <: DBInterface.Connection
     types::Dict{Type, String}
     alltypes::Any
     cursorstmt::Any # keep track of most recent stmt cursor to free appropriately before next execute
+    stmts::WeakKeyDict{Any, Any}
 end
 
-Connection(dbc::API.Handle, dsn) = Connection(dbc, dsn, '\0', Dict{Type, String}(), nothing, nothing)
+Connection(dbc::API.Handle, dsn) = Connection(dbc, dsn, '\0', Dict{Type, String}(), nothing, nothing, WeakKeyDict())
 
 Base.show(io::IO, conn::Connection) = print(io, "ODBC.Connection($(conn.dsn))")
 
@@ -67,6 +68,11 @@ Base.isopen(c::Connection) = c.dbc.ptr != C_NULL && API.getconnectattr(c.dbc, AP
 
 "disconnect a connected `Connection`"
 function disconnect!(conn::Connection)
+    # for #292, it seems we need to finalize any stmts on the connection
+    # before disconnect/freehandle, even though disconnect should do that for us
+    for stmt in keys(conn.stmts)
+        finalize(stmt)
+    end
     API.disconnect(conn.dbc)
     return nothing
 end
@@ -108,6 +114,7 @@ and re-using it many times with different parameters (or the same) efficiently.
 function DBInterface.prepare(conn::Connection, sql::AbstractString)
     clear!(conn)
     stmt = API.prepare(conn.dbc, sql)
+    conn.stmts[stmt] = 0
     return Statement(conn, stmt, sql, nothing, API.numparams(stmt))
 end
 
@@ -162,6 +169,7 @@ have more benefit for repeated executions (even with different parameters).
 function DBInterface.execute(conn::Connection, sql::AbstractString, params=(); debug::Bool=false, kw...)
     clear!(conn)
     stmt = API.Handle(API.SQL_HANDLE_STMT, API.getptr(conn.dbc))
+    conn.stmts[stmt] = 0
     conn.cursorstmt = stmt
     API.enableasync(stmt)
     bindings = bindparams(stmt, params, nothing)
