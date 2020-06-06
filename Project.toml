@@ -1,6 +1,6 @@
 name = "ODBC"
 uuid = "be6f12e9-ca4f-5eb2-a339-a4f995cc0291"
-version = "1.0.0"
+version = "1.0.1"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
