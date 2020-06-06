@@ -158,6 +158,9 @@ mutable struct Handle
         h = new(type, ptr)
         finalizer(h) do x
             if x.ptr != C_NULL
+                if x.type == SQL_HANDLE_DBC
+                    SQLDisconnect(x.ptr)
+                end
                 SQLFreeHandle(x.type, x.ptr)
                 x.ptr = C_NULL
             end
