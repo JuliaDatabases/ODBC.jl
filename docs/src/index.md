@@ -41,6 +41,17 @@ ODBC.setunixODBC()
 conn = ODBC.Connection(...)
 ```
 
+Note that the odbc driver shared libraries can be "sticky" with regards to changing to
+system configuration files. You may need to set a `OVERRIDE_ODBCJL_CONFIG` environment
+variable before starting `julia` and running `import ODBC` to ensure that no environment
+variables are changed by ODBC.jl itself. You can do this like:
+```julia
+ENV["OVERRIDE_ODBCJL_CONFIG"] = true
+using ODBC
+ODBC.setunixODBC(;ODBCSYSINI="/etc", ODBCINSTINI="odbcinst.ini", ODBCINI="/etc/odbc.ini")
+conn = ODBC.Connection(...)
+```
+
 ### Executing Queries
 
 To execute queries, there are two paths:
