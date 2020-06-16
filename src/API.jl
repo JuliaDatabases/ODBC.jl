@@ -1,5 +1,6 @@
 module API
 
+using Libdl
 using unixODBC_jll
 const unixODBC_dm = unixODBC_jll.libodbc
 const unixODBC_inst = unixODBC_jll.libodbcinst
@@ -193,9 +194,10 @@ function setupenv(; trace::Bool=false, tracefile::String="", kw...)
         ENV["ODBCINSTINI"] = ODBCINSTINI
     elseif odbc_dm[] == unixODBC
         ENV["ODBCSYSINI"] = realpath(joinpath(@__DIR__, "../config"))
+        Libdl.dlclose(unixODBC_jll.libodbc_handle)
     end
     for (k, v) in pairs(kw)
-        ENV[k] = v
+        ENV[string(k)] = v
     end
     ODBC_ENV[] = Handle(SQL_HANDLE_ENV)
     return
