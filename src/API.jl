@@ -181,21 +181,23 @@ const ODBCINSTINI = abspath(joinpath(@__DIR__, "../config/odbcinst.ini"))
 @assert isfile(ODBCINI) || error("error finding ODBC/config/odbc.ini file; please Pkg.build(\"ODBC\") again")
 @assert isfile(ODBCINSTINI) || error("error finding ODBC/config/odbcinst.ini file; please Pkg.build(\"ODBC\") again")
 
-function setupenv(; trace::Bool=false, tracefile::String="", kw...)
+function setupenv(; kw...)
     if isdefined(ODBC_ENV, :x)
         finalize(ODBC_ENV[])
     end
-    delete!(ENV, "ODBCINI")
-    delete!(ENV, "ODBCSYSINI")
-    delete!(ENV, "ODBCINSTINI")
-    ENV["ODBCINI"] = ODBCINI
-    if odbc_dm[] == iODBC
-        ENV["ODBCINSTINI"] = ODBCINSTINI
-    elseif odbc_dm[] == unixODBC
-        ENV["ODBCSYSINI"] = realpath(joinpath(@__DIR__, "../config"))
+    if !haskey(ENV, "OVERRIDE_ODBCJL_CONFIG")
+        delete!(ENV, "ODBCINI")
+        delete!(ENV, "ODBCSYSINI")
+        delete!(ENV, "ODBCINSTINI")
+        ENV["ODBCINI"] = ODBCINI
+        if odbc_dm[] == iODBC
+            ENV["ODBCINSTINI"] = ODBCINSTINI
+        elseif odbc_dm[] == unixODBC
+            ENV["ODBCSYSINI"] = realpath(joinpath(@__DIR__, "../config"))
+        end
     end
     for (k, v) in pairs(kw)
-        ENV[k] = v
+        ENV[string(k)] = v
     end
     ODBC_ENV[] = Handle(SQL_HANDLE_ENV)
     return
