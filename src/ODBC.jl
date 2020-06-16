@@ -46,6 +46,11 @@ Set the ODBC driver manager used to unixODBC. By default, ODBC.jl sets the `ODBC
 these (or provide additional environment variables) via `kw...` keyword arguments
 this this function. The env variables will be set before allocating the ODBC environemnt.
 
+Note that the odbc driver shared libraries can be "sticky" with regards to changing to
+system configuration files. You may need to set a `OVERRIDE_ODBCJL_CONFIG` environment
+variable before starting `julia` and running `import ODBC` to ensure that no environment
+variables are changed by ODBC.jl itself.
+
 While a unixODBC driver manager shared library is available for every platform, do note
 that individual ODBC driver libraries may not be compatible with unixODBC on your system;
 for example, if a driver library is built against iODBC, but unixODBC is the driver manager.
@@ -60,6 +65,11 @@ Set the ODBC driver manager used to iODBC. By default, ODBC.jl sets the `ODBCINI
 (`realpath(joinpath(dirname(pathof(ODBC)), "../config/"))`), but users may override
 these (or provide additional environment variables) via `kw...` keyword arguments
 this this function. The env variables will be set before allocating the ODBC environemnt.
+
+Note that the odbc driver shared libraries can be "sticky" with regards to changing to
+system configuration files. You may need to set a `OVERRIDE_ODBCJL_CONFIG` environment
+variable before starting `julia` and running `import ODBC` to ensure that no environment
+variables are changed by ODBC.jl itself.
 
 While the iODBC driver manager shared library is available for non-windows platforms, do note
 that individual ODBC driver libraries may not be compatible with unixODBC on your system;
@@ -88,6 +98,11 @@ location. Other system/user locations may also be checked (and are used by defau
 by the underlying ODBC driver manager, but for the most consistent results, aim to allow ODBC.jl to manage
 installed drivers/datasources via `ODBC.addriver`, `ODBC.removedriver`, etc.
 
+Note that the odbc driver shared libraries can be "sticky" with regards to changing to
+system configuration files. You may need to set a `OVERRIDE_ODBCJL_CONFIG` environment
+variable before starting `julia` and running `import ODBC` to ensure that no environment
+variables are changed by ODBC.jl itself.
+
 On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
 datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
 but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
@@ -103,6 +118,11 @@ List installed ODBC datasources. The primary config location for installed datas
 location. Other system/user locations may also be checked (and are by default on windows) by the underlying ODBC
 driver manager, but for the most consistent results, aim to allow ODBC.jl to manage
 installed drivers/datasources via `ODBC.adddsn`, `ODBC.removedsn`, etc.
+
+Note that the odbc driver shared libraries can be "sticky" with regards to changing to
+system configuration files. You may need to set a `OVERRIDE_ODBCJL_CONFIG` environment
+variable before starting `julia` and running `import ODBC` to ensure that no environment
+variables are changed by ODBC.jl itself.
 
 On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
 datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
