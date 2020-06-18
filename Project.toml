@@ -1,6 +1,6 @@
 name = "ODBC"
 uuid = "be6f12e9-ca4f-5eb2-a339-a4f995cc0291"
-version = "1.0.2"
+version = "1.0.3"
 
 [deps]
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
@@ -17,7 +17,7 @@ unixODBC_jll = "1841a5aa-d9e2-579c-8226-32ed2af93ab1"
 
 [compat]
 DBInterface = "2"
-DecFP = "0.4.10"
+DecFP = "0.4.10, 1"
 Tables = "1"
 iODBC_jll = "3.52"
 unixODBC_jll = "2.3"
