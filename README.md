@@ -51,7 +51,7 @@ Contributions are very welcome, as are feature requests and suggestions. Please 
 ## Testing
 
 To run tests locally on Linux, you need to have
-  - the MariaDB ODBC connectors downloaded and in a specific directory (as per .travis.yml):
+  - the MariaDB ODBC connectors downloaded and in a specific directory (as per `.travis.yml`):
     ```sh
     curl -O https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.1.7/mariadb-connector-odbc-3.1.7-ga-debian-x86_64.tar.gz
     mkdir mariadb64; tar xfz mariadb-connector-odbc-3.1.7-ga-debian-x86_64.tar.gz -C mariadb64
@@ -65,9 +65,7 @@ To run tests locally on Linux, you need to have
 
   - the `TRAVIS_BUILD_DIR` env var set before running tests.
     ```
-    julia --project=@.
-    julia> using Filesystem
-    julia> ENV["TRAVIS_BUILD_DIR"] = Filesystem.pwd()
+    env TRAVIS_BUILD_DIR=$(pwd) julia --project=@.
     julia> ]
     (ODBC) pkg> test
     ```
