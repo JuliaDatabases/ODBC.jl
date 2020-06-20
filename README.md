@@ -47,3 +47,27 @@ Contributions are very welcome, as are feature requests and suggestions. Please 
 [codecov-url]: https://codecov.io/gh/JuliaDatabases/ODBC.jl
 
 [issues-url]: https://github.com/JuliaDatabases/ODBC.jl/issues
+
+## Testing
+
+To run tests locally on Linux, you need to have
+  - the MariaDB ODBC connectors downloaded and in a specific directory (as per .travis.yml):
+    ```sh
+    curl -O https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.1.7/mariadb-connector-odbc-3.1.7-ga-debian-x86_64.tar.gz
+    mkdir mariadb64; tar xfz mariadb-connector-odbc-3.1.7-ga-debian-x86_64.tar.gz -C mariadb64
+    curl -O https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.1.7/mariadb-connector-odbc-3.1.7-ga-debian-i686.tar.gz
+    mkdir mariadb32; tar xfz mariadb-connector-odbc-3.1.7-ga-debian-i686.tar.gz -C mariadb32MySQL
+    ```
+  - MariaDB listening on 127.0.0.1:3306 with root user `root` having an empty password. An easy way to do this is with docker:
+    ```sh
+    docker run -e MYSQL_ALLOW_EMPTY_PASSWORD=1  -it -p 3306:3306 mysql
+    ```
+
+  - the `TRAVIS_BUILD_DIR` env var set before running tests.
+    ```
+    julia --project=@.
+    julia> using Filesystem
+    julia> ENV["TRAVIS_BUILD_DIR"] = Filesystem.pwd()
+    julia> ]
+    (ODBC) pkg> test
+    ```
