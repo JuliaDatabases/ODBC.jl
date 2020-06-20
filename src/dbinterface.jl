@@ -22,12 +22,11 @@ function clear!(conn::Connection)
 end
 
 """
-    ODBC.Connection(dsn_or_connectionstring, user, password)
+    ODBC.Connection(dsn_or_connectionstring; user, password, extraauth)
 
 Construct a `Connection` type by connecting to a valid ODBC Connection or by specifying a datasource name or valid connection string.
 Takes optional 2nd and 3rd arguments for named datasources `username` and `password`, respectively.
 1st argument `dsn` can be either the name of a pre-defined ODBC Connection or a valid connection string.
-The `user` and `pwd` arguments are ignored if the first argument is a connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
 
 Note that connecting will use the currently "set" ODBC driver manager, which by default is iODBC on OSX, unixODBC on Linux, and
@@ -39,18 +38,23 @@ ODBC.setunixODBC()
 conn = ODBC.Connection(...)
 ```
 """
-function Connection(dsn::AbstractString, usr=nothing, pwd=nothing)
-    connectionstring = occursin('=', dsn)
-    return Connection(connectionstring ? API.driverconnect(dsn) : API.connect(dsn, usr, pwd), dsn)
+function Connection(dsn::AbstractString; user=nothing, password=nothing, extraauth=nothing)
+    connstr = occursin('=', dsn) ? dsn : "DSN=$dsn"
+    extraauth = API.getextraauth(user, password, extraauth)
+    internalconnection = API.connect(connstr, extraauth)
+    return Connection(internalconnection, dsn)
 end
 
+# back compat.
+# TODO: docstring for this?
+Connection(dsn::AbstractString, usr, pwd) = Connection(dsn; user=usr, password=pwd)
+
 """
-    DBInterface.connect(ODBC.Connection, dsn_or_connectionstring, user, password; connectionstring::Bool=false)
+    DBInterface.connect(ODBC.Connection, dsn_or_connectionstring; user, password, extraauth, connectionstring::Bool=false)
 
 Construct a `Connection` type by connecting to a valid ODBC Connection or by specifying a datasource name or valid connection string.
 Takes optional 2nd and 3rd arguments for named datasources `username` and `password`, respectively.
 1st argument `dsn` can be either the name of a pre-defined ODBC Connection or a valid connection string.
-The `user` and `pwd` arguments are ignored if the first argument is a connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
 
 Note that connecting will use the currently "set" ODBC driver manager, which by default is iODBC on OSX, unixODBC on Linux, and

@@ -274,3 +274,17 @@ DBInterface.execute(conn, """CREATE TABLE big_decimal
 DBInterface.execute(conn, "INSERT INTO big_decimal (`dec`) VALUES (123456789012345678.91)")
 ret = DBInterface.execute(conn, "select * from big_decimal") |> columntable
 @test ret.dec[1] == d128"1.2345678901234567891e17"
+
+
+DBInterface.execute(conn, """DROP USER IF EXISTS 'authtest'""")
+DBInterface.execute(conn, """CREATE USER 'authtest' IDENTIFIED BY 'authtestpw'""")
+
+connstrconn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"; user="authtest", password="authtestpw")
+@test connstrconn.dsn == "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"
+DBInterface.close!(connstrconn)
+
+dsnconn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB"; user="authtest", password="authtestpw")
+@test dsnconn.dsn == "ODBC_Test_DSN_MariaDB"
+DBInterface.close!(dsnconn)
+
+DBInterface.close!(conn)
