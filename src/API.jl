@@ -350,17 +350,6 @@ end
 
 connect(dsn, extraauth) = driverconnect("$dsn;$extraauth")
 
-# should this be somewhere else? utils?
-# also question on escaping: apparently e.g. PWD={$pwd} is the correct way to escape a parameter with semicolons in it.
-# however there seems no standard way to escape PWD=mypass}hasacurly. (SQL server wants double }}, but other drivers differ).
-function getextraauth(usr::Union{AbstractString, Nothing}, pwd::Union{AbstractString, Nothing}, extraauth::Union{AbstractString, Nothing}) :: String
-    return join([
-        usr === nothing ? "" : "UID={$usr}",
-        pwd === nothing ? "" : "PWD={$pwd}",
-        extraauth === nothing ? "" : extraauth
-    ], ";")
-end
-
 function SQLDisconnect(dbc::Ptr{Cvoid})
     @odbc(:SQLDisconnect,
         (Ptr{Cvoid},),

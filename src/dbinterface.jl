@@ -21,6 +21,17 @@ function clear!(conn::Connection)
     return
 end
 
+# format usr, pwd, and extraauth into UID=user;PWD=pass;extraauth
+function getextraauth(usr::Union{AbstractString, Nothing}, pwd::Union{AbstractString, Nothing}, extraauth::Union{AbstractString, Nothing}) :: String
+    parts = [
+        usr === nothing ? nothing : "UID={$usr}",
+        pwd === nothing ? nothing : "PWD={$pwd}",
+        extraauth === nothing ? nothing : extraauth
+    ]
+    strings = filter(s -> s !== nothing, parts)
+    return join(strings, ";")
+end
+
 """
     ODBC.Connection(dsn_or_connectionstring; user, password, extraauth)
 
@@ -42,7 +53,7 @@ conn = ODBC.Connection(...)
 """
 function Connection(dsn::AbstractString; user=nothing, password=nothing, extraauth=nothing)
     connstr = occursin('=', dsn) ? dsn : "DSN=$dsn"
-    extraauth = API.getextraauth(user, password, extraauth)
+    extraauth = getextraauth(user, password, extraauth)
     internalconnection = API.connect(connstr, extraauth)
     return Connection(internalconnection, dsn)
 end
