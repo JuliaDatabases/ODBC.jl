@@ -25,9 +25,11 @@ end
     ODBC.Connection(dsn_or_connectionstring; user, password, extraauth)
 
 Construct a `Connection` type by connecting to a valid ODBC Connection or by specifying a datasource name or valid connection string.
-Takes optional 2nd and 3rd arguments for named datasources `username` and `password`, respectively.
 1st argument `dsn` can be either the name of a pre-defined ODBC Connection or a valid connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
+Takes optional keyword arguments `username`, `password`, and `extraauth`, which are used to specify auth parameters. `extraauth` is
+to allow you to pass a sensitive string to be appended verbatim to the end of the connection string, e.g. DB-specific auth token
+parameters.
 
 Note that connecting will use the currently "set" ODBC driver manager, which by default is iODBC on OSX, unixODBC on Linux, and
 the system driver manager on Windows. If you experience cryptic connection errors, it's probably worth checking with your ODBC
@@ -53,9 +55,11 @@ Connection(dsn::AbstractString, usr, pwd) = Connection(dsn; user=usr, password=p
     DBInterface.connect(ODBC.Connection, dsn_or_connectionstring; user, password, extraauth, connectionstring::Bool=false)
 
 Construct a `Connection` type by connecting to a valid ODBC Connection or by specifying a datasource name or valid connection string.
-Takes optional 2nd and 3rd arguments for named datasources `username` and `password`, respectively.
 1st argument `dsn` can be either the name of a pre-defined ODBC Connection or a valid connection string.
 A great resource for building valid connection strings is [http://www.connectionstrings.com/](http://www.connectionstrings.com/).
+Takes optional keyword arguments `username`, `password`, and `extraauth`, which are used to specify auth parameters. `extraauth` is
+to allow you to pass a sensitive string to be appended verbatim to the end of the connection string, e.g. DB-specific auth token
+parameters.
 
 Note that connecting will use the currently "set" ODBC driver manager, which by default is iODBC on OSX, unixODBC on Linux, and
 the system driver manager on Windows. If you experience cryptic connection errors, it's probably worth checking with your ODBC
