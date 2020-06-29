@@ -348,7 +348,7 @@ function driverconnect(connstr)
     return dbc
 end
 
-connect(dsn, user, pwd) = driverconnect(string("DSN=", dsn, user === nothing ? "" : ";UID=$user", pwd === nothing ? "" : ";PWD=$pwd"))
+connect(dsn, extraauth) = driverconnect("$dsn;$extraauth")
 
 function SQLDisconnect(dbc::Ptr{Cvoid})
     @odbc(:SQLDisconnect,

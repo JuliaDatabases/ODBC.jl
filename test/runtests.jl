@@ -274,3 +274,24 @@ DBInterface.execute(conn, """CREATE TABLE big_decimal
 DBInterface.execute(conn, "INSERT INTO big_decimal (`dec`) VALUES (123456789012345678.91)")
 ret = DBInterface.execute(conn, "select * from big_decimal") |> columntable
 @test ret.dec[1] == d128"1.2345678901234567891e17"
+
+
+DBInterface.execute(conn, """DROP USER IF EXISTS 'authtest'""")
+DBInterface.execute(conn, """CREATE USER 'authtest' IDENTIFIED BY 'authtestpw'""")
+
+connstrconn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"; user="authtest", password="authtestpw")
+@test connstrconn.dsn == "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"
+ret = DBInterface.execute(connstrconn, "select current_user() as user") |> columntable
+@test startswith(ret.user[1], "authtest@")
+DBInterface.close!(connstrconn)
+
+dsnconn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB"; user="authtest", password="authtestpw")
+@test dsnconn.dsn == "ODBC_Test_DSN_MariaDB"
+# this one is more a test of odbc/mariadb behaviour that ODBC.jl itself..
+# it demonstrates that the UID passed here in DSN=dsn;UID=authtest overrides the
+# USER=root key in the DSN configuration.
+ret = DBInterface.execute(dsnconn, "select current_user() as user") |> columntable
+@test startswith(ret.user[1], "authtest@")
+DBInterface.close!(dsnconn)
+
+DBInterface.close!(conn)
