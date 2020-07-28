@@ -352,7 +352,7 @@ function Tables.getcolumn(x::Row, ::Type{T}, i::Int, nm::Symbol) where {T}
         return missing
     elseif b.valuetype == API.SQL_C_CHAR || b.valuetype == API.SQL_C_WCHAR || b.valuetype == API.SQL_C_BINARY
         data = b.value.buffer::Vector{UInt8}
-        bytes = data[1:b.totallen]
+        bytes = data[1:min(length(data), b.totallen)]
         return jlcast(Base.nonmissingtype(T), bytes)
     elseif b.valuetype == API.SQL_C_TYPE_DATE || b.valuetype == API.SQL_C_TYPE_TIME || b.valuetype == API.SQL_C_TYPE_TIMESTAMP
         return specialize(x -> Base.nonmissingtype(T)(x[1]), b.value.buffer)
