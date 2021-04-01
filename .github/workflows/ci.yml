@@ -21,6 +21,10 @@ jobs:
           - x64
     steps:
       - uses: actions/checkout@v2
+      - run: |
+          curl -O https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.1.7/mariadb-connector-odbc-3.1.7-ga-debian-x86_64.tar.gz
+          mkdir ~/mariadb64
+          tar xfz mariadb-connector-odbc-3.1.7-ga-debian-x86_64.tar.gz -C ~/mariadb64
       - uses: getong/mariadb-action@v1.1
         with:
           host port: 3306 # Optional, default value is 3306. The port of host
