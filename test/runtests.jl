@@ -13,7 +13,7 @@ if Sys.islinux()
     if Int == Int32
         libpath = joinpath(expanduser("~"), "mariadb32/lib/libmaodbc.so")
     else
-        libpath = abspath(joinpath(@__DIR__, "mariadb/libmaodbc.so"))
+        libpath = "mariadb/libmaodbc.so"
     end
 elseif Sys.iswindows()
     if Int == Int32
@@ -26,8 +26,7 @@ else
     libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
 end
 @show libpath
-@show readdir(dirname(dirname(libpath)))
-@show readdir(dirname(libpath))
+@show isfile(libpath)
 ODBC.adddriver("ODBC_Test_MariaDB", libpath)
 ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="127.0.0.1", UID="root", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
 
