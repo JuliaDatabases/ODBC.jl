@@ -11,9 +11,9 @@ rm(tracefile)
 PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
 if Sys.islinux()
     if Int == Int32
-        libpath = expanduser(joinpath("~", "mariadb32/lib/libmaodbc.so"))
+        libpath = "/mariadb32/lib/libmaodbc.so"
     else
-        libpath = expanduser(joinpath("~", "mariadb64/lib/libmaodbc.so"))
+        libpath = "/mariadb64/lib/libmaodbc.so"
     end
 elseif Sys.iswindows()
     if Int == Int32
