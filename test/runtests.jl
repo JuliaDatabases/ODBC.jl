@@ -11,16 +11,16 @@ rm(tracefile)
 PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
 if Sys.islinux()
     if Int == Int32
-        libpath = abspath(joinpath("~", "mariadb32/lib/libmaodbc.so"))
+        libpath = expanduser(joinpath("~", "mariadb32/lib/libmaodbc.so"))
     else
-        libpath = abspath(joinpath("~", "mariadb64/lib/libmaodbc.so"))
+        libpath = expanduser(joinpath("~", "mariadb64/lib/libmaodbc.so"))
     end
 elseif Sys.iswindows()
     if Int == Int32
-        libpath = abspath(joinpath("~", "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll"))
+        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll"))
     else
-        @show readdir(abspath(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit")))
-        libpath = abspath(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit", "maodbc.dll"))
+        @show readdir(expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit")))
+        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit", "maodbc.dll"))
     end
 else
     libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
