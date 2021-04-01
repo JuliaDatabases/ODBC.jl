@@ -11,20 +11,22 @@ rm(tracefile)
 PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
 if Sys.islinux()
     if Int == Int32
-        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb32/lib/libmaodbc.so")
+        libpath = joinpath(expanduser("~"), "mariadb32/lib/libmaodbc.so")
     else
-        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb64/lib/libmaodbc.so")
+        libpath = joinpath("/home/runner/mariadb64", "mariadb-connector-odbc-3.1.11-ubuntu-focal-amd64/lib64/mariadb/libmaodbc.so")
     end
 elseif Sys.iswindows()
     if Int == Int32
-        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll")
+        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll"))
     else
-        @show readdir(joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit"))
-        libpath = joinpath(ENV["TRAVIS_BUILD_DIR"], "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit", "maodbc.dll")
+        @show readdir(expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit")))
+        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit", "maodbc.dll"))
     end
 else
     libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
 end
+@show libpath
+@show isfile(libpath)
 ODBC.adddriver("ODBC_Test_MariaDB", libpath)
 ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="127.0.0.1", UID="root", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
 

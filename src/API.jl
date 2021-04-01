@@ -1,5 +1,7 @@
 module API
 
+using Scratch
+
 using unixODBC_jll
 const unixODBC_dm = unixODBC_jll.libodbc
 const unixODBC_inst = unixODBC_jll.libodbcinst
@@ -175,13 +177,14 @@ getptr(x::Ptr) = x
 
 const ODBC_ENV = Ref{Handle}()
 
-const ODBCINI = abspath(joinpath(@__DIR__, "../config/odbc.ini"))
-const ODBCINSTINI = abspath(joinpath(@__DIR__, "../config/odbcinst.ini"))
-
-@assert isfile(ODBCINI) || error("error finding ODBC/config/odbc.ini file; please Pkg.build(\"ODBC\") again")
-@assert isfile(ODBCINSTINI) || error("error finding ODBC/config/odbcinst.ini file; please Pkg.build(\"ODBC\") again")
+const ODBCCONFIGDIR = Ref{String}()
+const ODBCINI = Ref{String}()
+const ODBCINSTINI = Ref{String}()
 
 function setupenv(; kw...)
+    ODBCCONFIGDIR[] = @get_scratch!("odbcconfig")
+    ODBCINI[] = abspath(joinpath(ODBCCONFIGDIR[], "odbc.ini"))
+    ODBCINSTINI[] = abspath(joinpath(ODBCCONFIGDIR[], "odbcinst.ini"))
     if isdefined(ODBC_ENV, :x)
         finalize(ODBC_ENV[])
     end
@@ -189,11 +192,11 @@ function setupenv(; kw...)
         delete!(ENV, "ODBCINI")
         delete!(ENV, "ODBCSYSINI")
         delete!(ENV, "ODBCINSTINI")
-        ENV["ODBCINI"] = ODBCINI
+        ENV["ODBCINI"] = ODBCINI[]
         if odbc_dm[] == iODBC
-            ENV["ODBCINSTINI"] = ODBCINSTINI
+            ENV["ODBCINSTINI"] = ODBCINSTINI[]
         elseif odbc_dm[] == unixODBC
-            ENV["ODBCSYSINI"] = realpath(joinpath(@__DIR__, "../config"))
+            ENV["ODBCSYSINI"] = realpath(ODBCCONFIGDIR[])
         end
     end
     for (k, v) in pairs(kw)

@@ -41,8 +41,7 @@ end
     ODBC.setunixODBC(; kw...)
 
 Set the ODBC driver manager used to unixODBC. By default, ODBC.jl sets the `ODBCINI` and
-`ODBCSYSINI` environment variables to the ODBC.jl-managed location
-(`realpath(joinpath(dirname(pathof(ODBC)), "../config/"))`), but users may override
+`ODBCSYSINI` environment variables to the ODBC.jl-managed "scratch" location, but users may override
 these (or provide additional environment variables) via `kw...` keyword arguments
 this this function. The env variables will be set before allocating the ODBC environemnt.
 
@@ -61,8 +60,7 @@ setunixODBC(; kw...) = API.setunixODBC(; kw...)
     ODBC.setiODBC(; kw...)
 
 Set the ODBC driver manager used to iODBC. By default, ODBC.jl sets the `ODBCINI` and
-`ODBCINSTINI` environment variables to the ODBC.jl-managed location
-(`realpath(joinpath(dirname(pathof(ODBC)), "../config/"))`), but users may override
+`ODBCINSTINI` environment variables to the ODBC.jl-managed "scratch" location, but users may override
 these (or provide additional environment variables) via `kw...` keyword arguments
 this this function. The env variables will be set before allocating the ODBC environemnt.
 
@@ -93,7 +91,7 @@ setodbc32(; kw...) = API.setodbc32(; kw...)
     ODBC.drivers() -> Dict
 
 List installed ODBC drivers. The primary config location for installed drivers on non-windows platforms is
-`realpath(joinpath(dirname(pathof(ODBC)), "../config/odbcinst.ini"))`, i.e. an ODBC.jl-managed
+a reserved "scratch" space directory, i.e. an ODBC.jl-managed
 location. Other system/user locations may also be checked (and are used by default on windows)
 by the underlying ODBC driver manager, but for the most consistent results, aim to allow ODBC.jl to manage
 installed drivers/datasources via `ODBC.addriver`, `ODBC.removedriver`, etc.
@@ -114,7 +112,7 @@ drivers() = API.getdrivers()
     ODBC.dsns() -> Dict
 
 List installed ODBC datasources. The primary config location for installed datasources on non-windows platforms is
-`realpath(joinpath(dirname(pathof(ODBC)), "../config/odbc.ini"))`, i.e. an ODBC.jl-managed
+a reserved "scratch" space directory, i.e. an ODBC.jl-managed
 location. Other system/user locations may also be checked (and are by default on windows) by the underlying ODBC
 driver manager, but for the most consistent results, aim to allow ODBC.jl to manage
 installed drivers/datasources via `ODBC.adddsn`, `ODBC.removedsn`, etc.

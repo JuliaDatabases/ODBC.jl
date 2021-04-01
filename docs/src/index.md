@@ -10,7 +10,7 @@ The ODBC.jl package provides a Julia interface for the ODBC API as implemented b
 ] add ODBC
 ```
 
-Another common source of headache with ODBC is the various locations of configuration files on OSX/Linux; to remedy this, ODBC.jl writes and loads its own `odbc.ini` and `odbcinst.ini` configuration files inside the package directory, like `ODBC/config/odbc.ini`. This ensures ODBC enviornment variables like `ODBCINI` are correctly set to the ODBC.jl managed config files. Additionally, ODBC.jl provides convenient ODBC administrative functions to add/remove drivers and dsns (see [`ODBC.addriver`](@ref) and [`ODBC.adddsn`](@ref)).
+Another common source of headache with ODBC is the various locations of configuration files on OSX/Linux; to remedy this, ODBC.jl writes and loads its own `odbc.ini` and `odbcinst.ini` configuration files in a "scratch space", as provided by the [Scratch.jl](https://github.com/JuliaPackaging/Scratch.jl) package. This ensures ODBC enviornment variables like `ODBCINI` are correctly set to the ODBC.jl managed config files. Additionally, ODBC.jl provides convenient ODBC administrative functions to add/remove drivers and dsns (see [`ODBC.addriver`](@ref) and [`ODBC.adddsn`](@ref)).
 
 What this all means is that hopefully ODBC.jl provides the easiest setup experience possible for a slightly dated API that is known for configuration complexities.
 
