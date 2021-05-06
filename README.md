@@ -33,10 +33,10 @@ Contributions are very welcome, as are feature requests and suggestions. Please 
 
 
 [docs-latest-img]: https://img.shields.io/badge/docs-latest-blue.svg
-[docs-latest-url]: http://juliadatabases.org/ODBC.jl/latest
+[docs-latest-url]: https://juliadatabases.org/ODBC.jl/latest
 
 [docs-stable-img]: https://img.shields.io/badge/docs-stable-blue.svg
-[docs-stable-url]: http://juliadatabases.org/ODBC.jl/stable
+[docs-stable-url]: https://juliadatabases.org/ODBC.jl/stable
 
 [codecov-img]: https://codecov.io/gh/JuliaDatabases/ODBC.jl/branch/master/graph/badge.svg
 [codecov-url]: https://codecov.io/gh/JuliaDatabases/ODBC.jl
