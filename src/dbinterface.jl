@@ -114,6 +114,13 @@ mutable struct Statement <: DBInterface.Statement
 end
 
 """
+    DBInterface.getconnection(stmt)
+
+Return the connection for the given statement. Part of the required interface.
+"""
+DBInterface.getconnection(stmt::Statement) = stmt.dsn
+
+"""
     DBInterface.close!(stmt)
 
 Close a prepared statement. Further parameter binding or execution will not be valid.
