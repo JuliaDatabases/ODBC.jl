@@ -337,7 +337,7 @@ bindcol(stmt, i, b::Binding) = API.SQLBindCol(API.getptr(stmt), i,
     b.valuetype, pointer(b.value), b.bufferlength, b.strlen_or_indptr)
 
 function jlcast(::Type{T}, bytes) where {T <: DecFP.DecimalFloatingPoint}
-    x = String(bytes)
+    x = rstrip(String(bytes), '\0')
     parse(T, x)
 end
 jlcast(::Type{Vector{UInt8}}, bytes) = bytes
