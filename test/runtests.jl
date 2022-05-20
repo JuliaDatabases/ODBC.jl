@@ -35,8 +35,8 @@ DBInterface.close!(conn)
 conn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4;USER=root")
 
 DBInterface.execute(conn, "DROP DATABASE if exists mysqltest")
-DBInterface.execute(conn, "CREATE DATABASE mysqltest")
 DBInterface.execute(conn, "CREATE DATABASE mysqltest CHARACTER SET = 'utf8mb3' COLLATE = 'utf8mb3_general_ci'")
+DBInterface.execute(conn, "use mysqltest")
 DBInterface.execute(conn, """CREATE TABLE Employee
                  (
                      ID INT NOT NULL AUTO_INCREMENT,
