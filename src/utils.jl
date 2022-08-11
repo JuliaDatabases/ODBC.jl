@@ -304,7 +304,7 @@ getbindings(stmt, columnar, ctypes, sqltypes, columnsizes, nullables, longtexts,
 function getdata(stmt, i, b::Binding)
     status = API.SQLGetData(API.getptr(stmt), i, b.valuetype, pointer(b.value), b.bufferlength, b.strlen_or_indptr)
     b.totallen = b.strlen_or_indptr[1]
-    if b.long && b.strlen_or_indptr[1] != API.SQL_NULL_DATA
+    if (b.long || status == API.SQL_SUCCESS_WITH_INFO) && b.strlen_or_indptr[1] != API.SQL_NULL_DATA
         chardata = b.valuetype != API.SQL_C_BINARY
         if b.strlen_or_indptr[1] == API.SQL_NO_TOTAL
             b.totallen = b.bufferlength - 1
