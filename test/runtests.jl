@@ -166,7 +166,7 @@ for i = 1:length(expected)
 end
 
 # ODBC.load
-ODBC.load(Base.structdiff(expected, NamedTuple{(:LastLogin2, :Wage,)}), conn, "Employee_copy"; limit=4, columnsuffix=Dict(:Name=>"CHARACTER SET utf8mb4"))
+ODBC.load(Base.structdiff(expected, NamedTuple{(:LastLogin2, :Wage,)}), conn, "Employee_copy"; limit=4)
 res = DBInterface.execute(conn, "select * from Employee_copy") |> columntable
 @test length(res) == 14
 @test length(res[1]) == 4
