@@ -318,6 +318,16 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
     return Cursor{columnar, knownlength}(stmt, rows, cols, names, types, lookup, 0, 1, bindings, columns, metadata)
 end
 
+"""
+    DBInterface.transaction(f, conn::ODBC.Connection)
+
+Open a transaction against an ODBC Connection `conn`, execute a closure `f`,
+then "commit" the transaction after executing the closure function. Used in
+`DBInterface.executemany` to wrap the individual execute calls in a transaction
+since this often leads to much better performance in database systems.
+"""
+DBInterface.transaction(f, conn::Connection) = transaction(f, conn)
+
 # Tables.jl interface
 Tables.istable(::Type{<:Cursor}) = true
 Tables.schema(x::Cursor) = Tables.Schema(x.names, x.types)
