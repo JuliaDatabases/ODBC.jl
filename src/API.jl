@@ -3,20 +3,9 @@ module API
 using Scratch
 
 using unixODBC_jll
-const unixODBC_dm = unixODBC_jll.libodbc
-const unixODBC_inst = unixODBC_jll.libodbcinst
 
-@static if Sys.iswindows()
-    const odbc32_dm = "odbc32"
-    const odbc32_inst = "odbccp32"
-    const iODBC_dm = odbc32_dm
-    const iODBC_inst = odbc32_inst
-else
+@static if !Sys.iswindows()
     using iODBC_jll
-    const iODBC_dm = iODBC_jll.libiodbc
-    const iODBC_inst = iODBC_jll.libiodbcinst
-    const odbc32_dm = unixODBC_jll.libodbc
-    const odbc32_inst = unixODBC_jll.libodbcinst
 end
 
 @enum DM_TYPE unixODBC iODBC odbc32
@@ -75,20 +64,20 @@ macro odbc(func,args,vals...)
         @static if Sys.iswindows() # odbc_dm[] == odbc32
             # This branch is guarded by `@static` to avoid issues on Apple Silicon
             while true
-                ret = ccall( ($func, odbc32_dm), stdcall, SQLRETURN, $args, $(vals...))
+                ret = ccall( ($func, "odbc32"), stdcall, SQLRETURN, $args, $(vals...))
                 ret == SQL_STILL_EXECUTING || break
                 sleep(0.001)
             end
         else
             if odbc_dm[] == iODBC
                 while true
-                    ret = ccall( ($func, iODBC_dm), SQLRETURN, $(swapsqlwchar(args)), $(vals...))
+                    ret = ccall( ($func, iODBC_jll.libiodbc), SQLRETURN, $(swapsqlwchar(args)), $(vals...))
                     ret == SQL_STILL_EXECUTING || break
                     sleep(0.001)
                 end
             elseif odbc_dm[] == unixODBC
                 while true
-                    ret = ccall( ($func, unixODBC_dm), SQLRETURN, $args, $(vals...))
+                    ret = ccall( ($func, unixODBC_jll.libodbc), SQLRETURN, $args, $(vals...))
                     ret == SQL_STILL_EXECUTING || break
                     sleep(0.001)
                 end
@@ -102,12 +91,12 @@ macro odbcinst(func,args,vals...)
     esc(quote
         @static if Sys.iswindows() # odbc_dm[] == odbc32
             # This branch is guarded by `@static` to avoid issues on Apple Silicon
-            ccall( ($func, odbc32_inst), stdcall, SQLRETURN, $args, $(vals...))
+            ccall( ($func, "odbccp32"), stdcall, SQLRETURN, $args, $(vals...))
         else
             if odbc_dm[] == iODBC
-                ccall( ($func, iODBC_inst), SQLRETURN, $(swapsqlwchar(args)), $(vals...))
+                ccall( ($func, iODBC_jll.libiodbcinst), SQLRETURN, $(swapsqlwchar(args)), $(vals...))
             elseif odbc_dm[] == unixODBC
-                ccall( ($func, unixODBC_inst), SQLRETURN, $args, $(vals...))
+                ccall( ($func, unixODBC_jll.libodbcinst), SQLRETURN, $args, $(vals...))
             end
         end
     end)

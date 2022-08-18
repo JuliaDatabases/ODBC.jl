@@ -299,7 +299,7 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
                 end
             else
                 if nullables[i] == API.SQL_NO_NULLS
-                    columns[i] = binding.value.buffer
+                    columns[i] = copy(binding.value.buffer)
                 else
                     specialize(binding.value.buffer) do A
                         inds = binding.strlen_or_indptr
