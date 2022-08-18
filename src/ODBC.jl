@@ -80,7 +80,7 @@ setiODBC(; kw...) = API.setiODBC(; kw...)
 
 Set the ODBC driver manager used to odbc32. On windows, ODBC.jl uses the system-wide
 configurations for drivers and datasources. Drivers and datasources can still be added
-via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`, but you must
+via `ODBC.adddriver`/`ODBC.removedriver` and `ODBC.adddsn`/`ODBC.removedsn`, but you must
 have administrator privileges in the Julia session. This is accomplished easiest by pressing
 CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """

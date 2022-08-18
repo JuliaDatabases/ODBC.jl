@@ -340,7 +340,7 @@ function jlcast(::Type{T}, bytes) where {T <: DecFP.DecimalFloatingPoint}
     x = rstrip(String(bytes), '\0')
     parse(T, x)
 end
-jlcast(::Type{Vector{UInt8}}, bytes) = bytes
+jlcast(::Type{Vector{UInt8}}, bytes) = copy(bytes)
 jlcast(::Type{String}, bytes) = String(bytes)
 
 # given the SQL type as described by the driver library
