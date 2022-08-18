@@ -252,7 +252,7 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
             columnsizes[i] += 1
         end
     end
-    metadata = [["column name", names...] ["column type", types...] ["sql type", map(x->API.SQL_TYPES[x], sqltypes)...] ["c type", map(x->API.C_TYPES[x], ctypes)...] ["sizes", map(Int, columnsizes)...] ["nullable", map(x->x != API.SQL_NO_NULLS, nullables)...] ["long data", longtexts...]]
+    metadata = [Any["column name", names...] Any["column type", types...] Any["sql type", map(x->API.SQL_TYPES[x], sqltypes)...] Any["c type", map(x->API.C_TYPES[x], ctypes)...] Any["sizes", map(Int, columnsizes)...] Any["nullable", map(x->x != API.SQL_NO_NULLS, nullables)...] Any["long data", longtexts...]]
     columnar = knownlength = true
     if any(longtexts) || rows <= 0 || iterate_rows || ignore_driver_row_count
         rowset = 1
