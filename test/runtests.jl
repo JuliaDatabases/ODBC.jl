@@ -85,6 +85,12 @@ expected = (
   Senior     = Union{Missing, Bool}[true, true, false, true],
 )
 
+
+# Validate that iteration of results throws runtime Error on DivisionByZero
+@test_throws ErrorException DBInterface.execute(
+    conn, "SELECT a, b, a/b FROM (VALUES (2,1),(1,0),(2,1)) AS t(a,b)"
+) |> columntable
+
 cursor = DBInterface.execute(conn, "select * from Employee")
 @test eltype(cursor) == ODBC.Row
 @test Tables.istable(cursor)

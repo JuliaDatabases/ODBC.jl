@@ -388,7 +388,18 @@ function Base.iterate(x::Cursor{false}, st=1)
     while status == API.SQL_STILL_EXECUTING
         status = API.SQLFetchScroll(API.getptr(x.stmt), API.SQL_FETCH_NEXT, 0)
     end
-    status == API.SQL_SUCCESS || status == API.SQL_SUCCESS_WITH_INFO || return nothing
+
+    # iteration end
+    status == API.SQL_NO_DATA           && return nothing
+    status == API.SQL_NTS               && return nothing
+
+    # errors
+    status == API.SQL_ERROR             && error(API.diagnostics(x.stmt))
+    status == API.SQL_INVALID_HANDLE    && error(API.diagnostics(x.stmt))
+    
+    # continue
+    status == API.SQL_SUCCESS_WITH_INFO && @warn(API.diagnostics(x.stmt))
+
     x.current_rownumber = st
     for (i, binding) in enumerate(x.bindings)
         getdata(x.stmt, i, binding)

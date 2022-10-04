@@ -282,7 +282,6 @@ const C_TYPES = Dict(
 # success codes
 const SQL_SUCCESS           = Int16(0)
 const SQL_SUCCESS_WITH_INFO = Int16(1)
-const SQL_STILL_EXECUTING   = Int16(2)
 
 # error codes
 const SQL_ERROR             = Int16(-1)
@@ -295,7 +294,10 @@ const SQL_NO_DATA           = Int16(100)
 
 const RETURN_VALUES = Dict(SQL_ERROR   => "SQL_ERROR",
                            SQL_NO_DATA => "SQL_NO_DATA",
-                           SQL_INVALID_HANDLE  => "SQL_INVALID_HANDLE",
-                           SQL_STILL_EXECUTING => "SQL_STILL_EXECUTING")
+                           SQL_SUCCESS => "SQL_SUCCESS",
+                           SQL_NTS     => "SQL_NTS",
+                           SQL_STILL_EXECUTING   => "SQL_STILL_EXECUTING",
+                           SQL_INVALID_HANDLE    => "SQL_INVALID_HANDLE",
+                           SQL_SUCCESS_WITH_INFO => "SQL_SUCCESS_WITH_INFO")
 
 const SQL_NO_NULLS = Int16(0)
