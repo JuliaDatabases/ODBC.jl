@@ -102,7 +102,7 @@ variable before starting `julia` and running `import ODBC` to ensure that no env
 variables are changed by ODBC.jl itself.
 
 On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
-datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+datasources can still be added via `ODBC.adddriver`/`ODBC.removedriver` and `ODBC.adddsn`/`ODBC.removedsn`,
 but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
 CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
