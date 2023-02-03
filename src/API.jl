@@ -63,23 +63,35 @@ macro odbc(func,args,vals...)
         ret = SQL_SUCCESS
         @static if Sys.iswindows() # odbc_dm[] == odbc32
             # This branch is guarded by `@static` to avoid issues on Apple Silicon
+            counter = -100
             while true
                 ret = ccall( ($func, "odbc32"), stdcall, SQLRETURN, $args, $(vals...))
                 ret == SQL_STILL_EXECUTING || break
-                sleep(0.001)
+                if counter > 0 
+                    sleep(0.000_001*counter)
+                end
+                counter = 1.2*(1 + counter)
             end
         else
             if odbc_dm[] == iODBC
+                counter = -100
                 while true
                     ret = ccall( ($func, iODBC_jll.libiodbc), SQLRETURN, $(swapsqlwchar(args)), $(vals...))
                     ret == SQL_STILL_EXECUTING || break
-                    sleep(0.001)
+                    if counter > 0 
+                        sleep(0.000_001*counter)
+                    end
+                    counter = 1.2*(1 + counter)
                 end
             elseif odbc_dm[] == unixODBC
+                counter = -100
                 while true
                     ret = ccall( ($func, unixODBC_jll.libodbc), SQLRETURN, $args, $(vals...))
                     ret == SQL_STILL_EXECUTING || break
-                    sleep(0.001)
+                    if counter > 0 
+                        sleep(0.000_001*counter)
+                    end
+                    counter = 1.2*(1 + counter)
                 end
             end
         end
