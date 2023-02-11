@@ -87,6 +87,69 @@ If you're having connection issues, try to look up the documented requirements f
 
 Unicode support in ODBC is notoriously messy; different driver managers supports different things manually vs. automatically, drivers might require specific encodings or be flexible for all. ODBC.jl tries to stick with the most generally accepted defaults which is using the UTF-16 encoding in unixODBC and Windows, and using UTF-32 for OSX with iODBC. Sometimes, specific drivers will have configurations or allow datasource connection parameters to alter these. We don't recommend changing to anything but the defaults, but sometimes there are defaults shipped with drivers that don't match ODBC.jl's defaults. One example is the Impala ODBC driver on linux, which is correctly built against unixODBC (default driver manager on linux), but then sets a property `DriverManagerEncoding=UTF-32` in the `/opt/cloudera/impalaodbc/lib/64/cloudera.impalaodbc.ini` file which messes things up (since ODBC.jl tries to use UTF-16). This examples shows that there may be driver-provided configuration files that make affect things that sometimes take some digging to figure out. Always try to read through the driver documentation and keep an eye out for these kinds of settings, and then don't be afraid to snoop around in the installed files to see if anything seems out of place.
 
+## Examples
+These are concrete examples provided by the community to demonstrate the steps to set up a connection and run a basic query from julia.
+
+### Connect to a Trino Cluster (formerly PrestoDB) from Local macOS
+Steps:
+* Find, download, install machine specific ODBC driver.
+* Gather DB connection parameters from your DB service, including credentials.
+* Provide local driver path to julia process.
+* Configure the connection string.
+* Create a connection and send a query.
+
+#### Download and Install ODBC Driver
+You need a driver to connect to a database.
+
+Trino [provides a JDBC driver](https://trino.io/docs/current/client.html) and CLI which require an installed JVM. There is also a [trino python client](https://trino.io/resources.html), and there is a 3P ODBC available for purchase from Insight Software.
+
+Fortunately Starburst provides a free ODBC driver, we'll use that one. [Starburst ODBC driver installation instructions and links to driver documentation](https://docs.starburst.io/data-consumer/clients/odbc.html) are on the Starburst website.
+
+For local development on macOS, download the machine specific driver from the Starburst link above. I'm using "Starburst ODBC Apple Silicon .dmg". Note the architecture, Intel vs. Apple Silicon. Also note the supported versions, I had to upgrade to macOS 10.13 to use this driver.
+
+Now install the driver from the downloaded `.dmg` via the usual double-click package, etc. Installed location is referenced in the driver docs, see `driverpath` below.
+
+The Starburst trino driver includes the driver manager (yes an ODBC driver needs an ODBC driver manager), so no need for: `brew install unixodbc` or `libiodbc`.
+
+#### Setup Connection String, Connect, Query
+* I'm storing the DB credentials in environment variables `TRINO_USER` and `TRINO_PASSWORD`.
+* `drivername` is any name you provide, the ODBC connection will reference this name.
+* I'm using a connection string instead of DNS configuration files (see driver documentation).
+* The driver documentation provides the connection string specification.
+* Note that "LDAP Authentication" enables SSL by default, which for my trino server is a requirement to connect to the Trino DB.
+
+```julia
+# CONFIGURATION
+using ODBC
+using DataFrames
+
+host = "trino-adhoc.my-company.net"
+port = "443"
+TRINO_CREDS = Dict("user" => ENV["TRINO_USER"], "password"=> ENV["TRINO_PASSWORD"])
+drivername = "trino"
+driverpath = "/Library/starburst/starburstodbc/lib/libstarburstodbc_sb64-universal.dylib"
+connection_string = "Driver=$(drivername);Host=$(host);Port=$(port);AuthenticationType=LDAP Authentication"
+
+
+# CONNECT AND SEND A QUERY
+
+# this only needs to be done once per julia project
+ODBC.adddriver(drivername, driverpath)
+ODBC.drivers()
+    # Dict{String, String} with 1 entry:
+    # "trino" => "Installed"
+
+conn = ODBC.Connection(connection_string, TRINO_CREDS["user"], TRINO_CREDS["password"])
+
+df = DBInterface.execute(conn, "show catalogs;") |> DataFrame;
+df = DBInterface.execute(conn, "select current_date as today;") |> DataFrame
+    # 1×1 DataFrame
+    #  Row │ today
+    #      │ Date
+    # ─────┼────────────
+    #    1 │ 2023-02-11
+```
+
 ## API Reference
 
 ### DBMS Connections
