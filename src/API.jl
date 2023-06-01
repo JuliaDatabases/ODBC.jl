@@ -382,7 +382,7 @@ end
 function SQLPrepare(stmt::Ptr{Cvoid},query::AbstractString)
     q = cwstring(query)
     @odbc(:SQLPrepareW,
-        (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
+        (Ptr{Cvoid},Ptr{SQLWCHAR},SQLINTEGER),
         stmt,q,length(q))
 end
 
@@ -443,7 +443,7 @@ execute(stmt::Handle) = @checksuccess stmt SQLExecute(getptr(stmt))
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
     q = cwstring(query)
     @odbc(:SQLExecDirectW,
-        (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
+        (Ptr{Cvoid},Ptr{SQLWCHAR},SQLINTEGER),
         stmt,q,length(q))
 end
 
