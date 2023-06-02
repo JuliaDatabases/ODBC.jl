@@ -382,7 +382,7 @@ end
 function SQLPrepare(stmt::Ptr{Cvoid},query::AbstractString)
     q = cwstring(query)
     @odbc(:SQLPrepareW,
-        (Ptr{Cvoid},Ptr{SQLWCHAR},Int16),
+        (Ptr{Cvoid},Ptr{SQLWCHAR},SQLINTEGER),
         stmt,q,length(q))
 end
 
@@ -443,7 +443,7 @@ execute(stmt::Handle) = @checksuccess stmt SQLExecute(getptr(stmt))
 function SQLExecDirect(stmt::Ptr{Cvoid},query::AbstractString)
     q = cwstring(query)
     @odbc(:SQLExecDirectW,
-        (Ptr{Cvoid},Ptr{SQLWCHAR},Int),
+        (Ptr{Cvoid},Ptr{SQLWCHAR},SQLINTEGER),
         stmt,q,length(q))
 end
 
@@ -576,12 +576,12 @@ end
 
 function installererror()
     buf = Vector{UInt8}(undef, 512)
-    code = Ref{UInt16}()
+    code = Ref{UInt32}()
     len = Ref{UInt16}()
     i = 1
     err = ""
     while @odbcinst(:SQLInstallerError,
-        (UInt16, Ref{UInt16}, Ptr{UInt8}, UInt16, Ref{UInt16}),
+        (UInt16, Ref{UInt32}, Ptr{UInt8}, UInt16, Ref{UInt16}),
         i, code, buf, sizeof(buf), len) != SQL_NO_DATA
         err *= str(buf, len[])
         i += 1
@@ -608,17 +608,17 @@ function adddriver(name, path; kw...)
     driver = "$name\0Driver=$path$ex\0\0"
     out = Vector{UInt8}(undef, 1024)
     ref = Ref{UInt16}()
-    usage = Ref{UInt16}()
+    usage = Ref{UInt32}()
     ret = @checkinst @odbcinst(:SQLInstallDriverEx,
-        (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, UInt16, Ref{UInt16}, UInt16, Ref{UInt16}),
+        (Ptr{UInt8}, Ptr{UInt8}, Ptr{UInt8}, UInt16, Ref{UInt16}, UInt16, Ref{UInt32}),
         driver, C_NULL, out, length(out), ref, 2, usage)
     return ret
 end
 
 function removedriver(name, removedsns)
-    usage = Ref{UInt16}()
+    usage = Ref{UInt32}()
     ret = @checkinst @odbcinst(:SQLRemoveDriver,
-        (Ptr{UInt8}, Bool, Ref{UInt16}),
+        (Ptr{UInt8}, Bool, Ref{UInt32}),
         name, removedsns, usage)
     return ret
 end
