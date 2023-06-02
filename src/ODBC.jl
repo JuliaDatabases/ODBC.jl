@@ -8,6 +8,7 @@ include("API.jl")
 include("utils.jl")
 include("dbinterface.jl")
 include("load.jl")
+include("catalog.jl")
 
 """
     ODBC.setdebug(debug::Bool=true, tracefile::String=joinpath(tempdir(), "odbc.log"))

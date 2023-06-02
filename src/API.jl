@@ -564,6 +564,40 @@ function diagnostics(h::Handle)
     return String(take!(io))
 end
 
+function catalogstr(str::AbstractString)
+    buf = cwstring(str)
+    return (buf, length(buf))
+end
+
+catalogstr(::Union{Nothing, Missing}) =
+    return (C_NULL, 0)
+
+function SQLTables(stmt::Ptr{Cvoid}, catalogname, schemaname, tablename, tabletype)
+    c, clen = catalogstr(catalogname)
+    s, slen = catalogstr(schemaname)
+    t, tlen = catalogstr(tablename)
+    tt, ttlen = catalogstr(tabletype)
+    @odbc(:SQLTablesW,
+        (Ptr{Cvoid}, Ptr{SQLWCHAR}, SQLSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT),
+        stmt, c, clen, s, slen, t, tlen, tt, ttlen)
+end
+
+tables(stmt::Handle, catalogname, schemaname, tablename, tabletype) =
+    @checksuccess stmt SQLTables(getptr(stmt), catalogname, schemaname, tablename, tabletype)
+
+function SQLColumns(stmt::Ptr{Cvoid}, catalogname, schemaname, tablename, columnname)
+    c, clen = catalogstr(catalogname)
+    s, slen = catalogstr(schemaname)
+    t, tlen = catalogstr(tablename)
+    col, collen = catalogstr(columnname)
+    @odbc(:SQLColumnsW,
+        (Ptr{Cvoid}, Ptr{SQLWCHAR}, SQLSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT, Ptr{SQLWCHAR}, SQLSMALLINT),
+        stmt, c, clen, s, slen, t, tlen, col, collen)
+end
+
+columns(stmt::Handle, catalogname, schemaname, tablename, columnname) =
+    @checksuccess stmt SQLColumns(getptr(stmt), catalogname, schemaname, tablename, columnname)
+
 macro checkinst(expr)
     esc(quote
         ret = $expr
