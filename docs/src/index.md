@@ -171,6 +171,12 @@ DBInterface.executemultiple
 ODBC.load
 ```
 
+### Catalog functions
+```@docs
+ODBC.tables
+ODBC.columns
+```
+
 ### ODBC administrative functions
 ```@docs
 ODBC.drivers
