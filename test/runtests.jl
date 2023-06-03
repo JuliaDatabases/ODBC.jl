@@ -283,6 +283,10 @@ DBInterface.execute(conn, "INSERT INTO big_decimal (`dec`) VALUES (1234567890123
 ret = DBInterface.execute(conn, "select * from big_decimal") |> columntable
 @test ret.dec[1] == d128"1.2345678901234567891e17"
 
+ret = ODBC.tables(conn, tablename="emp%") |> columntable
+@test ret.TABLE_NAME == ["Employee", "Employee2", "Employee_copy"]
+ret = ODBC.columns(conn, tablename="emp%", columnname="望研") |> columntable
+@test ret.COLUMN_NAME == ["望研"]
 
 DBInterface.execute(conn, """DROP USER IF EXISTS 'authtest'""")
 DBInterface.execute(conn, """CREATE USER 'authtest' IDENTIFIED BY 'authtestpw'""")
