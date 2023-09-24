@@ -116,33 +116,38 @@ mutable struct Buffer
 
     # for data fetching
     function Buffer(ctype::API.SQLSMALLINT, columnsize, rows, nullable)
-        if ctype == API.SQL_C_DOUBLE
-            return new(newarray(Float64, nullable, rows))
+        T = if ctype == API.SQL_C_DOUBLE
+            Float64
         elseif ctype == API.SQL_C_FLOAT
-            return new(newarray(Float32, nullable, rows))
+            Float32
         elseif ctype == API.SQL_C_STINYINT
-            return new(newarray(Int8, nullable, rows))
+            Int8
         elseif ctype == API.SQL_C_SSHORT
-            return new(newarray(Int16, nullable, rows))
+            Int16
         elseif ctype == API.SQL_C_SLONG
-            return new(newarray(Int32, nullable, rows))
+            Int32
         elseif ctype == API.SQL_C_SBIGINT
-            return new(newarray(Int64, nullable, rows))
+            Int64
         elseif ctype == API.SQL_C_BIT
-            return new(newarray(Bool, nullable, rows))
+            Bool
         elseif ctype == API.SQL_C_TYPE_DATE
-            return new(newarray(API.SQLDate, nullable, rows))
+            API.SQLDate
         elseif ctype == API.SQL_C_TYPE_TIMESTAMP
-            return new(newarray(API.SQLTimestamp, nullable, rows))
+            API.SQLTimestamp
         elseif ctype == API.SQL_C_TYPE_TIME
-            return new(newarray(API.SQLTime, nullable, rows))
+            API.SQLTime
         elseif ctype == API.SQL_C_GUID
-            return new(newarray(UUID, nullable, rows))
+            UUID
         else
+            nothing
+        end
+
+        if T === nothing
             return new(Vector{UInt8}(undef, columnsize * rows))
         end
-    end
 
+        return new(newarray(T, nullable, rows))
+    end
 end
 
 Base.pointer(b::Buffer) = specialize(pointer, b.buffer)
