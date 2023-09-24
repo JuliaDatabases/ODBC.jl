@@ -202,6 +202,4 @@ CTRL then right-clicking on the terminal/Julia application and choosing "Run as 
 """
 removedsn(name) = API.removedsn(name)
 
-include("precompile.jl")
-
 end #ODBC module
