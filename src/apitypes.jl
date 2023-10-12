@@ -63,3 +63,4 @@ end
 
 Base.show(io::IO,x::SQLNumeric) = print(io,"SQLNumeric($(x.sign == 1 ? '+' : '-') precision: $(x.precision) scale: $(x.scale) val: $(x.val))")
 SQLNumeric() = SQLNumeric(0,0,0,(0,))
+
