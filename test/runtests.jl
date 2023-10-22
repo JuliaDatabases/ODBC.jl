@@ -9,36 +9,30 @@ ODBC.setdebug(false)
 rm(tracefile)
 
 PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
-
-try
-    ODBC.adddsn("ODBC_Test_DSN_MariaDB", "MariaDB ODBC 3.1 Driver"; SERVER="127.0.0.1", UID="root", PWD="examplepwd", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
-catch
-    if Sys.islinux()
-        if Int == Int32
-            libpath = joinpath(expanduser("~"), "mariadb32/lib/libmaodbc.so")
-        else
-            libpath = joinpath("/home/runner/mariadb64", "mariadb-connector-odbc-3.1.11-ubuntu-focal-amd64/lib64/mariadb/libmaodbc.so")
-        end
-    elseif Sys.iswindows()
-        if Int == Int32
-            libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll"))
-        else
-            @show readdir(expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit")))
-            libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit", "maodbc.dll"))
-        end
+if Sys.islinux()
+    if Int == Int32
+        libpath = joinpath(expanduser("~"), "mariadb32/lib/libmaodbc.so")
     else
-        libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
+        libpath = joinpath("/home/runner/mariadb64", "mariadb-connector-odbc-3.1.11-ubuntu-focal-amd64/lib64/mariadb/libmaodbc.so")
     end
-    @show libpath
-    @show isfile(libpath)
-
-    ODBC.adddriver("ODBC_Test_MariaDB", libpath)
-    ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="127.0.0.1", UID="root", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
+elseif Sys.iswindows()
+    if Int == Int32
+        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll"))
+    else
+        @show readdir(expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit")))
+        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit", "maodbc.dll"))
+    end
+else
+    libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
 end
+@show libpath
+@show isfile(libpath)
+ODBC.adddriver("ODBC_Test_MariaDB", libpath)
+ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="127.0.0.1", UID="root", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
 
 conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB")
 DBInterface.close!(conn)
-conn = DBInterface.connect(ODBC.Connection, "Driver={MariaDB ODBC 3.1 Driver};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4;USER=root;PWD=examplepwd")
+conn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4;USER=root")
 
 DBInterface.execute(conn, "DROP DATABASE if exists mysqltest")
 DBInterface.execute(conn, "CREATE DATABASE mysqltest")
