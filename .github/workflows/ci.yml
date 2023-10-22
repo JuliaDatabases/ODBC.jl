@@ -25,14 +25,14 @@ jobs:
           mkdir -p /home/runner/mariadb64
           tar xfz mariadb-connector-odbc-3.1.11-ubuntu-focal-amd64.tar.gz -C /home/runner/mariadb64
       - run: |
-          apt-get update
-          apt-get install -y curl lsb-core
+          sudo apt-get update
+          sudo apt-get install -y curl lsb-core
           
-          curl https://packages.microsoft.com/keys/microsoft.asc | tee /etc/apt/trusted.gpg.d/microsoft.asc
-          curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | tee /etc/apt/sources.list.d/mssql-release.list
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc
+          curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
           
-          apt-get update
-          ACCEPT_EULA=Y apt-get install -y msodbcsql18
+          sudo apt-get update
+          ACCEPT_EULA=Y sudo apt-get install -y msodbcsql18
       - uses: potatoqualitee/mssqlsuite@v1.7
         with:
           install: sqlengine
