@@ -313,3 +313,6 @@ ret = DBInterface.execute(dsnconn, "select current_user() as user") |> columntab
 DBInterface.close!(dsnconn)
 
 DBInterface.close!(conn)
+
+
+include("testmsodbc.jl")
