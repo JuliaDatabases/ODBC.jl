@@ -37,6 +37,10 @@ const hex_chars = UInt8['0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
                         'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
                         's', 't', 'u', 'v', 'w', 'x', 'y', 'z']
 
+Base.convert(::Type{String}, g::GUID) = Base.string(g)
+Base.convert(::Type{Base.UUID}, g::GUID) = Base.UUID(Base.string(g))
+Base.convert(::Type{UInt128}, g::GUID) = Base.UUID(Base.string(g)).value
+
 function Base.string(g::GUID)
     a = Base.StringVector(36)
     u = g.data1

@@ -9,30 +9,36 @@ ODBC.setdebug(false)
 rm(tracefile)
 
 PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
-if Sys.islinux()
-    if Int == Int32
-        libpath = joinpath(expanduser("~"), "mariadb32/lib/libmaodbc.so")
+
+try
+    ODBC.adddsn("ODBC_Test_DSN_MariaDB", "MariaDB ODBC 3.1 Driver"; SERVER="127.0.0.1", UID="root", PWD="examplepwd", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
+catch
+    if Sys.islinux()
+        if Int == Int32
+            libpath = joinpath(expanduser("~"), "mariadb32/lib/libmaodbc.so")
+        else
+            libpath = joinpath("/home/runner/mariadb64", "mariadb-connector-odbc-3.1.11-ubuntu-focal-amd64/lib64/mariadb/libmaodbc.so")
+        end
+    elseif Sys.iswindows()
+        if Int == Int32
+            libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll"))
+        else
+            @show readdir(expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit")))
+            libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit", "maodbc.dll"))
+        end
     else
-        libpath = joinpath("/home/runner/mariadb64", "mariadb-connector-odbc-3.1.11-ubuntu-focal-amd64/lib64/mariadb/libmaodbc.so")
+        libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
     end
-elseif Sys.iswindows()
-    if Int == Int32
-        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll"))
-    else
-        @show readdir(expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit")))
-        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit", "maodbc.dll"))
-    end
-else
-    libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
+    @show libpath
+    @show isfile(libpath)
+
+    ODBC.adddriver("ODBC_Test_MariaDB", libpath)
+    ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="127.0.0.1", UID="root", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
 end
-@show libpath
-@show isfile(libpath)
-ODBC.adddriver("ODBC_Test_MariaDB", libpath)
-ODBC.adddsn("ODBC_Test_DSN_MariaDB", "ODBC_Test_MariaDB"; SERVER="127.0.0.1", UID="root", PLUGIN_DIR=PLUGIN_DIR, Option=67108864, CHARSET="utf8mb4")
 
 conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB")
 DBInterface.close!(conn)
-conn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4;USER=root")
+conn = DBInterface.connect(ODBC.Connection, "Driver={MariaDB ODBC 3.1 Driver};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4;USER=root;PWD=examplepwd")
 
 DBInterface.execute(conn, "DROP DATABASE if exists mysqltest")
 DBInterface.execute(conn, "CREATE DATABASE mysqltest")
@@ -291,8 +297,8 @@ ret = ODBC.columns(conn, tablename="emp%", columnname="望研") |> columntable
 DBInterface.execute(conn, """DROP USER IF EXISTS 'authtest'""")
 DBInterface.execute(conn, """CREATE USER 'authtest' IDENTIFIED BY 'authtestpw'""")
 
-connstrconn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"; user="authtest", password="authtestpw")
-@test connstrconn.dsn == "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"
+connstrconn = DBInterface.connect(ODBC.Connection, "Driver={MariaDB ODBC 3.1 Driver};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"; user="authtest", password="authtestpw")
+@test connstrconn.dsn == "Driver={MariaDB ODBC 3.1 Driver};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"
 ret = DBInterface.execute(connstrconn, "select current_user() as user") |> columntable
 @test startswith(ret.user[1], "authtest@")
 DBInterface.close!(connstrconn)
