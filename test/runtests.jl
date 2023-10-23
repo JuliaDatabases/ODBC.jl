@@ -55,15 +55,16 @@ DBInterface.execute(conn, """CREATE TABLE Employee
                      Photo BLOB,
                      JobType ENUM('HR', 'Management', 'Accounts'),
                      Senior BIT(1),
+                     Uuidid UUID,
                      PRIMARY KEY (ID)
                  );""")
 
-DBInterface.execute(conn, """INSERT INTO Employee (OfficeNo, DeptNo, EmpNo, Wage, Salary, Rate, LunchTime, JoinDate, LastLogin, LastLogin2, Initial, Name, Photo, JobType, Senior)
+DBInterface.execute(conn, """INSERT INTO Employee (OfficeNo, DeptNo, EmpNo, Wage, Salary, Rate, LunchTime, JoinDate, LastLogin, LastLogin2, Initial, Name, Photo, JobType, Senior, Uuidid)
                  VALUES
-                 (1, 2, 1301, 3.14, 10000.50, 1.001, '12:00:00', '2015-8-3', '2015-9-5 12:31:30', '2015-9-5 12:31:30', 'A', 'John', 'abc', 'HR', b'1'),
-                 (1, 2, 1422, 3.14, 20000.25, 2.002, '13:00:00', '2015-8-4', '2015-10-12 13:12:14', '2015-10-12 13:12:14', 'B', 'Tom', 'def', 'HR', b'1'),
-                 (1, 2, 1567, 3.14, 30000.00, 3.003, '12:30:00', '2015-6-2', '2015-9-5 10:05:10', '2015-9-5 10:05:10', 'C', 'Jim', 'ghi', 'Management', b'0'),
-                 (1, 2, 3200, 3.14, 15000.50, 2.5, '12:30:00', '2015-7-25', '2015-10-10 12:12:25', '2015-10-10 12:12:25', 'D', '望研測来白制父委供情治当認米注。規', 'jkl', 'Accounts', b'1');
+                 (1, 2, 1301, 3.14, 10000.50, 1.001, '12:00:00', '2015-8-3', '2015-9-5 12:31:30', '2015-9-5 12:31:30', 'A', 'John', 'abc', 'HR', b'1', '123e4567-e89b-12d3-a456-426655440000'),
+                 (1, 2, 1422, 3.14, 20000.25, 2.002, '13:00:00', '2015-8-4', '2015-10-12 13:12:14', '2015-10-12 13:12:14', 'B', 'Tom', 'def', 'HR', b'1', '11223344-5566-7788-99aa-bbccddeeff00'),
+                 (1, 2, 1567, 3.14, 30000.00, 3.003, '12:30:00', '2015-6-2', '2015-9-5 10:05:10', '2015-9-5 10:05:10', 'C', 'Jim', 'ghi', 'Management', b'0', '11223344-5566-7788-99aa-bbccddeeff01'),
+                 (1, 2, 3200, 3.14, 15000.50, 2.5, '12:30:00', '2015-7-25', '2015-10-10 12:12:25', '2015-10-10 12:12:25', 'D', '望研測来白制父委供情治当認米注。規', 'jkl', 'Accounts', b'1', '11223344-5566-7788-99aa-bbccddeeff02');
               """)
 
 expected = (
@@ -83,6 +84,12 @@ expected = (
   Photo      = Union{Missing, Vector{UInt8}}[b"abc", b"def", b"ghi", b"jkl"],
   JobType    = Union{Missing, String}["HR", "HR", "Management", "Accounts"],
   Senior     = Union{Missing, Bool}[true, true, false, true],
+  Uuidid     = Union{Missing, Base.UUID}[
+    Base.UUID("123e4567-e89b-12d3-a456-426655440000"),
+    Base.UUID("11223344-5566-7788-99aa-bbccddeeff00"),
+    Base.UUID("11223344-5566-7788-99aa-bbccddeeff01"),
+    Base.UUID("11223344-5566-7788-99aa-bbccddeeff02")
+  ]
 )
 
 
