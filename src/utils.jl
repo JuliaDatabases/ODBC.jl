@@ -14,6 +14,7 @@ ccast(x::Date) = API.SQLDate(x)
 ccast(x::DateTime) = API.SQLTimestamp(x)
 ccast(x::Time) = API.SQLTime(x)
 ccast(x::DecFP.DecimalFloatingPoint) = string(x)
+ccast(x::Base.UUID) = API.GUID(x)
 
 _zero(T) = zero(T)
 
@@ -210,14 +211,14 @@ bindtypes(x::DateTime) = API.SQL_C_TYPE_TIMESTAMP, API.SQL_TYPE_TIMESTAMP
 bindtypes(x::Time) = API.SQL_C_TYPE_TIME, API.SQL_TYPE_TIME
 bindtypes(x::DecFP.DecimalFloatingPoint) = API.SQL_C_CHAR, API.SQL_DECIMAL
 # bindtypes(x::DecFP.DecimalFloatingPoint) = API.SQL_C_NUMERIC
-bindtypes(x::API.GUID) = API.SQL_C_GUID, API.SQL_GUID
+bindtypes(x::Base.UUID) = API.SQL_C_GUID, API.SQL_GUID
 
 const BINDTYPES = [
     Int8, Int16, Int32, Int64,
     UInt8, UInt16, UInt32, UInt64,
     Float32, Float64, DecFP.Dec64, DecFP.Dec128,
     Bool,
-    Vector{UInt8}, String, API.GUID,
+    Vector{UInt8}, String, Base.UUID,
     Date, Time, DateTime
 ]
 
@@ -385,7 +386,7 @@ function fetchtypes(x, prec)
     elseif x == API.SQL_TYPE_TIME
         return (API.SQL_C_TYPE_TIME, Time)
     elseif x == API.SQL_GUID
-        return (API.SQL_C_GUID, API.GUID)
+        return (API.SQL_C_GUID, Base.UUID)
     # elseif x == API.SQL_SS_TIME2    # @TODO Need to figure this one out
     #     return (API.SQL_C_SS_TIME2, Time) 
     else
