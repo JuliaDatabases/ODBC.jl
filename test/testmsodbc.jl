@@ -12,7 +12,7 @@ else
 #    libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
 end
 
-mssql = ODBC.Connection("Driver={ODBC Driver 18 for SQL Server};Server=127.0.0.1;Encrypt=no", "sa", "msSQ_F123")
+mssql = ODBC.Connection("Driver={ODBC Driver 18 for SQL Server};Server=msdb;Encrypt=no", "sa", "msSQ_F123")
 
 res = DBInterface.execute(mssql, 
 "SELECT CONVERT(uniqueidentifier, 'ABCD0000-0000-0000-1234-000000000000') AS anid, 'ABCD0000-0000-0000-1234-000000000000' AS strid",

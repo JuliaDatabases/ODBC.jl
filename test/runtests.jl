@@ -13,7 +13,7 @@ if Sys.islinux()
     if Int == Int32
         libpath = joinpath(expanduser("~"), "mariadb32/lib/libmaodbc.so")
     else
-        libpath = joinpath("/home/runner/mariadb64", "mariadb-connector-odbc-3.1.11-ubuntu-focal-amd64/lib64/mariadb/libmaodbc.so")
+        libpath = joinpath("/usr/local/lib/mariadb64", "mariadb-connector-odbc-3.1.19-ubuntu-focal-amd64/lib/mariadb/libmaodbc.so")
     end
 elseif Sys.iswindows()
     if Int == Int32
@@ -291,8 +291,8 @@ ret = ODBC.columns(conn, tablename="emp%", columnname="望研") |> columntable
 DBInterface.execute(conn, """DROP USER IF EXISTS 'authtest'""")
 DBInterface.execute(conn, """CREATE USER 'authtest' IDENTIFIED BY 'authtestpw'""")
 
-connstrconn = DBInterface.connect(ODBC.Connection, "Driver={MariaDB ODBC 3.1 Driver};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"; user="authtest", password="authtestpw")
-@test connstrconn.dsn == "Driver={MariaDB ODBC 3.1 Driver};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"
+connstrconn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"; user="authtest", password="authtestpw")
+@test connstrconn.dsn == "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4"
 ret = DBInterface.execute(connstrconn, "select current_user() as user") |> columntable
 @test startswith(ret.user[1], "authtest@")
 DBInterface.close!(connstrconn)
