@@ -210,6 +210,8 @@ const SQL_C_UBIGINT = (SQL_BIGINT+SQL_UNSIGNED_OFFSET)
 #const SQL_C_INTERVAL_MINUTE_TO_SECOND = Int16(113)
 const SQL_C_GUID                      = Int16(-11)
 
+const SQL_C_SS_TIME2                    = Int16(16384)
+
 "Convenience mapping of SQL types to their string representation"
 const SQL_TYPES = Dict(
       1 => "SQL_CHAR",
@@ -249,7 +251,8 @@ const SQL_TYPES = Dict(
     111 => "SQL_INTERVAL_HOUR_TO_MINUTE",
     112 => "SQL_INTERVAL_HOUR_TO_SECOND",
     113 => "SQL_INTERVAL_MINUTE_TO_SECOND",
-    -11 => "SQL_GUID")
+    -11 => "SQL_GUID",
+    -154 => "SQL_SS_TIME2")
 
 "Convenience mapping of SQL types to their C-type equivalent as a string"
 const C_TYPES = Dict(
@@ -276,6 +279,7 @@ const C_TYPES = Dict(
   SQL_C_USHORT => "SQL_C_USHORT",
   SQL_C_UTINYINT => "SQL_C_UTINYINT",
   SQL_C_GUID => "SQL_C_GUID",
+  SQL_C_SS_TIME2 => "SQL_C_SS_TIME2",
   SQL_C_SBIGINT => "SQL_C_SBIGINT",
 )
 

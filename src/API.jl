@@ -44,6 +44,9 @@ sqlwcharsize() = odbc_dm[] == iODBC ? SQLWCHAR32 : SQLWCHAR
 include("consts.jl")
 include("apitypes.jl")
 
+include("myguid.jl")
+include("datetypes.jl")
+
 str(x::Vector{UInt8}, len) = String(x[1:len])
 str(x::Vector{UInt16}, len) = transcode(String, view(x, 1:len))
 str(x::Vector{UInt32}, len) = transcode(String, x[1:len])
