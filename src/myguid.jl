@@ -10,6 +10,9 @@ end
 
 Base.zero(::Type{GUID}) = GUID(0,0,0,zero(SVector{8, Cuchar}))
 
+# This is hijacking!
+Base.zero(::Type{Base.UUID}) = Base.UUID(0)
+
 # function trivialprint(io::IO, g::GUID)
 #     hex(n) = string(n, base=16, pad=2) ;
 #     print(io, hex(g.data1));
