@@ -21,7 +21,7 @@ Note that setting tracing on/off requires resetting the ODBC environment, which 
 any open statements/connections will be closed/invalid.
 
 Also note that due to the persistent nature of ODBC config, setting tracing will
-persist acrosss Julia sessions, i.e. if you turn tracing on, then quit julia and start again
+persist across Julia sessions, i.e. if you turn tracing on, then quit julia and start again
 tracing will still be on, and will stay on until explicitly turned off.
 
 The iODBC driver manager supports passing `stderr` as the `tracefile`, which will
