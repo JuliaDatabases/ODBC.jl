@@ -1,0 +1,49 @@
+version: '3.8'
+services:
+  devcontainer:
+    image: mcr.microsoft.com/devcontainers/base:bullseye
+    # image: mcr.microsoft.com/devcontainers/base:ubuntu
+    volumes:
+      - ../..:/workspaces:cached
+      - dotjulia:/home/vscode/.julia
+    network_mode: service:mariadb
+    command: sleep infinity
+
+  mariadb:
+    image: mariadb:latest
+    # NOTE: use of "mysql_native_password" is not recommended: https://dev.mysql.com/doc/refman/8.0/en/upgrading-from-previous-series.html#upgrade-caching-sha2-password
+    # (this is just an example, not intended to be a production configuration)
+    # command: --default-authentication-plugin=mysql_native_password
+    restart: always
+    networks:
+      - services_network
+    environment:
+#      MYSQL_ROOT_PASSWORD: examplepwd
+      MYSQL_ALLOW_EMPTY_PASSWORD: 1
+    ports:
+      - 3306:3306
+
+  msdb:
+    image: mcr.microsoft.com/mssql/server:2022-preview-ubuntu-22.04
+    restart: unless-stopped
+    networks: 
+      - services_network
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      ACCEPT_EULA: 'Y'
+      MSSQL_SA_PASSWORD: msSQ_F123
+      MSSQL_PID: Evaluation
+    ports:
+      - 1433:1433
+
+networks:
+  services_network:
+    driver: bridge
+
+volumes:
+  db-data:
+
+  dotjulia:
+    external: true 
+    name: dotjulia

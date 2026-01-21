@@ -12,7 +12,6 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - 1.6
           - 1 # automatically expands to the latest stable 1.x release of Julia
           - nightly
         os:
@@ -25,6 +24,19 @@ jobs:
           curl -O https://downloads.mariadb.com/Connectors/odbc/connector-odbc-3.1.11/mariadb-connector-odbc-3.1.11-ubuntu-focal-amd64.tar.gz
           mkdir -p /home/runner/mariadb64
           tar xfz mariadb-connector-odbc-3.1.11-ubuntu-focal-amd64.tar.gz -C /home/runner/mariadb64
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y curl lsb-core
+          
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc
+          curl https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
+          
+          sudo apt-get update
+          ACCEPT_EULA=Y sudo apt-get install -y msodbcsql18
+      - uses: potatoqualitee/mssqlsuite@v1.7
+        with:
+          install: sqlengine
+          sa-password: msSQ_F123
       - uses: getong/mariadb-action@v1.1
         with:
           host port: 3306 # Optional, default value is 3306. The port of host

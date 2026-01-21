@@ -53,6 +53,13 @@ Base.zero(::Type{SQLTimestamp}) = SQLTimestamp()
                                x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
 Dates.DateTime(x::SQLTimestamp) = DateTime(Dates.UTM((x.fraction ÷ 1_000_000) + 1000 * (x.second + 60 * x.minute + 3600 * x.hour + 86400 * Dates.totaldays(x.year, max(x.month, 1), x.day))))
 
+struct SQL_SS_Time2 <: Dates.AbstractTime
+    hour::Cushort;  #  SQLUSMALLINT hour;
+    minute::Cushort; #  SQLUSMALLINT minute;
+    second::Cushort; # SQLUSMALLINT second;
+    fraction::Cuint; # SQLUINTEGER  fraction;
+end
+
 const SQL_MAX_NUMERIC_LEN = 16
 struct SQLNumeric
     precision::SQLCHAR
@@ -63,3 +70,5 @@ end
 
 Base.show(io::IO,x::SQLNumeric) = print(io,"SQLNumeric($(x.sign == 1 ? '+' : '-') precision: $(x.precision) scale: $(x.scale) val: $(x.val))")
 SQLNumeric() = SQLNumeric(0,0,0,(0,))
+
+

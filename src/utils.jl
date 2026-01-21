@@ -1,3 +1,6 @@
+
+
+
 # whether a julia value needs wrapped in an array in order to call pointer(value)
 # needswrapped(x::API.SQLSMALLINT) = x != API.SQL_C_CHAR && x != API.SQL_C_WCHAR && x != API.SQL_C_BINARY
 needswrapped(x::Union{String, Vector{UInt8}}) = false
@@ -11,9 +14,9 @@ ccast(x::Date) = API.SQLDate(x)
 ccast(x::DateTime) = API.SQLTimestamp(x)
 ccast(x::Time) = API.SQLTime(x)
 ccast(x::DecFP.DecimalFloatingPoint) = string(x)
+ccast(x::Base.UUID) = API.GUID(x)
 
 _zero(T) = zero(T)
-_zero(::Type{UUID}) = UUID(0)
 
 function newarray(T, nullable, rows)
     if nullable == API.SQL_NO_NULLS
@@ -52,7 +55,7 @@ end
         return f(x)
     elseif x isa Vector{API.SQLTime}
         return f(x)
-    elseif x isa Vector{UUID}
+    elseif x isa Vector{API.GUID}
         return f(x)
     elseif x isa Vector{Union{Missing, Float32}}
         return f(x)
@@ -74,7 +77,7 @@ end
         return f(x)
     elseif x isa Vector{Union{Missing, API.SQLTime}}
         return f(x)
-    elseif x isa Vector{Union{Missing, UUID}}
+    elseif x isa Vector{Union{Missing, API.GUID}}
         return f(x)
     end
 end
@@ -94,7 +97,7 @@ mutable struct Buffer
         Vector{API.SQLDate},
         Vector{API.SQLTimestamp},
         Vector{API.SQLTime},
-        Vector{UUID},
+        Vector{API.GUID},
         Vector{Union{Missing, Float32}},
         Vector{Union{Missing, Float64}},
         Vector{Union{Missing, Int8}},
@@ -105,7 +108,7 @@ mutable struct Buffer
         Vector{Union{Missing, API.SQLDate}},
         Vector{Union{Missing, API.SQLTimestamp}},
         Vector{Union{Missing, API.SQLTime}},
-        Vector{Union{Missing, UUID}},
+        Vector{Union{Missing, API.GUID}},
     }
 
     # for parameter binding
@@ -137,7 +140,7 @@ mutable struct Buffer
         elseif ctype == API.SQL_C_TYPE_TIME
             return new(newarray(API.SQLTime, nullable, rows))
         elseif ctype == API.SQL_C_GUID
-            return new(newarray(UUID, nullable, rows))
+            return new(newarray(API.GUID, nullable, rows))
         else
             return new(Vector{UInt8}(undef, columnsize * rows))
         end
@@ -208,14 +211,14 @@ bindtypes(x::DateTime) = API.SQL_C_TYPE_TIMESTAMP, API.SQL_TYPE_TIMESTAMP
 bindtypes(x::Time) = API.SQL_C_TYPE_TIME, API.SQL_TYPE_TIME
 bindtypes(x::DecFP.DecimalFloatingPoint) = API.SQL_C_CHAR, API.SQL_DECIMAL
 # bindtypes(x::DecFP.DecimalFloatingPoint) = API.SQL_C_NUMERIC
-bindtypes(x::UUID) = API.SQL_C_GUID, API.SQL_GUID
+bindtypes(x::Base.UUID) = API.SQL_C_GUID, API.SQL_GUID
 
 const BINDTYPES = [
     Int8, Int16, Int32, Int64,
     UInt8, UInt16, UInt32, UInt64,
     Float32, Float64, DecFP.Dec64, DecFP.Dec128,
     Bool,
-    Vector{UInt8}, String, UUID,
+    Vector{UInt8}, String, Base.UUID,
     Date, Time, DateTime
 ]
 
@@ -223,7 +226,7 @@ bindtypes(::Type{T}) where {T} = bindtypes(zero(T))
 bindtypes(::Type{Vector{UInt8}}) = bindtypes(UInt8[])
 bindtypes(::Type{String}) = bindtypes("")
 bindtypes(::Type{T}) where {T <: Dates.TimeType} = bindtypes(T(0))
-bindtypes(::Type{UUID}) = bindtypes(UUID(0))
+# bindtypes(::Type{GUID}) = bindtypes(zero(GUID))
 
 # used for create table column type definitions
 typeprecision(::Type{DecFP.Dec64}) = 16
@@ -383,7 +386,9 @@ function fetchtypes(x, prec)
     elseif x == API.SQL_TYPE_TIME
         return (API.SQL_C_TYPE_TIME, Time)
     elseif x == API.SQL_GUID
-        return (API.SQL_C_GUID, UUID)
+        return (API.SQL_C_GUID, Base.UUID)
+    # elseif x == API.SQL_SS_TIME2    # @TODO Need to figure this one out
+    #     return (API.SQL_C_SS_TIME2, Time) 
     else
         return (API.SQL_C_CHAR, String)
     end

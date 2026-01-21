@@ -64,3 +64,8 @@ To run tests locally on Linux, you need to have
     julia> ]
     (ODBC) pkg> test
     ```
+
+The MariaDB ODBC connector for Windows can be downloaded from 
+https://dlm.mariadb.com/3286254/Connectors/odbc/connector-odbc-3.1.19/mariadb-connector-odbc-3.1.19-win64.msi
+
+For my (@ahjulstad) the testing done on Windows I used docker compose. 
