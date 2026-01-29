@@ -1,9 +1,8 @@
 name = "ODBC"
 uuid = "be6f12e9-ca4f-5eb2-a339-a4f995cc0291"
-version = "1.2.1"
+version = "1.2.2"
 
 [deps]
-BinaryBuilder = "12aac903-9f7c-5d81-afc2-d9565ea332ae"
 DBInterface = "a10d1c49-ce27-4219-8d33-6db1a4562965"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DecFP = "55939f99-70c6-5e9b-8bb0-5071ed7d61fd"
