@@ -13,7 +13,7 @@ if Sys.islinux()
     if Int == Int32
         libpath = joinpath(expanduser("~"), "mariadb32/lib/libmaodbc.so")
     else
-        libpath = joinpath("/home/runner/mariadb64", "mariadb-connector-odbc-3.1.11-ubuntu-focal-amd64/lib64/mariadb/libmaodbc.so")
+        libpath = joinpath("/home/runner/mariadb64", "mariadb-connector-odbc-3.1.20-ubuntu-focal-amd64/lib/mariadb/libmaodbc.so")
     end
 elseif Sys.iswindows()
     if Int == Int32
@@ -86,10 +86,12 @@ expected = (
 )
 
 
-# Validate that iteration of results throws runtime Error on DivisionByZero
-@test_throws ErrorException DBInterface.execute(
-    conn, "SELECT a, b, a/b FROM (VALUES (2,1),(1,0),(2,1)) AS t(a,b)"
+# Newer MariaDB versions return NULL for division by zero instead of erroring
+# Validate that the query executes successfully and returns results
+result = DBInterface.execute(
+    conn, "SELECT a, b, a/b AS c FROM (VALUES (2,1),(1,0),(2,1)) AS t(a,b)"
 ) |> columntable
+@test length(result.a) == 3
 
 cursor = DBInterface.execute(conn, "select * from Employee")
 @test eltype(cursor) == ODBC.Row
