@@ -54,6 +54,8 @@ end
         return f(x)
     elseif x isa Vector{API.SQLTime}
         return f(x)
+    elseif x isa Vector{API.SQLNumeric}
+        return f(x)
     elseif x isa Vector{UUID}
         return f(x)
     elseif x isa Vector{Union{Missing, Float32}}
@@ -76,6 +78,8 @@ end
         return f(x)
     elseif x isa Vector{Union{Missing, API.SQLTime}}
         return f(x)
+    elseif x isa Vector{Union{Missing, API.SQLNumeric}}
+        return f(x)
     elseif x isa Vector{Union{Missing, UUID}}
         return f(x)
     end
@@ -96,6 +100,7 @@ mutable struct Buffer
         Vector{API.SQLDate},
         Vector{API.SQLTimestamp},
         Vector{API.SQLTime},
+        Vector{API.SQLNumeric},
         Vector{UUID},
         Vector{Union{Missing, Float32}},
         Vector{Union{Missing, Float64}},
@@ -107,6 +112,7 @@ mutable struct Buffer
         Vector{Union{Missing, API.SQLDate}},
         Vector{Union{Missing, API.SQLTimestamp}},
         Vector{Union{Missing, API.SQLTime}},
+        Vector{Union{Missing, API.SQLNumeric}},
         Vector{Union{Missing, UUID}},
     }
 
@@ -138,6 +144,8 @@ mutable struct Buffer
             return new(newarray(API.SQLTimestamp, nullable, rows))
         elseif ctype == API.SQL_C_TYPE_TIME
             return new(newarray(API.SQLTime, nullable, rows))
+        elseif ctype == API.SQL_C_NUMERIC
+            return new(newarray(API.SQLNumeric, nullable, rows))
         elseif ctype == API.SQL_C_GUID
             return new(newarray(UUID, nullable, rows))
         else
@@ -259,7 +267,8 @@ mutable struct Binding
         b.valuetype = ctype
         b.parametertype = sqltype
         b.value = Buffer(ctype, columnsize, rows, nullable)
-        b.bufferlength = columnsize
+        # numeric columns transfer a fixed-size struct, not `columnsize` digits
+        b.bufferlength = ctype == API.SQL_C_NUMERIC ? sizeof(API.SQLNumeric) : columnsize
         b.strlen_or_indptr = Vector{Int}(undef, rows)
         if columnar
             bindcol(stmt, i, b)
@@ -301,8 +310,13 @@ getbindings(stmt, columnar, ctypes, sqltypes, columnsizes, nullables, longtexts,
     [Binding(stmt, columnar, i, ctypes[i], sqltypes[i], columnsizes[i], nullables[i], longtexts[i], rows) for i = 1:length(ctypes)]
 
 function getdata(stmt, i, b::Binding)
-    status = API.SQLGetData(API.getptr(stmt), i, b.valuetype, pointer(b.value), b.bufferlength, b.strlen_or_indptr)
+    # unbound numeric columns get their precision/scale from the ARD record we
+    # rewrote in `Cursor`, which is what SQL_ARD_TYPE selects
+    ctype = b.valuetype == API.SQL_C_NUMERIC ? API.SQL_ARD_TYPE : b.valuetype
+    status = API.SQLGetData(API.getptr(stmt), i, ctype, pointer(b.value), b.bufferlength, b.strlen_or_indptr)
     b.totallen = b.strlen_or_indptr[1]
+    # fixed-size struct; never a partial/long transfer
+    b.valuetype == API.SQL_C_NUMERIC && return
     if (b.long || status == API.SQL_SUCCESS_WITH_INFO) && b.strlen_or_indptr[1] != API.SQL_NULL_DATA
         chardata = b.valuetype != API.SQL_C_BINARY
         if b.strlen_or_indptr[1] == API.SQL_NO_TOTAL
@@ -366,12 +380,36 @@ function decimaltype(precision, scale)
     return Decimal{P, Int(scale), storageint(P)}
 end
 
+"""
+    ODBC.decimalfromnumeric(D, x::API.SQLNumeric) -> D
+
+Convert a fetched `SQL_NUMERIC_STRUCT` to the decimal type `D`. The struct's
+16-byte little-endian `val` is the unscaled coefficient and `sign` is `1` for
+positive, `0` for negative. Drivers are supposed to honor the precision/scale
+we set on the ARD, but the struct carries its own scale, so rescale from that
+rather than trusting them; the conversion is exact-or-throw so a driver that
+silently drops digits is a loud error instead of wrong data.
+"""
+function decimalfromnumeric(::Type{D}, x::API.SQLNumeric) where {D <: Decimals.AbstractDecimal}
+    mag = API.magnitude(x)
+    mag <= UInt128(typemax(Int128)) || throw(InexactError(:decimalfromnumeric, D, mag))
+    u = x.sign == 0 ? -(mag % Int128) : mag % Int128
+    s = Int(x.scale)
+    s < 0 && return D(DecimalValue{Int128}(Base.Checked.checked_mul(u, Int128(10)^(-s)), 0))
+    return D(DecimalValue{Int128}(u, s))
+end
+
 # given the SQL type as described by the driver library
 # what is the C storage needed for data transfer, and
 # final Julia type (that may involve conversions from C layout)
-function fetchtypes(x, prec, scale)
+function fetchtypes(x, prec, scale, numericstruct)
     if x == API.SQL_DECIMAL || x == API.SQL_NUMERIC
-        return (API.SQL_C_CHAR, decimaltype(prec, scale))
+        T = decimaltype(prec, scale)
+        # SQL_NUMERIC_STRUCT's val is 16 bytes, so at most 38 digits
+        if numericstruct && T !== String && precision(T) <= 38
+            return (API.SQL_C_NUMERIC, T)
+        end
+        return (API.SQL_C_CHAR, T)
     elseif x == API.SQL_SMALLINT
         return (API.SQL_C_SSHORT, Int16)
     elseif x == API.SQL_INTEGER

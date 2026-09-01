@@ -159,6 +159,7 @@ Supported keyword arguments include:
   * `iterate_rows::Bool`: for forcing row iteration of the resultset
   * `ignore_driver_row_count::Bool`: for ignoring the row count returned from the database driver; in some cases (Netezza), the driver may return an incorrect or "prefetched" number for the row count instead of the actual row count; this allows ignoring those numbers and fetching the resultset until truly exhausted
   * `normalizenames::Bool`: normalize column names to valid Julia identifiers; this can be convenient when working with the results in, for example, a `DataFrame` where you can access columns like `df.col1`
+  * `numeric_binding::Symbol`: how DECIMAL/NUMERIC columns are transferred; `:char` (the default) fetches the exact character form and parses it, which every driver supports, while `:struct` binds `SQL_C_NUMERIC` and reads the raw coefficient. `:struct` avoids the parse but relies on the driver honoring the precision/scale set on the application row descriptor, which support for varies widely, so treat it as an opt-in optimization to validate against your own driver.
   * `debug::Bool`: for printing additional debug information during the query/result process.
 """
 function DBInterface.execute(stmt::Statement, params=(); debug::Bool=false, kw...)
@@ -186,6 +187,7 @@ Supported keyword arguments include:
   * `iterate_rows::Bool`: for forcing row iteration of the resultset
   * `ignore_driver_row_count::Bool`: for ignoring the row count returned from the database driver; in some cases (Netezza), the driver may return an incorrect or "prefetched" number for the row count instead of the actual row count; this allows ignoring those numbers and fetching the resultset until truly exhausted
   * `normalizenames::Bool`: normalize column names to valid Julia identifiers; this can be convenient when working with the results in, for example, a `DataFrame` where you can access columns like `df.col1`
+  * `numeric_binding::Symbol`: how DECIMAL/NUMERIC columns are transferred; `:char` (the default) fetches the exact character form and parses it, which every driver supports, while `:struct` binds `SQL_C_NUMERIC` and reads the raw coefficient. `:struct` avoids the parse but relies on the driver honoring the precision/scale set on the application row descriptor, which support for varies widely, so treat it as an opt-in optimization to validate against your own driver.
   * `debug::Bool`: for printing additional debug information during the query/result process.
 
 This is an alternative execution path to `DBInterface.execute` with a prepared statement.
@@ -218,6 +220,26 @@ mutable struct Cursor{columnar, knownlength}
     metadata::Any
 end
 
+@noinline invalidnumericbinding(x) = throw(ArgumentError("invalid numeric_binding = $(repr(x)); must be :char or :struct"))
+
+function checknumericbinding(x::Symbol)
+    x == :char && return false
+    x == :struct && return true
+    return invalidnumericbinding(x)
+end
+
+# ask the driver for SQL_C_NUMERIC at each column's own precision/scale; must
+# run after `getbindings`, since SQLBindCol resets the ARD fields we set here
+function applynumericdesc(stmt, columnar, bindings, precisions, scales)
+    any(b -> b.valuetype == API.SQL_C_NUMERIC, bindings) || return
+    desc = API.getardhandle(stmt)
+    for (i, b) in enumerate(bindings)
+        b.valuetype == API.SQL_C_NUMERIC || continue
+        API.setnumericdesc(desc, i, precisions[i], scales[i], columnar ? pointer(b.value) : C_NULL)
+    end
+    return
+end
+
 # one dynamic dispatch per column, then a fully specialized decode loop
 function decodechars(::Type{T}, data, inds, rowsfetched, elsize) where {T}
     A = Vector{T}(undef, rowsfetched)
@@ -230,8 +252,18 @@ function decodechars(::Type{T}, data, inds, rowsfetched, elsize) where {T}
     return A
 end
 
+function decodenumerics(::Type{T}, data, inds, rowsfetched) where {T}
+    A = Vector{T}(undef, rowsfetched)
+    for j = 1:rowsfetched
+        @inbounds ind = inds[j]
+        @inbounds A[j] = ind == API.SQL_NULL_DATA ? missing : decimalfromnumeric(Base.nonmissingtype(T), data[j])
+    end
+    return A
+end
+
 # takes a recently executed statement handle and handles any produced resultsets
-function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=false, normalizenames::Bool=false, debug::Bool=false)
+function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=false, normalizenames::Bool=false, numeric_binding::Symbol=:char, debug::Bool=false)
+    numericstruct = checknumericbinding(numeric_binding)
     rows = API.numrows(stmt)
     cols = API.numcols(stmt)
     debug && println("rows = $rows, cols = $cols")
@@ -251,7 +283,7 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
         nm = API.str(cname, namelengths[i])
         names[i] = normalizenames ? normalizename(nm) : Symbol(nm)
         sqltype = sqltypes[i]
-        ctype, jltype = fetchtypes(sqltype, columnsizes[i], decimaldigits[i])
+        ctype, jltype = fetchtypes(sqltype, columnsizes[i], decimaldigits[i], numericstruct)
         ctypes[i] = ctype
         types[i] = nullables[i] == API.SQL_NO_NULLS ? jltype : Union{Missing, jltype}
         # Some drivers return 0 size for variable length or large fields
@@ -281,6 +313,7 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
     API.setrowset(stmt, rowset)
     # we need bindings regardless of row vs. column fetching
     bindings = getbindings(stmt, columnar, ctypes, sqltypes, columnsizes, nullables, longtexts, rowset)
+    numericstruct && applynumericdesc(stmt, columnar, bindings, columnsizes, decimaldigits)
     if columnar && cols > 0
         # will be populated by call to SQLFetchScroll
         rowsfetchedref = API.setrowsfetched(stmt)
@@ -293,6 +326,10 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
             if ctype == API.SQL_C_CHAR || ctype == API.SQL_C_WCHAR || ctype == API.SQL_C_BINARY
                 data = binding.value.buffer::Vector{UInt8}
                 columns[i] = decodechars(types[i], data, binding.strlen_or_indptr, rowsfetched, Int(columnsizes[i]))
+            elseif ctype == API.SQL_C_NUMERIC
+                specialize(binding.value.buffer) do data
+                    columns[i] = decodenumerics(types[i], data, binding.strlen_or_indptr, rowsfetched)
+                end
             elseif ctype == API.SQL_C_TYPE_DATE || ctype == API.SQL_C_TYPE_TIME || ctype == API.SQL_C_TYPE_TIMESTAMP
                 specialize(binding.value.buffer) do data
                     T = types[i]
@@ -377,6 +414,8 @@ function Tables.getcolumn(x::Row, ::Type{T}, i::Int, nm::Symbol) where {T}
         data = b.value.buffer::Vector{UInt8}
         bytes = data[1:b.totallen]
         return jlcast(Base.nonmissingtype(T), bytes)
+    elseif b.valuetype == API.SQL_C_NUMERIC
+        return specialize(x -> decimalfromnumeric(Base.nonmissingtype(T), x[1]), b.value.buffer)
     elseif b.valuetype == API.SQL_C_TYPE_DATE || b.valuetype == API.SQL_C_TYPE_TIME || b.valuetype == API.SQL_C_TYPE_TIMESTAMP
         return specialize(x -> Base.nonmissingtype(T)(x[1]), b.value.buffer)
     else

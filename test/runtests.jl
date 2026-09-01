@@ -296,6 +296,19 @@ ret = DBInterface.execute(conn, "select `dec` from big_decimal") |> columntable
 ret = DBInterface.execute(conn, "select `dec` from big_decimal"; iterate_rows=true) |> rowtable
 @test ret[2].dec === Decimal{20, 2, Int128}("-123456789012345678.91")
 
+# SQL_C_NUMERIC support varies widely by driver, so only assert correctness if
+# the driver accepts the descriptor rewrite at all
+structret = try
+    DBInterface.execute(conn, "select Rate from Employee"; numeric_binding=:struct) |> columntable
+catch e
+    @info "driver rejected numeric_binding=:struct; skipping SQL_C_NUMERIC checks" e
+    nothing
+end
+if structret !== nothing
+    @test isequal(structret.Rate, expected.Rate)
+end
+@test_throws ArgumentError DBInterface.execute(conn, "select Rate from Employee"; numeric_binding=:decfp)
+
 ret = ODBC.tables(conn, tablename="emp%") |> columntable
 @test ret.TABLE_NAME == ["Employee", "Employee2", "Employee_copy"]
 ret = ODBC.columns(conn, tablename="emp%", columnname="望研") |> columntable

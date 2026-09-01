@@ -83,6 +83,13 @@ Columns that `Decimal` can't represent fall back to `String` rather than losing 
 that's `P > 76`, and columns whose driver reports no usable precision (postgres reports
 precision `0` for an unconstrained `numeric`, whose values are unbounded anyway).
 
+By default the values are transferred in their exact character form and parsed, which
+every driver supports. `DBInterface.execute(...; numeric_binding=:struct)` instead binds
+`SQL_C_NUMERIC` and reads the raw coefficient out of `SQL_NUMERIC_STRUCT`, avoiding the
+parse. That requires the driver to honor the precision and scale ODBC.jl sets on the
+application row descriptor after binding, which drivers implement inconsistently, so it
+is opt-in and worth validating against your own driver before relying on it.
+
 Decimal *parameters* are always sent in their character form, which is portable across
 drivers and never loses digits.
 

@@ -514,6 +514,61 @@ function setrowsfetched(stmt)
     return rowsfetchedref
 end
 
+const SQL_ATTR_APP_ROW_DESC = 10010
+const SQL_DESC_PRECISION = 105
+const SQL_DESC_TYPE = 1002
+const SQL_DESC_SCALE = 1005
+const SQL_DESC_DATA_PTR = 1010
+const SQL_IS_POINTER = -4
+# "use the type/precision/scale from the ARD record" for SQLGetData
+const SQL_ARD_TYPE = Int16(-99)
+
+function SQLGetStmtAttr(stmt::Ptr{Cvoid},attribute,value::Ref{Ptr{Cvoid}},value_length)
+    @odbc(:SQLGetStmtAttrW,
+        (Ptr{Cvoid},SQLINTEGER,Ref{Ptr{Cvoid}},SQLINTEGER,Ptr{Cvoid}),
+        stmt,attribute,value,value_length,C_NULL)
+end
+
+# the application row descriptor holds, per column, the C type/precision/scale
+# the driver converts into; it's the only way to ask for SQL_C_NUMERIC at a
+# precision/scale of our choosing rather than the driver's default
+function getardhandle(stmt::Handle)
+    ref = Ref{Ptr{Cvoid}}(C_NULL)
+    @checksuccess stmt SQLGetStmtAttr(getptr(stmt), SQL_ATTR_APP_ROW_DESC, ref, SQL_IS_POINTER)
+    return ref[]
+end
+
+function SQLSetDescField(desc::Ptr{Cvoid},rec,field,value::Ptr{Cvoid},len)
+    @odbc(:SQLSetDescField,
+        (Ptr{Cvoid},SQLSMALLINT,SQLSMALLINT,Ptr{Cvoid},SQLINTEGER),
+        desc,rec,field,value,len)
+end
+
+function setdescfield(desc, rec, field, value, len)
+    ret = SQLSetDescField(desc, rec, field, value, len)
+    if ret == SQL_ERROR || ret == SQL_INVALID_HANDLE
+        error(diagnostics(SQL_HANDLE_DESC, desc))
+    end
+    return ret
+end
+
+"""
+    API.setnumericdesc(desc, i, precision, scale, dataptr)
+
+Rewrite ARD record `i` to fetch column `i` as `SQL_C_NUMERIC` with an exact
+`precision`/`scale`. `SQLBindCol` resets these fields, so this must run *after*
+binding. `SQL_DESC_DATA_PTR` is written last because that's what triggers the
+driver's consistency check; pass `C_NULL` for it when the column is unbound
+(row-wise fetching), where `SQLGetData` is instead called with `SQL_ARD_TYPE`.
+"""
+function setnumericdesc(desc, i, precision, scale, dataptr)
+    setdescfield(desc, i, SQL_DESC_TYPE, Ptr{Cvoid}(Int(SQL_C_NUMERIC)), 0)
+    setdescfield(desc, i, SQL_DESC_PRECISION, Ptr{Cvoid}(Int(precision)), 0)
+    setdescfield(desc, i, SQL_DESC_SCALE, Ptr{Cvoid}(Int(scale)), 0)
+    dataptr == C_NULL || setdescfield(desc, i, SQL_DESC_DATA_PTR, dataptr, SQL_IS_POINTER)
+    return
+end
+
 const SQL_FETCH_NEXT = Int16(1)
 
 function SQLFetchScroll(stmt::Ptr{Cvoid},fetch_orientation::Int16,fetch_offset::Int)
@@ -550,14 +605,16 @@ function SQLGetDiagRec(handletype, handle, i, state, native, error_msg, msg_leng
         handletype,handle,i,state,native,error_msg,length(error_msg),msg_length)
 end
 
-function diagnostics(h::Handle)
+diagnostics(h::Handle) = diagnostics(gettype(h), getptr(h))
+
+function diagnostics(handletype, handle::Ptr{Cvoid})
     state = Vector{sqlwcharsize()}(undef, 6)
     native = Ref{SQLINTEGER}()
     error = Vector{sqlwcharsize()}(undef, 1024)
     len = Ref{SQLSMALLINT}()
     i = 1
     io = IOBuffer()
-    while SQLGetDiagRec(gettype(h), getptr(h), i, state, native, error, len) == SQL_SUCCESS
+    while SQLGetDiagRec(handletype, handle, i, state, native, error, len) == SQL_SUCCESS
         write(io, "$(str(state, 5)): $(str(error, len[]))")
         i += 1
     end

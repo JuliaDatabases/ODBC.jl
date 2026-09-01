@@ -62,4 +62,16 @@ struct SQLNumeric
 end
 
 Base.show(io::IO,x::SQLNumeric) = print(io,"SQLNumeric($(x.sign == 1 ? '+' : '-') precision: $(x.precision) scale: $(x.scale) val: $(x.val))")
-SQLNumeric() = SQLNumeric(0,0,0,(0,))
+SQLNumeric() = SQLNumeric(0, 0, 1, ntuple(_ -> SQLCHAR(0), SQL_MAX_NUMERIC_LEN))
+Base.zero(::Type{SQLNumeric}) = SQLNumeric()
+
+# SQL_NUMERIC_STRUCT stores the unscaled coefficient little-endian in `val`;
+# read it back host-endian-independently
+function magnitude(x::SQLNumeric)
+    v = x.val
+    m = zero(UInt128)
+    for i = SQL_MAX_NUMERIC_LEN:-1:1
+        m = (m << 8) | UInt128(v[i])
+    end
+    return m
+end
