@@ -64,12 +64,27 @@ An example of executing query is:
 ```julia
 using DataFrames
 df = DBInterface.execute(conn, "SELECT id, wage FROM employees") |> DataFrame
-# if wage is a DecFP, maybe I want to convert to Float64 or Int64
+# if wage is a Decimal, maybe I want to convert to Float64 or Int64
 # convert to Float64
 df.wage = Float64.(df.wage)
 # convert to Int64
 df.wage = Int.(df.wage)
 ```
+
+### DECIMAL/NUMERIC columns
+
+`DECIMAL`/`NUMERIC` columns come back as [Decimals.jl](https://github.com/JuliaData/Decimals.jl)
+`Decimal{P,S,T}` values, where `P` and `S` are the column's precision and scale as
+reported by `SQLDescribeCol`, and `T` is the smallest of `Int32`/`Int64`/`Int128`/`Int256`
+that holds `P` digits. These are exact fixed-scale decimals, so a `DECIMAL(20,2)` column
+round-trips every digit; they can be converted to `Float64`, `Int`, or `Rational` as needed.
+
+Columns that `Decimal` can't represent fall back to `String` rather than losing data:
+that's `P > 76`, and columns whose driver reports no usable precision (postgres reports
+precision `0` for an unconstrained `numeric`, whose values are unbounded anyway).
+
+Decimal *parameters* are always sent in their character form, which is portable across
+drivers and never loses digits.
 
 ### Loading data
 

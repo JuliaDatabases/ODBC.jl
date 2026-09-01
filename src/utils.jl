@@ -1,7 +1,7 @@
 # whether a julia value needs wrapped in an array in order to call pointer(value)
 # needswrapped(x::API.SQLSMALLINT) = x != API.SQL_C_CHAR && x != API.SQL_C_WCHAR && x != API.SQL_C_BINARY
 needswrapped(x::Union{String, Vector{UInt8}}) = false
-needswrapped(x::DecFP.DecimalFloatingPoint) = false
+needswrapped(x::Decimals.AbstractDecimal) = false
 needswrapped(x) = true
 const MISSING_BUF = [missing]
 
@@ -10,7 +10,9 @@ ccast(x) = x
 ccast(x::Date) = API.SQLDate(x)
 ccast(x::DateTime) = API.SQLTimestamp(x)
 ccast(x::Time) = API.SQLTime(x)
-ccast(x::DecFP.DecimalFloatingPoint) = string(x)
+# decimals go to the driver in their exact positional-digit string form, which
+# every driver accepts and which never loses digits the way a binary float would
+ccast(x::Decimals.AbstractDecimal) = string(x)
 
 _zero(T) = zero(T)
 _zero(::Type{UUID}) = UUID(0)
@@ -206,14 +208,13 @@ bindtypes(x::Vector{UInt8}) = API.SQL_C_BINARY, API.SQL_VARBINARY
 bindtypes(x::Date) = API.SQL_C_TYPE_DATE, API.SQL_TYPE_DATE
 bindtypes(x::DateTime) = API.SQL_C_TYPE_TIMESTAMP, API.SQL_TYPE_TIMESTAMP
 bindtypes(x::Time) = API.SQL_C_TYPE_TIME, API.SQL_TYPE_TIME
-bindtypes(x::DecFP.DecimalFloatingPoint) = API.SQL_C_CHAR, API.SQL_DECIMAL
-# bindtypes(x::DecFP.DecimalFloatingPoint) = API.SQL_C_NUMERIC
+bindtypes(x::Decimals.AbstractDecimal) = API.SQL_C_CHAR, API.SQL_DECIMAL
 bindtypes(x::UUID) = API.SQL_C_GUID, API.SQL_GUID
 
 const BINDTYPES = [
     Int8, Int16, Int32, Int64,
     UInt8, UInt16, UInt32, UInt64,
-    Float32, Float64, DecFP.Dec64, DecFP.Dec128,
+    Float32, Float64,
     Bool,
     Vector{UInt8}, String, UUID,
     Date, Time, DateTime
@@ -226,8 +227,6 @@ bindtypes(::Type{T}) where {T <: Dates.TimeType} = bindtypes(T(0))
 bindtypes(::Type{UUID}) = bindtypes(UUID(0))
 
 # used for create table column type definitions
-typeprecision(::Type{DecFP.Dec64}) = 16
-typeprecision(::Type{DecFP.Dec128}) = 35
 typeprecision(::Type{Float64}) = 15
 typeprecision(::Type{Float32}) = 7
 typeprecision(T) = 0
@@ -336,30 +335,43 @@ end
 bindcol(stmt, i, b::Binding) = API.SQLBindCol(API.getptr(stmt), i, 
     b.valuetype, pointer(b.value), b.bufferlength, b.strlen_or_indptr)
 
-function jlcast(::Type{T}, bytes) where {T <: DecFP.DecimalFloatingPoint}
-    x = rstrip(String(bytes), '\0')
-    parse(T, x)
+function jlcast(::Type{T}, bytes) where {T <: Decimals.AbstractDecimal}
+    return parse(T, rstrip(String(bytes), '\0'))
 end
 jlcast(::Type{Vector{UInt8}}, bytes) = copy(bytes)
 jlcast(::Type{String}, bytes) = String(bytes)
 
+# Decimals' 256-bit storage type, derived instead of depending on BitIntegers here
+const DECIMAL_INT256 = typeof(Decimals.unscaled(zero(Decimal256{0})))
+
+storageint(P::Int) = P <= 9 ? Int32 : P <= 18 ? Int64 : P <= 38 ? Int128 : DECIMAL_INT256
+
+"""
+    ODBC.decimaltype(precision, scale) -> Type
+
+Julia type for a DECIMAL/NUMERIC column of the given `precision`/`scale`, as
+reported by `SQLDescribeCol`: a `Decimal{precision,scale,T}` with `T` the
+smallest of `Int32`/`Int64`/`Int128`/`Int256` that holds `precision` digits.
+
+Columns `Decimal` can't represent fall back to `String`, which is lossless and
+lets the caller decide: that covers `precision > 76`, and drivers that report
+no usable metadata at all (postgres reports `precision == 0` for an
+unconstrained `numeric`, whose values are unbounded anyway).
+"""
+function decimaltype(precision, scale)
+    # compared before narrowing; `precision` is an unsigned SQLULEN that drivers
+    # can report as anything at all
+    (0 < precision <= 76 && 0 <= scale <= precision) || return String
+    P = Int(precision)
+    return Decimal{P, Int(scale), storageint(P)}
+end
+
 # given the SQL type as described by the driver library
 # what is the C storage needed for data transfer, and
 # final Julia type (that may involve conversions from C layout)
-function fetchtypes(x, prec)
-    if x == API.SQL_DECIMAL
-        if prec > 16
-            return (API.SQL_C_CHAR, DecFP.Dec128)
-        else
-            # return (API.SQL_C_NUMERIC, DecFP.Dec64)
-            return (API.SQL_C_CHAR, DecFP.Dec64)
-        end
-    elseif x == API.SQL_NUMERIC
-        if prec > 16
-            return (API.SQL_C_CHAR, DecFP.Dec128)
-        else
-            return (API.SQL_C_CHAR, DecFP.Dec64)
-        end
+function fetchtypes(x, prec, scale)
+    if x == API.SQL_DECIMAL || x == API.SQL_NUMERIC
+        return (API.SQL_C_CHAR, decimaltype(prec, scale))
     elseif x == API.SQL_SMALLINT
         return (API.SQL_C_SSHORT, Int16)
     elseif x == API.SQL_INTEGER

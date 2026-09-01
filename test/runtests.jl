@@ -1,4 +1,7 @@
-using Test, ODBC, DBInterface, Tables, Dates, DecFP, MariaDB_Connector_ODBC_jll, MariaDB_Connector_C_jll
+using Test, ODBC, DBInterface, Tables, Dates, Decimals, MariaDB_Connector_ODBC_jll, MariaDB_Connector_C_jll
+
+# driver-free coverage of the DECIMAL/NUMERIC decoding layer
+include(joinpath(@__DIR__, "decimals.jl"))
 
 tracefile = abspath(joinpath(@__DIR__, "odbc.log"))
 ODBC.setdebug(true, tracefile)
@@ -73,7 +76,7 @@ expected = (
   EmpNo      = Union{Missing, Int64}[1301, 1422, 1567, 3200],
   Wage       = Union{Missing, Float32}[3.14, 3.14, 3.14, 3.14],
   Salary     = Union{Missing, Float64}[10000.5, 20000.25, 30000.0, 15000.5],
-  Rate       = Union{Missing, Dec64}[d64"1.001", d64"2.002", d64"3.003", d64"2.5"],
+  Rate       = Union{Missing, Decimal{5, 3, Int32}}[dec"1.001", dec"2.002", dec"3.003", dec"2.5"],
   LunchTime  = Union{Missing, Dates.Time}[Dates.Time(12,00,00), Dates.Time(13,00,00), Dates.Time(12,30,00), Dates.Time(12,30,00)],
   JoinDate   = Union{Missing, Dates.Date}[Date("2015-08-03"), Date("2015-08-04"), Date("2015-06-02"), Date("2015-07-25")],
   LastLogin  = Union{Missing, Dates.DateTime}[DateTime("2015-09-05T12:31:30"), DateTime("2015-10-12T13:12:14"), DateTime("2015-09-05T10:05:10"), DateTime("2015-10-10T12:12:25")],
@@ -283,7 +286,15 @@ DBInterface.execute(conn, """CREATE TABLE big_decimal
                  )""")
 DBInterface.execute(conn, "INSERT INTO big_decimal (`dec`) VALUES (123456789012345678.91)")
 ret = DBInterface.execute(conn, "select * from big_decimal") |> columntable
-@test ret.dec[1] == d128"1.2345678901234567891e17"
+@test ret.dec[1] === Decimal{20, 2, Int128}("123456789012345678.91")
+
+# negative decimals exercise the sign and decimal point the character buffer has
+# to leave room for beyond the column's digit count
+DBInterface.execute(conn, "INSERT INTO big_decimal (`dec`) VALUES (-123456789012345678.91)")
+ret = DBInterface.execute(conn, "select `dec` from big_decimal") |> columntable
+@test ret.dec[2] === Decimal{20, 2, Int128}("-123456789012345678.91")
+ret = DBInterface.execute(conn, "select `dec` from big_decimal"; iterate_rows=true) |> rowtable
+@test ret[2].dec === Decimal{20, 2, Int128}("-123456789012345678.91")
 
 ret = ODBC.tables(conn, tablename="emp%") |> columntable
 @test ret.TABLE_NAME == ["Employee", "Employee2", "Employee_copy"]

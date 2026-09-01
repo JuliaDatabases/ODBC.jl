@@ -12,6 +12,9 @@ end
 
 sqltype(conn, ::Type{Union{T, Missing}}) where {T} = sqltype(conn, T)
 
+# the precision/scale of a Decimal column are in its type, so the DDL is exact
+sqltype(conn, ::Type{Decimal{P, S, T}}) where {P, S, T} = string(sqltype(conn, Decimal), "($P,$S)")
+
 function sqltype(conn, T)
     if isempty(conn.types)
         types = Tables.columntable(Cursor(API.gettypes(conn.dbc)))
@@ -31,6 +34,10 @@ function sqltype(conn, T)
             end
             conn.types[jlT] = nm
         end
+        # stored bare; `sqltype(conn, ::Type{Decimal{P,S,T}})` appends (P,S)
+        i = findfirst(==(API.SQL_DECIMAL), types.DATA_TYPE)
+        i === nothing && (i = findfirst(==(API.SQL_NUMERIC), types.DATA_TYPE))
+        conn.types[Decimal] = i === nothing ? "DECIMAL" : types.TYPE_NAME[i]
     end
     return conn.types[T]
 end

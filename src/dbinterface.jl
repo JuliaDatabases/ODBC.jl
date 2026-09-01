@@ -218,6 +218,18 @@ mutable struct Cursor{columnar, knownlength}
     metadata::Any
 end
 
+# one dynamic dispatch per column, then a fully specialized decode loop
+function decodechars(::Type{T}, data, inds, rowsfetched, elsize) where {T}
+    A = Vector{T}(undef, rowsfetched)
+    cur = 1
+    for j = 1:rowsfetched
+        @inbounds ind = inds[j]
+        A[j] = ind == API.SQL_NULL_DATA ? missing : jlcast(Base.nonmissingtype(T), unsafe_wrap(Array, pointer(data, cur), ind))
+        cur += elsize
+    end
+    return A
+end
+
 # takes a recently executed statement handle and handles any produced resultsets
 function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=false, normalizenames::Bool=false, debug::Bool=false)
     rows = API.numrows(stmt)
@@ -239,7 +251,7 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
         nm = API.str(cname, namelengths[i])
         names[i] = normalizenames ? normalizename(nm) : Symbol(nm)
         sqltype = sqltypes[i]
-        ctype, jltype = fetchtypes(sqltype, columnsizes[i])
+        ctype, jltype = fetchtypes(sqltype, columnsizes[i], decimaldigits[i])
         ctypes[i] = ctype
         types[i] = nullables[i] == API.SQL_NO_NULLS ? jltype : Union{Missing, jltype}
         # Some drivers return 0 size for variable length or large fields
@@ -248,6 +260,10 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
             if longtexts[i] || columnsizes[i] == 0 || columnsizes[i] > 2^22
                 longtexts[i] = true
                 columnsizes[i] = 255
+            elseif sqltype == API.SQL_DECIMAL || sqltype == API.SQL_NUMERIC
+                # column size is the digit count; the character form also needs
+                # room for a leading '-' and the decimal point
+                columnsizes[i] += 2
             end
             columnsizes[i] += 1
         end
@@ -275,18 +291,8 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
         for (i, binding) in enumerate(bindings)
             ctype = binding.valuetype
             if ctype == API.SQL_C_CHAR || ctype == API.SQL_C_WCHAR || ctype == API.SQL_C_BINARY
-                T = types[i]
-                A = Vector{T}(undef, rowsfetched)
                 data = binding.value.buffer::Vector{UInt8}
-                inds = binding.strlen_or_indptr
-                cur = 1
-                elsize = columnsizes[i]
-                for j = 1:rowsfetched
-                    @inbounds ind = inds[j]
-                    A[j] = ind == API.SQL_NULL_DATA ? missing : jlcast(Base.nonmissingtype(T), unsafe_wrap(Array, pointer(data, cur), ind))
-                    cur += elsize
-                end
-                columns[i] = A
+                columns[i] = decodechars(types[i], data, binding.strlen_or_indptr, rowsfetched, Int(columnsizes[i]))
             elseif ctype == API.SQL_C_TYPE_DATE || ctype == API.SQL_C_TYPE_TIME || ctype == API.SQL_C_TYPE_TIMESTAMP
                 specialize(binding.value.buffer) do data
                     T = types[i]
