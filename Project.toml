@@ -5,7 +5,7 @@ version = "1.2.1"
 [deps]
 DBInterface = "a10d1c49-ce27-4219-8d33-6db1a4562965"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
-Decimals = "8dc971d1-6768-4187-aca0-432d1dd9b305"
+Decimals = "abce61dc-4473-55a0-ba07-351d65e31d42"
 Libdl = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
