@@ -350,7 +350,9 @@ bindcol(stmt, i, b::Binding) = API.SQLBindCol(API.getptr(stmt), i,
     b.valuetype, pointer(b.value), b.bufferlength, b.strlen_or_indptr)
 
 function jlcast(::Type{T}, bytes) where {T <: Decimals.AbstractDecimal}
-    return parse(T, rstrip(String(bytes), '\0'))
+    # the decimal string constructor is Decimals' always-available exact
+    # scanner (parse/tryparse come from its Parsers 3 extension)
+    return T(rstrip(String(bytes), '\0'))
 end
 jlcast(::Type{Vector{UInt8}}, bytes) = copy(bytes)
 jlcast(::Type{String}, bytes) = String(bytes)
