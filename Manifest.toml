@@ -2,17 +2,11 @@
 
 julia_version = "1.12.6"
 manifest_format = "2.0"
-project_hash = "4368dc00cbff2c8645a2411f6010aa2078d87b9a"
+project_hash = "19285bdce01cdbf49f6b84cfc7be6babea480f60"
 
 [[deps.Artifacts]]
 uuid = "56f22d72-fd6d-98f1-02f0-08ddc0907c33"
 version = "1.11.0"
-
-[[deps.BitIntegers]]
-deps = ["Random"]
-git-tree-sha1 = "091d591a060e43df1dd35faab3ca284925c48e46"
-uuid = "c3b6d118-76ef-56ca-8cc7-ebb389d030a1"
-version = "0.3.7"
 
 [[deps.DBInterface]]
 git-tree-sha1 = "265d7f87f329c063cbde41920f9d00713a43cedd"
@@ -35,10 +29,10 @@ uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
 version = "1.11.0"
 
 [[deps.Decimals]]
-deps = ["BitIntegers", "Random"]
+deps = ["Random"]
 path = "/Users/jacob.quinn/.julia/dev/Decimals.jl"
 uuid = "abce61dc-4473-55a0-ba07-351d65e31d42"
-version = "1.0.0-DEV"
+version = "1.0.0"
 
     [deps.Decimals.extensions]
     DecimalsJSONExt = "JSON"
@@ -80,7 +74,7 @@ uuid = "68e3532b-a499-55ff-9963-d1c0c0748b3a"
 version = "6.6.0+2"
 
 [[deps.ODBC]]
-deps = ["DBInterface", "Dates", "Decimals", "Libdl", "Printf", "Random", "Scratch", "Tables", "UUIDs", "Unicode", "iODBC_jll", "unixODBC_jll"]
+deps = ["DBInterface", "Dates", "Decimals", "Libdl", "Parsers", "Printf", "Random", "Scratch", "Tables", "UUIDs", "Unicode", "iODBC_jll", "unixODBC_jll"]
 path = "."
 uuid = "be6f12e9-ca4f-5eb2-a339-a4f995cc0291"
 version = "1.2.1"
@@ -89,6 +83,18 @@ version = "1.2.1"
 git-tree-sha1 = "05f45c2e0de6259db764adbfd2f1dc6d3f8de13c"
 uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 version = "2.0.1"
+
+[[deps.Parsers]]
+deps = ["Dates", "PrecompileTools"]
+git-tree-sha1 = "663e8b48b789916221e0765393b289ca6c88f24e"
+uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
+version = "3.0.0"
+
+[[deps.PrecompileTools]]
+deps = ["Preferences"]
+git-tree-sha1 = "edbeefc7a4889f528644251bdb5fc9ab5348bc2c"
+uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+version = "1.3.4"
 
 [[deps.Preferences]]
 deps = ["TOML"]

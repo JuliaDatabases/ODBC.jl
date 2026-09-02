@@ -1,7 +1,7 @@
 module ODBC
 
 using Printf, Dates, UUIDs, Unicode, Random
-using Decimals, DBInterface, Tables
+using Decimals, DBInterface, Tables, Parsers
 export DBInterface
 
 include("API.jl")

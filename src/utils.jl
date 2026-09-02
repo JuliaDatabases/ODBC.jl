@@ -349,10 +349,14 @@ end
 bindcol(stmt, i, b::Binding) = API.SQLBindCol(API.getptr(stmt), i, 
     b.valuetype, pointer(b.value), b.bufferlength, b.strlen_or_indptr)
 
+# DECIMAL text arrives NUL-padded in the fetch buffer: parse it in place with
+# Decimals' Parsers 3 scanner, no String materialized
 function jlcast(::Type{T}, bytes) where {T <: Decimals.AbstractDecimal}
-    # the decimal string constructor is Decimals' always-available exact
-    # scanner (parse/tryparse come from its Parsers 3 extension)
-    return T(rstrip(String(bytes), '\0'))
+    j = length(bytes)
+    @inbounds while j > 0 && bytes[j] == 0x00
+        j -= 1
+    end
+    return Parsers.parse(T, bytes, 1, j)
 end
 jlcast(::Type{Vector{UInt8}}, bytes) = copy(bytes)
 jlcast(::Type{String}, bytes) = String(bytes)
