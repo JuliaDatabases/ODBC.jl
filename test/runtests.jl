@@ -404,4 +404,11 @@ ret = DBInterface.execute(dsnconn, "select current_user() as user") |> columntab
 @test startswith(ret.user[1], "authtest@")
 DBInterface.close!(dsnconn)
 
+# #385: DBInterface.execute(f, ...) closes the cursor through DBInterface.close!(::ODBC.Cursor)
+@test DBInterface.execute(columntable, conn, "select 1 as x").x == [1]
+stmt = DBInterface.prepare(conn, "select 2 as x")
+@test DBInterface.execute(columntable, stmt).x == [2]
+@test DBInterface.execute(columntable, stmt).x == [2]
+DBInterface.close!(stmt)
+
 DBInterface.close!(conn)

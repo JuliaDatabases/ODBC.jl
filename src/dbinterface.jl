@@ -376,6 +376,14 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
 end
 
 """
+    DBInterface.close!(cursor::ODBC.Cursor)
+
+Close the resultset of `cursor`; the underlying statement stays valid and
+can be executed again. Called by `DBInterface.execute(f, ...)` once `f` returns.
+"""
+DBInterface.close!(c::Cursor) = API.freestmt(c.stmt)
+
+"""
     DBInterface.transaction(f, conn::ODBC.Connection)
 
 Open a transaction against an ODBC Connection `conn`, execute a closure `f`,
