@@ -418,4 +418,17 @@ let u = UUID("99685768-257e-462e-a29f-e6902550f030"), g = ODBC.API.SQLGUID(u)
     @test sprint(show, g) == sprint(show, u)
 end
 
+# #393/#356: string/binary parameters longer than 8000 bytes bind with ColumnSize = 0
+DBInterface.execute(conn, "CREATE TABLE big_params (id INT, t LONGTEXT CHARACTER SET utf8mb4, b LONGBLOB)")
+stmt = DBInterface.prepare(conn, "INSERT INTO big_params VALUES (?, ?, ?)")
+bigtext = "望"^8001
+bigblob = rand(UInt8, 100_000)
+DBInterface.execute(stmt, (1, bigtext, bigblob))
+DBInterface.execute(stmt, (2, "short", UInt8[]))
+DBInterface.close!(stmt)
+ret = DBInterface.execute(conn, "select * from big_params order by id") |> columntable
+@test ret.t == [bigtext, "short"]
+@test ret.b == [bigblob, UInt8[]]
+@test (DBInterface.execute(conn, "select id from big_params where t = ?", (bigtext,)) |> columntable).id == [1]
+
 DBInterface.close!(conn)

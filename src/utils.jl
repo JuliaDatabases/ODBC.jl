@@ -282,9 +282,19 @@ function update!(stmt, b::Binding, @nospecialize(x), i)
     return
 end
 
+# SQL Server rejects SQL_VARCHAR/SQL_VARBINARY parameters whose ColumnSize exceeds 8000 with HY104 "Invalid precision value";
+# its documented way to bind larger values (varchar(max), nvarchar(max), varbinary(max)) is ColumnSize = 0
+# (SQL_SS_LENGTH_UNLIMITED). Other drivers ignore ColumnSize for character/binary input parameters. (#393, #356)
+const MAX_BOUND_COLUMN_SIZE = 8000
+
+function paramcolumnsize(b::Binding)
+    cs = columnsize(b.value)
+    return (b.valuetype == API.SQL_C_CHAR || b.valuetype == API.SQL_C_BINARY) && cs > MAX_BOUND_COLUMN_SIZE ? 0 : cs
+end
+
 # unpack Binding/Buffer to call SQLBindParameter
 bindparam(stmt, i, b::Binding) = API.bindparam(stmt, i, API.SQL_PARAM_INPUT,
-    b.valuetype, b.parametertype, columnsize(b.value), decimaldigits(b.value), pointer(b.value), b.bufferlength, pointer(b.strlen_or_indptr))
+    b.valuetype, b.parametertype, paramcolumnsize(b), decimaldigits(b.value), pointer(b.value), b.bufferlength, pointer(b.strlen_or_indptr))
 
 # if no bindings have been made yet, allocate them fresh
 bindparams(stmt, params, ::Nothing) = [Binding(stmt, x, i) for (i, x) in enumerate(params)]
