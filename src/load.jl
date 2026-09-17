@@ -12,6 +12,12 @@ end
 
 sqltype(conn, ::Type{Union{T, Missing}}) where {T} = sqltype(conn, T)
 
+# SQLGetTypeInfo reports the maximum size the server supports for a type, which is not always a size a column can be
+# declared with: MariaDB Connector/ODBC >= 3.1.21 reports 65535 (the row-size limit in bytes) for VARCHAR/VARBINARY
+# where older versions reported 255, and VARCHAR(65535) fails with "Column length too big" on utf8mb4 tables (#392).
+# Above SQL Server's 8000 (the largest known-good value) fall back to the classic 255.
+columnsizeparam(columnsize) = columnsize > 8000 ? 255 : columnsize
+
 function sqltype(conn, T)
     if isempty(conn.types)
         types = Tables.columntable(Cursor(API.gettypes(conn.dbc)))
@@ -20,14 +26,14 @@ function sqltype(conn, T)
         if i === nothing
             defaultT = "VARCHAR(255)"
         else
-            defaultT = types.TYPE_NAME[i] * "($(types.COLUMN_SIZE[i]))"
+            defaultT = types.TYPE_NAME[i] * "($(columnsizeparam(types.COLUMN_SIZE[i])))"
         end
         for jlT in BINDTYPES
             _, sqlT = bindtypes(jlT)
             i = findfirst(==(sqlT), types.DATA_TYPE)
             nm = i !== nothing ? types.TYPE_NAME[i] : defaultT
             if i !== nothing && types.CREATE_PARAMS[i] !== missing && nm != "DOUBLE" && nm != "FLOAT"
-                nm *= occursin(',', types.CREATE_PARAMS[i]) ? "($(typeprecision(jlT)),$(typescale(jlT)))" : "($(types.COLUMN_SIZE[i]))"
+                nm *= occursin(',', types.CREATE_PARAMS[i]) ? "($(typeprecision(jlT)),$(typescale(jlT)))" : "($(columnsizeparam(types.COLUMN_SIZE[i])))"
             end
             conn.types[jlT] = nm
         end
