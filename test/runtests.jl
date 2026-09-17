@@ -412,5 +412,11 @@ for kw in ((;), (iterate_rows=true,))
     ret = DBInterface.execute(conn, "select id, t from nul_check order by id"; kw...) |> columntable
     @test isequal(ret.t, ["x"^60000, "", "x\0\0", missing])
 end
+# #385: DBInterface.execute(f, ...) closes the cursor through DBInterface.close!(::ODBC.Cursor)
+@test DBInterface.execute(columntable, conn, "select 1 as x").x == [1]
+stmt = DBInterface.prepare(conn, "select 2 as x")
+@test DBInterface.execute(columntable, stmt).x == [2]
+@test DBInterface.execute(columntable, stmt).x == [2]
+DBInterface.close!(stmt)
 
 DBInterface.close!(conn)
