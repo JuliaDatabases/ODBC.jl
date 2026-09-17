@@ -9,22 +9,8 @@ ODBC.setdebug(false)
 rm(tracefile)
 
 PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
-if Sys.islinux()
-    if Int == Int32
-        libpath = joinpath(expanduser("~"), "mariadb32/lib/libmaodbc.so")
-    else
-        libpath = joinpath("/home/runner/mariadb64", "mariadb-connector-odbc-3.1.20-ubuntu-focal-amd64/lib/mariadb/libmaodbc.so")
-    end
-elseif Sys.iswindows()
-    if Int == Int32
-        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll"))
-    else
-        @show readdir(expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit")))
-        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit", "maodbc.dll"))
-    end
-else
-    libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
-end
+# tests run against the MariaDB Connector/ODBC jll; set ODBC_TEST_MARIADB_DRIVER to test another driver library
+libpath = get(ENV, "ODBC_TEST_MARIADB_DRIVER", MariaDB_Connector_ODBC_jll.libmaodbc_path)
 @show libpath
 @show isfile(libpath)
 ODBC.adddriver("ODBC_Test_MariaDB", libpath)
@@ -270,6 +256,8 @@ for i = 1:length(expected)
 end
 
 # ODBC.load
+# connector >= 3.1.21 reports 65535 as the VARCHAR size; the created column must still fit a utf8mb4 row (#392)
+@test occursin("(255)", ODBC.sqltype(conn, String))
 ODBC.load(Base.structdiff(expected, NamedTuple{(:LastLogin2, :Wage,)}), conn, "Employee_copy"; limit=4)
 res = DBInterface.execute(conn, "select * from Employee_copy") |> columntable
 @test length(res) == 14
@@ -441,5 +429,16 @@ tbl = (a=[SubString("hello", 1, 3), SubString("world", 2, 4)], b=UInt8[1, 2], c=
 ODBC.load(tbl, conn, "load_types")
 ret = DBInterface.execute(conn, "select * from load_types") |> columntable
 @test isequal(ret, (a=["hel", "orl"], b=Int8[1, 2], c=Int16[3, 4], d=Int32[5, 6], e=Int64[7, 8], f=[missing, missing], g=Float32[1.5, 2.5], h=[3.5, 4.5]))
+
+# strings and blobs round trip exactly in both fetch modes: empty values and NULs are data, not terminators
+DBInterface.execute(conn, "CREATE TABLE nul_check (id INT, s VARCHAR(20), t TEXT, b VARBINARY(10))")
+DBInterface.execute(conn, "INSERT INTO nul_check VALUES (1, 'abc', REPEAT('x', 60000), X'610062'), (2, '', '', X''), (3, 'a\\0', 'x\\0\\0', X'00'), (4, NULL, NULL, NULL)")
+for kw in ((;), (iterate_rows=true,))
+    ret = DBInterface.execute(conn, "select id, s, b from nul_check order by id"; kw...) |> columntable
+    @test isequal(ret.s, ["abc", "", "a\0", missing])
+    @test isequal(ret.b, [UInt8[0x61, 0x00, 0x62], UInt8[], UInt8[0x00], missing])
+    ret = DBInterface.execute(conn, "select id, t from nul_check order by id"; kw...) |> columntable
+    @test isequal(ret.t, ["x"^60000, "", "x\0\0", missing])
+end
 
 DBInterface.close!(conn)

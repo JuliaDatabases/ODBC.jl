@@ -21,6 +21,12 @@ loadtype(::Type{T}) where {T} = T <: AbstractString ? String : T
 # row); without a fallback the column silently became the default VARCHAR type (#333)
 const SQLTYPE_FALLBACKS = Dict(API.SQL_DOUBLE => (API.SQL_FLOAT,), API.SQL_REAL => (API.SQL_FLOAT, API.SQL_DOUBLE))
 
+# SQLGetTypeInfo reports the maximum size the server supports for a type, which is not always a size a column can be
+# declared with: MariaDB Connector/ODBC >= 3.1.21 reports 65535 (the row-size limit in bytes) for VARCHAR/VARBINARY
+# where older versions reported 255, and VARCHAR(65535) fails with "Column length too big" on utf8mb4 tables (#392).
+# Above SQL Server's 8000 (the largest known-good value) fall back to the classic 255.
+columnsizeparam(columnsize) = columnsize > 8000 ? 255 : columnsize
+
 function sqltype(conn, T)
     if isempty(conn.types)
         types = Tables.columntable(Cursor(API.gettypes(conn.dbc)))
@@ -29,7 +35,7 @@ function sqltype(conn, T)
         if i === nothing
             defaultT = "VARCHAR(255)"
         else
-            defaultT = types.TYPE_NAME[i] * "($(types.COLUMN_SIZE[i]))"
+            defaultT = types.TYPE_NAME[i] * "($(columnsizeparam(types.COLUMN_SIZE[i])))"
         end
         for jlT in BINDTYPES
             _, sqlT = bindtypes(jlT)
@@ -40,7 +46,7 @@ function sqltype(conn, T)
             end
             nm = i !== nothing ? types.TYPE_NAME[i] : defaultT
             if i !== nothing && types.CREATE_PARAMS[i] !== missing && nm != "DOUBLE" && nm != "FLOAT"
-                nm *= occursin(',', types.CREATE_PARAMS[i]) ? "($(typeprecision(jlT)),$(typescale(jlT)))" : "($(types.COLUMN_SIZE[i]))"
+                nm *= occursin(',', types.CREATE_PARAMS[i]) ? "($(typeprecision(jlT)),$(typescale(jlT)))" : "($(columnsizeparam(types.COLUMN_SIZE[i])))"
             end
             conn.types[jlT] = nm
         end
