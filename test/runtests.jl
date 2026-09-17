@@ -404,9 +404,8 @@ ret = DBInterface.execute(dsnconn, "select current_user() as user") |> columntab
 @test startswith(ret.user[1], "authtest@")
 DBInterface.close!(dsnconn)
 
-# #337: a failing SQLGetData (here: column index out of range) raises the driver error instead of returning garbage
+# #337: a failing SQLGetData (here: no row fetched yet, 24000 from the driver manager) raises instead of returning garbage
 cursor = DBInterface.execute(conn, "select * from Employee"; iterate_rows=true)
-row = first(cursor)
-@test_throws ErrorException ODBC.getdata(cursor.stmt, 100, cursor.bindings[1])
+@test_throws ErrorException ODBC.getdata(cursor.stmt, 1, cursor.bindings[1])
 
 DBInterface.close!(conn)
