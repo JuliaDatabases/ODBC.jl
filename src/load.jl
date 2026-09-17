@@ -11,10 +11,11 @@ function quoteid(conn, str)
 end
 
 sqltype(conn, ::Type{Union{T, Missing}}) where {T} = sqltype(conn, T)
+# an all-missing column has no values, so it gets the type `missing` binds as, i.e. the string type (#342)
+sqltype(conn, ::Type{Missing}) = sqltype(conn, String)
 
-# the BINDTYPES key a column of type T is created with: any AbstractString binds as a String (#330), and an
-# all-missing column has no values, so it gets the type `missing` binds as, i.e. the string type (#342)
-loadtype(::Type{T}) where {T} = T <: AbstractString || T === Missing ? String : T
+# the BINDTYPES key a column of type T is created with: any AbstractString binds as a String (#330)
+loadtype(::Type{T}) where {T} = T <: AbstractString ? String : T
 
 # drivers may report only one of the ODBC floating point types (SQL Server has no SQL_DOUBLE row, MariaDB no SQL_REAL
 # row); without a fallback the column silently became the default VARCHAR type (#333)
