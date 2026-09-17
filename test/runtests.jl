@@ -1,4 +1,4 @@
-using Test, ODBC, DBInterface, Tables, Dates, DecFP, MariaDB_Connector_ODBC_jll, MariaDB_Connector_C_jll
+using Test, ODBC, DBInterface, Tables, Dates, DecFP, UUIDs, MariaDB_Connector_ODBC_jll, MariaDB_Connector_C_jll
 
 tracefile = abspath(joinpath(@__DIR__, "odbc.log"))
 ODBC.setdebug(true, tracefile)
@@ -408,5 +408,14 @@ DBInterface.close!(dsnconn)
 cursor = DBInterface.execute(DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB"), "select * from mysqltest.Employee"; iterate_rows=true)
 GC.gc(); GC.gc()
 @test length(columntable(cursor).ID) == 5
+
+# #366: SQL_C_GUID structs are native-endian fields + 8 bytes, not the big-endian bytes of a UUID
+let u = UUID("99685768-257e-462e-a29f-e6902550f030"), g = ODBC.API.SQLGUID(u)
+    @test UUID(g) == u
+    @test g.Data1 == 0x99685768 && g.Data2 == 0x257e && g.Data3 == 0x462e
+    @test g.Data4 == (0xa2, 0x9f, 0xe6, 0x90, 0x25, 0x50, 0xf0, 0x30)
+    @test ODBC.Buffer(u).buffer == Union{Missing, ODBC.API.SQLGUID}[g]
+    @test sprint(show, g) == sprint(show, u)
+end
 
 DBInterface.close!(conn)
