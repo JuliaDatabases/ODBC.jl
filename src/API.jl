@@ -146,6 +146,9 @@ end
 mutable struct Handle
     type::Int16
     ptr::Ptr{Cvoid}
+    # the parent Handle (ENV of a DBC, DBC of a STMT) stays reachable as long as this handle is: a connection handle
+    # finalized (disconnected + freed) underneath a live statement/cursor is a use-after-free in the driver (#381)
+    parent::Any
     function Handle(type, parent=SQL_NULL_HANDLE)
         ref = Ref{Ptr{Cvoid}}()
         @checksuccess parent SQLAllocHandle(type, parent isa Handle ? parent.ptr : parent, ref)
@@ -154,13 +157,17 @@ mutable struct Handle
         if type == SQL_HANDLE_ENV
             @checksuccess parent SQLSetEnvAttr(ptr, SQL_ATTR_ODBC_VERSION, SQL_OV_ODBC3)
         end
-        h = new(type, ptr)
+        h = new(type, ptr, parent)
         finalizer(h) do x
             if x.ptr != C_NULL
-                if x.type == SQL_HANDLE_DBC
-                    SQLDisconnect(x.ptr)
+                # freeing the parent already freed every child handle, so only call the driver while the parent is alive
+                p = x.parent
+                if !(p isa Handle && p.ptr == C_NULL)
+                    if x.type == SQL_HANDLE_DBC
+                        SQLDisconnect(x.ptr)
+                    end
+                    SQLFreeHandle(x.type, x.ptr)
                 end
-                SQLFreeHandle(x.type, x.ptr)
                 x.ptr = C_NULL
             end
         end
@@ -315,7 +322,7 @@ function SQLGetTypeInfo(stmt)
 end
 
 function gettypes(dbc)
-    stmt = Handle(SQL_HANDLE_STMT, getptr(dbc))
+    stmt = Handle(SQL_HANDLE_STMT, dbc)
     SQLGetTypeInfo(stmt)
     return stmt
 end
@@ -418,7 +425,7 @@ function SQLPrepare(stmt::Ptr{Cvoid},query::AbstractString)
 end
 
 function prepare(dbc::Handle, sql)
-    stmt = Handle(SQL_HANDLE_STMT, getptr(dbc))
+    stmt = Handle(SQL_HANDLE_STMT, dbc)
     enableasync(stmt)
     @checksuccess stmt SQLPrepare(getptr(stmt), sql)
     return stmt

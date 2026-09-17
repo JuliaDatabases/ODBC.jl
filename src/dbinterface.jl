@@ -247,7 +247,7 @@ have more benefit for repeated executions (even with different parameters).
 """
 function DBInterface.execute(conn::Connection, sql::AbstractString, params=(); debug::Bool=false, kw...)
     clear!(conn)
-    stmt = API.Handle(API.SQL_HANDLE_STMT, API.getptr(conn.dbc))
+    stmt = API.Handle(API.SQL_HANDLE_STMT, conn.dbc)
     conn.stmts[stmt] = 0
     conn.cursorstmt = stmt
     API.enableasync(stmt)
