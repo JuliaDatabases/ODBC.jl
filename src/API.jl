@@ -58,42 +58,32 @@ function swapsqlwchar(expr)
     return expr
 end
 
+# Statements execute asynchronously (see `enableasync`) and are polled until they stop returning SQL_STILL_EXECUTING.
+# The first polls yield to other Julia tasks; after that the wait backs off exponentially from 1ms up to 50ms.
+# (#384: the previous counter arithmetic started negative and, at 1.2x growth, never reached the `sleep`, so it spun.)
+@noinline function asyncwait(polls)
+    polls <= 100 ? yield() : sleep(min(0.001 * 1.2^(polls - 100), 0.05))
+    return
+end
+
 macro odbc(func,args,vals...)
     esc(quote
         ret = SQL_SUCCESS
-        @static if Sys.iswindows() # odbc_dm[] == odbc32
-            # This branch is guarded by `@static` to avoid issues on Apple Silicon
-            counter = -100
-            while true
+        polls = 0
+        while true
+            @static if Sys.iswindows() # odbc_dm[] == odbc32
+                # This branch is guarded by `@static` to avoid issues on Apple Silicon
                 ret = ccall( ($func, "odbc32"), stdcall, SQLRETURN, $args, $(vals...))
-                ret == SQL_STILL_EXECUTING || break
-                if counter > 0 
-                    sleep(0.000_001*counter)
-                end
-                counter = 1.2*(1 + counter)
-            end
-        else
-            if odbc_dm[] == iODBC
-                counter = -100
-                while true
+            else
+                if odbc_dm[] == iODBC
                     ret = ccall( ($func, iODBC_jll.libiodbc), SQLRETURN, $(swapsqlwchar(args)), $(vals...))
-                    ret == SQL_STILL_EXECUTING || break
-                    if counter > 0 
-                        sleep(0.000_001*counter)
-                    end
-                    counter = 1.2*(1 + counter)
-                end
-            elseif odbc_dm[] == unixODBC
-                counter = -100
-                while true
+                elseif odbc_dm[] == unixODBC
                     ret = ccall( ($func, unixODBC_jll.libodbc), SQLRETURN, $args, $(vals...))
-                    ret == SQL_STILL_EXECUTING || break
-                    if counter > 0 
-                        sleep(0.000_001*counter)
-                    end
-                    counter = 1.2*(1 + counter)
                 end
             end
+            ret == SQL_STILL_EXECUTING || break
+            polls += 1
+            asyncwait(polls)
         end
         ret
     end)
