@@ -6,7 +6,7 @@ on:
   pull_request:
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - MariaDB connector ${{ matrix.connector }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -19,9 +19,20 @@ jobs:
           - ubuntu-latest
         arch:
           - x64
+        # MariaDB Connector/ODBC version downloaded for the tests. 3.1.22 is the MariaDB_Connector_ODBC_jll version
+        # (used by the tests off CI) and reports the SQLGetTypeInfo sizes that broke ODBC.load (#392); 3.1.20 is the
+        # last version with the old sizes. The jll itself cannot be loaded by unixODBC on Linux (its libiconv
+        # dependency is not found), and 3.2.x returns 22007 for NULL TIME values of prepared statements.
+        connector:
+          - "3.1.22"
+        include:
+          - version: 1
+            os: ubuntu-latest
+            arch: x64
+            connector: "3.1.20"
     env:
-      MARIADB_CONNECTOR_VERSION: "3.1.20"
-      MARIADB_CONNECTOR_FILE: "mariadb-connector-odbc-3.1.20-ubuntu-focal-amd64.tar.gz"
+      MARIADB_CONNECTOR_VERSION: ${{ matrix.connector }}
+      MARIADB_CONNECTOR_FILE: "mariadb-connector-odbc-${{ matrix.connector }}-ubuntu-focal-amd64.tar.gz"
     steps:
       - uses: actions/checkout@v4
       # 1. Cache the downloaded archive using the proper naming convention
@@ -57,11 +68,12 @@ jobs:
           
           # Clean up temporary cookie storage
           rm -f cookies.txt
-      # 3. Create target folder and extract the connector archive (runs always)
+      # 3. Create target folder, extract the connector archive and point the tests at it
       - name: Extract MariaDB Connector
         run: |
           mkdir -p /home/runner/mariadb64
           tar xfz ${{ env.MARIADB_CONNECTOR_FILE }} -C /home/runner/mariadb64
+          echo "ODBC_TEST_MARIADB_DRIVER=/home/runner/mariadb64/mariadb-connector-odbc-${{ env.MARIADB_CONNECTOR_VERSION }}-ubuntu-focal-amd64/lib/mariadb/libmaodbc.so" >> "$GITHUB_ENV"
       - uses: getong/mariadb-action@v1.1
         with:
           host port: 3306 # Optional, default value is 3306. The port of host

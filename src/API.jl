@@ -58,42 +58,32 @@ function swapsqlwchar(expr)
     return expr
 end
 
+# Statements execute asynchronously (see `enableasync`) and are polled until they stop returning SQL_STILL_EXECUTING.
+# The first polls yield to other Julia tasks; after that the wait backs off exponentially from 1ms up to 50ms.
+# (#384: the previous counter arithmetic started negative and, at 1.2x growth, never reached the `sleep`, so it spun.)
+@noinline function asyncwait(polls)
+    polls <= 100 ? yield() : sleep(min(0.001 * 1.2^(polls - 100), 0.05))
+    return
+end
+
 macro odbc(func,args,vals...)
     esc(quote
         ret = SQL_SUCCESS
-        @static if Sys.iswindows() # odbc_dm[] == odbc32
-            # This branch is guarded by `@static` to avoid issues on Apple Silicon
-            counter = -100
-            while true
+        polls = 0
+        while true
+            @static if Sys.iswindows() # odbc_dm[] == odbc32
+                # This branch is guarded by `@static` to avoid issues on Apple Silicon
                 ret = ccall( ($func, "odbc32"), stdcall, SQLRETURN, $args, $(vals...))
-                ret == SQL_STILL_EXECUTING || break
-                if counter > 0 
-                    sleep(0.000_001*counter)
-                end
-                counter = 1.2*(1 + counter)
-            end
-        else
-            if odbc_dm[] == iODBC
-                counter = -100
-                while true
+            else
+                if odbc_dm[] == iODBC
                     ret = ccall( ($func, iODBC_jll.libiodbc), SQLRETURN, $(swapsqlwchar(args)), $(vals...))
-                    ret == SQL_STILL_EXECUTING || break
-                    if counter > 0 
-                        sleep(0.000_001*counter)
-                    end
-                    counter = 1.2*(1 + counter)
-                end
-            elseif odbc_dm[] == unixODBC
-                counter = -100
-                while true
+                elseif odbc_dm[] == unixODBC
                     ret = ccall( ($func, unixODBC_jll.libodbc), SQLRETURN, $args, $(vals...))
-                    ret == SQL_STILL_EXECUTING || break
-                    if counter > 0 
-                        sleep(0.000_001*counter)
-                    end
-                    counter = 1.2*(1 + counter)
                 end
             end
+            ret == SQL_STILL_EXECUTING || break
+            polls += 1
+            asyncwait(polls)
         end
         ret
     end)
@@ -156,6 +146,9 @@ end
 mutable struct Handle
     type::Int16
     ptr::Ptr{Cvoid}
+    # the parent Handle (ENV of a DBC, DBC of a STMT) stays reachable as long as this handle is: a connection handle
+    # finalized (disconnected + freed) underneath a live statement/cursor is a use-after-free in the driver (#381)
+    parent::Any
     function Handle(type, parent=SQL_NULL_HANDLE)
         ref = Ref{Ptr{Cvoid}}()
         @checksuccess parent SQLAllocHandle(type, parent isa Handle ? parent.ptr : parent, ref)
@@ -164,13 +157,17 @@ mutable struct Handle
         if type == SQL_HANDLE_ENV
             @checksuccess parent SQLSetEnvAttr(ptr, SQL_ATTR_ODBC_VERSION, SQL_OV_ODBC3)
         end
-        h = new(type, ptr)
+        h = new(type, ptr, parent)
         finalizer(h) do x
             if x.ptr != C_NULL
-                if x.type == SQL_HANDLE_DBC
-                    SQLDisconnect(x.ptr)
+                # freeing the parent already freed every child handle, so only call the driver while the parent is alive
+                p = x.parent
+                if !(p isa Handle && p.ptr == C_NULL)
+                    if x.type == SQL_HANDLE_DBC
+                        SQLDisconnect(x.ptr)
+                    end
+                    SQLFreeHandle(x.type, x.ptr)
                 end
-                SQLFreeHandle(x.type, x.ptr)
                 x.ptr = C_NULL
             end
         end
@@ -325,7 +322,7 @@ function SQLGetTypeInfo(stmt)
 end
 
 function gettypes(dbc)
-    stmt = Handle(SQL_HANDLE_STMT, getptr(dbc))
+    stmt = Handle(SQL_HANDLE_STMT, dbc)
     SQLGetTypeInfo(stmt)
     return stmt
 end
@@ -428,7 +425,7 @@ function SQLPrepare(stmt::Ptr{Cvoid},query::AbstractString)
 end
 
 function prepare(dbc::Handle, sql)
-    stmt = Handle(SQL_HANDLE_STMT, getptr(dbc))
+    stmt = Handle(SQL_HANDLE_STMT, dbc)
     enableasync(stmt)
     @checksuccess stmt SQLPrepare(getptr(stmt), sql)
     return stmt

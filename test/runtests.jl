@@ -1,4 +1,4 @@
-using Test, ODBC, DBInterface, Tables, Dates, DecFP, MariaDB_Connector_ODBC_jll, MariaDB_Connector_C_jll
+using Test, ODBC, DBInterface, Tables, Dates, DecFP, UUIDs, MariaDB_Connector_ODBC_jll, MariaDB_Connector_C_jll
 
 tracefile = abspath(joinpath(@__DIR__, "odbc.log"))
 ODBC.setdebug(true, tracefile)
@@ -9,22 +9,8 @@ ODBC.setdebug(false)
 rm(tracefile)
 
 PLUGIN_DIR = joinpath(MariaDB_Connector_C_jll.artifact_dir, "lib", "mariadb", "plugin")
-if Sys.islinux()
-    if Int == Int32
-        libpath = joinpath(expanduser("~"), "mariadb32/lib/libmaodbc.so")
-    else
-        libpath = joinpath("/home/runner/mariadb64", "mariadb-connector-odbc-3.1.20-ubuntu-focal-amd64/lib/mariadb/libmaodbc.so")
-    end
-elseif Sys.iswindows()
-    if Int == Int32
-        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win32", "maodbc.dll"))
-    else
-        @show readdir(expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit")))
-        libpath = expanduser(joinpath("~", "mariadb-connector-odbc-3.1.7-win64", "SourceDir", "MariaDB", "MariaDB ODBC Driver 64-bit", "maodbc.dll"))
-    end
-else
-    libpath = MariaDB_Connector_ODBC_jll.libmaodbc_path
-end
+# tests run against the MariaDB Connector/ODBC jll; set ODBC_TEST_MARIADB_DRIVER to test another driver library
+libpath = get(ENV, "ODBC_TEST_MARIADB_DRIVER", MariaDB_Connector_ODBC_jll.libmaodbc_path)
 @show libpath
 @show isfile(libpath)
 ODBC.adddriver("ODBC_Test_MariaDB", libpath)
@@ -270,6 +256,8 @@ for i = 1:length(expected)
 end
 
 # ODBC.load
+# connector >= 3.1.21 reports 65535 as the VARCHAR size; the created column must still fit a utf8mb4 row (#392)
+@test occursin("(255)", ODBC.sqltype(conn, String))
 ODBC.load(Base.structdiff(expected, NamedTuple{(:LastLogin2, :Wage,)}), conn, "Employee_copy"; limit=4)
 res = DBInterface.execute(conn, "select * from Employee_copy") |> columntable
 @test length(res) == 14
@@ -404,4 +392,78 @@ ret = DBInterface.execute(dsnconn, "select current_user() as user") |> columntab
 @test startswith(ret.user[1], "authtest@")
 DBInterface.close!(dsnconn)
 
+# #381: a cursor keeps its connection handle alive even after the Connection object becomes unreachable
+cursor = DBInterface.execute(DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB"), "select * from mysqltest.Employee"; iterate_rows=true)
+GC.gc(); GC.gc()
+@test length(columntable(cursor).ID) == 5
+
+# #366: SQL_C_GUID structs are native-endian fields + 8 bytes, not the big-endian bytes of a UUID
+let u = UUID("99685768-257e-462e-a29f-e6902550f030"), g = ODBC.API.SQLGUID(u)
+    @test UUID(g) == u
+    @test g.Data1 == 0x99685768 && g.Data2 == 0x257e && g.Data3 == 0x462e
+    @test g.Data4 == (0xa2, 0x9f, 0xe6, 0x90, 0x25, 0x50, 0xf0, 0x30)
+    @test ODBC.Buffer(u).buffer == Union{Missing, ODBC.API.SQLGUID}[g]
+    @test sprint(show, g) == sprint(show, u)
+end
+
+# #393/#356: string/binary parameters longer than 8000 bytes bind with ColumnSize = 0
+DBInterface.execute(conn, "CREATE TABLE big_params (id INT, t LONGTEXT CHARACTER SET utf8mb4, b LONGBLOB)")
+stmt = DBInterface.prepare(conn, "INSERT INTO big_params VALUES (?, ?, ?)")
+bigtext = "望"^8001
+bigblob = rand(UInt8, 100_000)
+DBInterface.execute(stmt, (1, bigtext, bigblob))
+DBInterface.execute(stmt, (2, "short", UInt8[]))
+DBInterface.close!(stmt)
+ret = DBInterface.execute(conn, "select * from big_params order by id") |> columntable
+@test ret.t == [bigtext, "short"]
+@test ret.b == [bigblob, UInt8[]]
+@test (DBInterface.execute(conn, "select id from big_params where t = ?", (bigtext,)) |> columntable).id == [1]
+
+# #337: a failing SQLGetData (here: no row fetched yet, 24000 from the driver manager) raises instead of returning garbage
+cursor = DBInterface.execute(conn, "select * from Employee"; iterate_rows=true)
+@test_throws ErrorException ODBC.getdata(cursor.stmt, 1, cursor.bindings[1])
+
+# #330/#334/#342/#333: ODBC.load of AbstractString, unsigned integer, all-missing and Float32/Float64 columns
+tbl = (a=[SubString("hello", 1, 3), SubString("world", 2, 4)], b=UInt8[1, 2], c=UInt16[3, 4], d=UInt32[5, 6], e=UInt64[7, 8],
+       f=[missing, missing], g=Float32[1.5, 2.5], h=Float64[3.5, 4.5])
+ODBC.load(tbl, conn, "load_types")
+ret = DBInterface.execute(conn, "select * from load_types") |> columntable
+@test isequal(ret, (a=["hel", "orl"], b=Int8[1, 2], c=Int16[3, 4], d=Int32[5, 6], e=Int64[7, 8], f=[missing, missing], g=Float32[1.5, 2.5], h=[3.5, 4.5]))
+
+# strings and blobs round trip exactly in both fetch modes: empty values and NULs are data, not terminators
+DBInterface.execute(conn, "CREATE TABLE nul_check (id INT, s VARCHAR(20), t TEXT, b VARBINARY(10))")
+DBInterface.execute(conn, "INSERT INTO nul_check VALUES (1, 'abc', REPEAT('x', 60000), X'610062'), (2, '', '', X''), (3, 'a\\0', 'x\\0\\0', X'00'), (4, NULL, NULL, NULL)")
+for kw in ((;), (iterate_rows=true,))
+    local ret = DBInterface.execute(conn, "select id, s, b from nul_check order by id"; kw...) |> columntable
+    @test isequal(ret.s, ["abc", "", "a\0", missing])
+    @test isequal(ret.b, [UInt8[0x61, 0x00, 0x62], UInt8[], UInt8[0x00], missing])
+    ret = DBInterface.execute(conn, "select id, t from nul_check order by id"; kw...) |> columntable
+    @test isequal(ret.t, ["x"^60000, "", "x\0\0", missing])
+end
+
+# #385: DBInterface.execute(f, ...) closes the cursor through DBInterface.close!(::ODBC.Cursor)
+@test DBInterface.execute(columntable, conn, "select 1 as x").x == [1]
+stmt = DBInterface.prepare(conn, "select 2 as x")
+@test DBInterface.execute(columntable, stmt).x == [2]
+@test DBInterface.execute(columntable, stmt).x == [2]
+DBInterface.close!(stmt)
+
+
+@testset "Polling delay and initial parameter length" begin
+    # After the initial yields, a poll must actually wait for the timer.
+    @test (@elapsed ODBC.API.asyncwait(101)) >= 0.001
+    @test (@elapsed ODBC.API.asyncwait(1000)) >= 0.05
+    stmt = DBInterface.prepare(conn, "select ? as value")
+    for value in ("abc", "望", UInt8[0x00, 0xff], Int32(42), missing)
+        binding = ODBC.Binding(stmt.stmt, value, 1)
+        @test binding.bufferlength == ODBC.bufferlength(binding.value)
+        @test binding.strlen_or_indptr[1] == (ismissing(value) ? ODBC.API.SQL_NULL_DATA : binding.bufferlength)
+    end
+    DBInterface.close!(stmt)
+end
+
 DBInterface.close!(conn)
+
+if haskey(ENV, "ODBC_TEST_SQLSERVER")
+    include("sqlserver.jl")
+end

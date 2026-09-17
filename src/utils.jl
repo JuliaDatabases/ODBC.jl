@@ -1,19 +1,20 @@
 # whether a julia value needs wrapped in an array in order to call pointer(value)
 # needswrapped(x::API.SQLSMALLINT) = x != API.SQL_C_CHAR && x != API.SQL_C_WCHAR && x != API.SQL_C_BINARY
-needswrapped(x::Union{String, Vector{UInt8}}) = false
+needswrapped(x::Union{AbstractString, Vector{UInt8}}) = false
 needswrapped(x::DecFP.DecimalFloatingPoint) = false
 needswrapped(x) = true
 const MISSING_BUF = [missing]
 
 # convert a julia value to the "C type" storage the driver expects
 ccast(x) = x
+ccast(x::AbstractString) = String(x)
 ccast(x::Date) = API.SQLDate(x)
 ccast(x::DateTime) = API.SQLTimestamp(x)
 ccast(x::Time) = API.SQLTime(x)
 ccast(x::DecFP.DecimalFloatingPoint) = string(x)
+ccast(x::UUID) = API.SQLGUID(x)
 
 _zero(T) = zero(T)
-_zero(::Type{UUID}) = UUID(0)
 
 function newarray(T, nullable, rows)
     if nullable == API.SQL_NO_NULLS
@@ -52,7 +53,7 @@ end
         return f(x)
     elseif x isa Vector{API.SQLTime}
         return f(x)
-    elseif x isa Vector{UUID}
+    elseif x isa Vector{API.SQLGUID}
         return f(x)
     elseif x isa Vector{Union{Missing, Float32}}
         return f(x)
@@ -74,7 +75,15 @@ end
         return f(x)
     elseif x isa Vector{Union{Missing, API.SQLTime}}
         return f(x)
-    elseif x isa Vector{Union{Missing, UUID}}
+    elseif x isa Vector{Union{Missing, API.SQLGUID}}
+        return f(x)
+    elseif x isa Vector{Union{Missing, UInt8}}
+        return f(x)
+    elseif x isa Vector{Union{Missing, UInt16}}
+        return f(x)
+    elseif x isa Vector{Union{Missing, UInt32}}
+        return f(x)
+    elseif x isa Vector{Union{Missing, UInt64}}
         return f(x)
     end
 end
@@ -94,7 +103,7 @@ mutable struct Buffer
         Vector{API.SQLDate},
         Vector{API.SQLTimestamp},
         Vector{API.SQLTime},
-        Vector{UUID},
+        Vector{API.SQLGUID},
         Vector{Union{Missing, Float32}},
         Vector{Union{Missing, Float64}},
         Vector{Union{Missing, Int8}},
@@ -105,7 +114,12 @@ mutable struct Buffer
         Vector{Union{Missing, API.SQLDate}},
         Vector{Union{Missing, API.SQLTimestamp}},
         Vector{Union{Missing, API.SQLTime}},
-        Vector{Union{Missing, UUID}},
+        Vector{Union{Missing, API.SQLGUID}},
+        # unsigned integers only occur as parameter buffers (fetching uses the signed C types) (#334)
+        Vector{Union{Missing, UInt8}},
+        Vector{Union{Missing, UInt16}},
+        Vector{Union{Missing, UInt32}},
+        Vector{Union{Missing, UInt64}},
     }
 
     # for parameter binding
@@ -137,7 +151,7 @@ mutable struct Buffer
         elseif ctype == API.SQL_C_TYPE_TIME
             return new(newarray(API.SQLTime, nullable, rows))
         elseif ctype == API.SQL_C_GUID
-            return new(newarray(UUID, nullable, rows))
+            return new(newarray(API.SQLGUID, nullable, rows))
         else
             return new(Vector{UInt8}(undef, columnsize * rows))
         end
@@ -249,7 +263,8 @@ mutable struct Binding
         b.valuetype = v
         b.parametertype = p
         b.value = Buffer(x)
-        b.strlen_or_indptr = [Int(x === missing ? API.SQL_NULL_DATA : bufferlength(b.value))]
+        b.bufferlength = bufferlength(b.value)
+        b.strlen_or_indptr = [Int(x === missing ? API.SQL_NULL_DATA : b.bufferlength)]
         bindparam(stmt, i, b)
         return b
     end
@@ -282,9 +297,24 @@ function update!(stmt, b::Binding, @nospecialize(x), i)
     return
 end
 
+# SQL Server rejects SQL_VARCHAR/SQL_VARBINARY parameters whose ColumnSize exceeds 8000 with HY104 "Invalid precision value";
+# its documented way to bind larger values (varchar(max), nvarchar(max), varbinary(max)) is ColumnSize = 0
+# (SQL_SS_LENGTH_UNLIMITED). Other drivers ignore ColumnSize for character/binary input parameters. (#393, #356)
+const MAX_BOUND_COLUMN_SIZE = 8000
+
+function paramcolumnsize(b::Binding)
+    cs = columnsize(b.value)
+    return (b.valuetype == API.SQL_C_CHAR || b.valuetype == API.SQL_C_BINARY) && cs > MAX_BOUND_COLUMN_SIZE ? 0 : cs
+end
+
 # unpack Binding/Buffer to call SQLBindParameter
-bindparam(stmt, i, b::Binding) = API.bindparam(stmt, i, API.SQL_PARAM_INPUT,
-    b.valuetype, b.parametertype, columnsize(b.value), decimaldigits(b.value), pointer(b.value), b.bufferlength, pointer(b.strlen_or_indptr))
+function bindparam(stmt, i, b::Binding)
+    # SQL_VARCHAR can lose Unicode through the server code page even when the target is nvarchar.
+    unicode = b.parametertype == API.SQL_VARCHAR && b.value.buffer isa String && !isascii(b.value.buffer)
+    sqltype = unicode ? API.SQL_WVARCHAR : b.parametertype
+    return API.bindparam(stmt, i, API.SQL_PARAM_INPUT,
+        b.valuetype, sqltype, unicode ? 0 : paramcolumnsize(b), decimaldigits(b.value), pointer(b.value), b.bufferlength, pointer(b.strlen_or_indptr))
+end
 
 # if no bindings have been made yet, allocate them fresh
 bindparams(stmt, params, ::Nothing) = [Binding(stmt, x, i) for (i, x) in enumerate(params)]
@@ -301,8 +331,13 @@ end
 getbindings(stmt, columnar, ctypes, sqltypes, columnsizes, nullables, longtexts, rows) =
     [Binding(stmt, columnar, i, ctypes[i], sqltypes[i], columnsizes[i], nullables[i], longtexts[i], rows) for i = 1:length(ctypes)]
 
+@noinline getdataerror(stmt) = error(API.diagnostics(stmt))
+# a failed SQLGetData leaves strlen_or_indptr and the buffer unset; reading them turned the garbage into data (#337)
+checkgetdata(stmt, status) = (status == API.SQL_ERROR || status == API.SQL_INVALID_HANDLE) && getdataerror(stmt)
+
 function getdata(stmt, i, b::Binding)
     status = API.SQLGetData(API.getptr(stmt), i, b.valuetype, pointer(b.value), b.bufferlength, b.strlen_or_indptr)
+    checkgetdata(stmt, status)
     b.totallen = b.strlen_or_indptr[1]
     if (b.long || status == API.SQL_SUCCESS_WITH_INFO) && b.strlen_or_indptr[1] != API.SQL_NULL_DATA
         chardata = b.valuetype != API.SQL_C_BINARY
@@ -315,6 +350,7 @@ function getdata(stmt, i, b::Binding)
                 resize!(b.value.buffer, b.bufferlength)
                 newlen = b.bufferlength - len + chardata
                 status = API.SQLGetData(API.getptr(stmt), i, b.valuetype, pointer(b.value, len + !chardata), newlen, b.strlen_or_indptr)
+                checkgetdata(stmt, status)
                 ind = b.strlen_or_indptr[1]
                 fetched = (ind >= newlen || ind == API.SQL_NO_TOTAL) ? newlen - chardata : ind
                 tl = b.totallen
@@ -327,6 +363,7 @@ function getdata(stmt, i, b::Binding)
             b.bufferlength += ind - b.bufferlength + chardata
             resize!(b.value.buffer, b.bufferlength)
             status = API.SQLGetData(API.getptr(stmt), i, b.valuetype, pointer(b.value, len + !chardata), b.bufferlength - len + chardata, b.strlen_or_indptr)
+            checkgetdata(stmt, status)
             b.totallen = b.bufferlength - chardata
         end
     end
