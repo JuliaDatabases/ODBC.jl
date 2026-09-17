@@ -1,12 +1,13 @@
 # whether a julia value needs wrapped in an array in order to call pointer(value)
 # needswrapped(x::API.SQLSMALLINT) = x != API.SQL_C_CHAR && x != API.SQL_C_WCHAR && x != API.SQL_C_BINARY
-needswrapped(x::Union{String, Vector{UInt8}}) = false
+needswrapped(x::Union{AbstractString, Vector{UInt8}}) = false
 needswrapped(x::DecFP.DecimalFloatingPoint) = false
 needswrapped(x) = true
 const MISSING_BUF = [missing]
 
 # convert a julia value to the "C type" storage the driver expects
 ccast(x) = x
+ccast(x::AbstractString) = String(x)
 ccast(x::Date) = API.SQLDate(x)
 ccast(x::DateTime) = API.SQLTimestamp(x)
 ccast(x::Time) = API.SQLTime(x)
@@ -76,6 +77,14 @@ end
         return f(x)
     elseif x isa Vector{Union{Missing, API.SQLGUID}}
         return f(x)
+    elseif x isa Vector{Union{Missing, UInt8}}
+        return f(x)
+    elseif x isa Vector{Union{Missing, UInt16}}
+        return f(x)
+    elseif x isa Vector{Union{Missing, UInt32}}
+        return f(x)
+    elseif x isa Vector{Union{Missing, UInt64}}
+        return f(x)
     end
 end
 
@@ -106,6 +115,11 @@ mutable struct Buffer
         Vector{Union{Missing, API.SQLTimestamp}},
         Vector{Union{Missing, API.SQLTime}},
         Vector{Union{Missing, API.SQLGUID}},
+        # unsigned integers only occur as parameter buffers (fetching uses the signed C types) (#334)
+        Vector{Union{Missing, UInt8}},
+        Vector{Union{Missing, UInt16}},
+        Vector{Union{Missing, UInt32}},
+        Vector{Union{Missing, UInt64}},
     }
 
     # for parameter binding

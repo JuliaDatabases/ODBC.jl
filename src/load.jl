@@ -11,6 +11,15 @@ function quoteid(conn, str)
 end
 
 sqltype(conn, ::Type{Union{T, Missing}}) where {T} = sqltype(conn, T)
+# an all-missing column has no values, so it gets the type `missing` binds as, i.e. the string type (#342)
+sqltype(conn, ::Type{Missing}) = sqltype(conn, String)
+
+# the BINDTYPES key a column of type T is created with: any AbstractString binds as a String (#330)
+loadtype(::Type{T}) where {T} = T <: AbstractString ? String : T
+
+# drivers may report only one of the ODBC floating point types (SQL Server has no SQL_DOUBLE row, MariaDB no SQL_REAL
+# row); without a fallback the column silently became the default VARCHAR type (#333)
+const SQLTYPE_FALLBACKS = Dict(API.SQL_DOUBLE => (API.SQL_FLOAT,), API.SQL_REAL => (API.SQL_FLOAT, API.SQL_DOUBLE))
 
 function sqltype(conn, T)
     if isempty(conn.types)
@@ -25,6 +34,10 @@ function sqltype(conn, T)
         for jlT in BINDTYPES
             _, sqlT = bindtypes(jlT)
             i = findfirst(==(sqlT), types.DATA_TYPE)
+            for t in get(SQLTYPE_FALLBACKS, sqlT, ())
+                i === nothing || break
+                i = findfirst(==(t), types.DATA_TYPE)
+            end
             nm = i !== nothing ? types.TYPE_NAME[i] : defaultT
             if i !== nothing && types.CREATE_PARAMS[i] !== missing && nm != "DOUBLE" && nm != "FLOAT"
                 nm *= occursin(',', types.CREATE_PARAMS[i]) ? "($(typeprecision(jlT)),$(typescale(jlT)))" : "($(types.COLUMN_SIZE[i]))"
@@ -32,7 +45,7 @@ function sqltype(conn, T)
             conn.types[jlT] = nm
         end
     end
-    return conn.types[T]
+    return conn.types[loadtype(T)]
 end
 
 checkdupnames(names) = length(unique(map(x->lowercase(String(x)), names))) == length(names) || error("duplicate case-insensitive column names detected; sqlite doesn't allow duplicate column names and treats them case insensitive")

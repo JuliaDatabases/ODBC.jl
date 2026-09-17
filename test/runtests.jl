@@ -435,4 +435,11 @@ ret = DBInterface.execute(conn, "select * from big_params order by id") |> colum
 cursor = DBInterface.execute(conn, "select * from Employee"; iterate_rows=true)
 @test_throws ErrorException ODBC.getdata(cursor.stmt, 1, cursor.bindings[1])
 
+# #330/#334/#342/#333: ODBC.load of AbstractString, unsigned integer, all-missing and Float32/Float64 columns
+tbl = (a=[SubString("hello", 1, 3), SubString("world", 2, 4)], b=UInt8[1, 2], c=UInt16[3, 4], d=UInt32[5, 6], e=UInt64[7, 8],
+       f=[missing, missing], g=Float32[1.5, 2.5], h=Float64[3.5, 4.5])
+ODBC.load(tbl, conn, "load_types")
+ret = DBInterface.execute(conn, "select * from load_types") |> columntable
+@test isequal(ret, (a=["hel", "orl"], b=Int8[1, 2], c=Int16[3, 4], d=Int32[5, 6], e=Int64[7, 8], f=[missing, missing], g=Float32[1.5, 2.5], h=[3.5, 4.5]))
+
 DBInterface.close!(conn)
