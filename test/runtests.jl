@@ -434,7 +434,7 @@ ret = DBInterface.execute(conn, "select * from load_types") |> columntable
 DBInterface.execute(conn, "CREATE TABLE nul_check (id INT, s VARCHAR(20), t TEXT, b VARBINARY(10))")
 DBInterface.execute(conn, "INSERT INTO nul_check VALUES (1, 'abc', REPEAT('x', 60000), X'610062'), (2, '', '', X''), (3, 'a\\0', 'x\\0\\0', X'00'), (4, NULL, NULL, NULL)")
 for kw in ((;), (iterate_rows=true,))
-    ret = DBInterface.execute(conn, "select id, s, b from nul_check order by id"; kw...) |> columntable
+    local ret = DBInterface.execute(conn, "select id, s, b from nul_check order by id"; kw...) |> columntable
     @test isequal(ret.s, ["abc", "", "a\0", missing])
     @test isequal(ret.b, [UInt8[0x61, 0x00, 0x62], UInt8[], UInt8[0x00], missing])
     ret = DBInterface.execute(conn, "select id, t from nul_check order by id"; kw...) |> columntable
@@ -448,4 +448,22 @@ stmt = DBInterface.prepare(conn, "select 2 as x")
 @test DBInterface.execute(columntable, stmt).x == [2]
 DBInterface.close!(stmt)
 
+
+@testset "Polling delay and initial parameter length" begin
+    # After the initial yields, a poll must actually wait for the timer.
+    @test (@elapsed ODBC.API.asyncwait(101)) >= 0.001
+    @test (@elapsed ODBC.API.asyncwait(1000)) >= 0.05
+    stmt = DBInterface.prepare(conn, "select ? as value")
+    for value in ("abc", "望", UInt8[0x00, 0xff], Int32(42), missing)
+        binding = ODBC.Binding(stmt.stmt, value, 1)
+        @test binding.bufferlength == ODBC.bufferlength(binding.value)
+        @test binding.strlen_or_indptr[1] == (ismissing(value) ? ODBC.API.SQL_NULL_DATA : binding.bufferlength)
+    end
+    DBInterface.close!(stmt)
+end
+
 DBInterface.close!(conn)
+
+if haskey(ENV, "ODBC_TEST_SQLSERVER")
+    include("sqlserver.jl")
+end

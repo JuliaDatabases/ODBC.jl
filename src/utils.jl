@@ -308,8 +308,13 @@ function paramcolumnsize(b::Binding)
 end
 
 # unpack Binding/Buffer to call SQLBindParameter
-bindparam(stmt, i, b::Binding) = API.bindparam(stmt, i, API.SQL_PARAM_INPUT,
-    b.valuetype, b.parametertype, paramcolumnsize(b), decimaldigits(b.value), pointer(b.value), b.bufferlength, pointer(b.strlen_or_indptr))
+function bindparam(stmt, i, b::Binding)
+    # SQL_VARCHAR can lose Unicode through the server code page even when the target is nvarchar.
+    unicode = b.parametertype == API.SQL_VARCHAR && b.value.buffer isa String && !isascii(b.value.buffer)
+    sqltype = unicode ? API.SQL_WVARCHAR : b.parametertype
+    return API.bindparam(stmt, i, API.SQL_PARAM_INPUT,
+        b.valuetype, sqltype, unicode ? 0 : paramcolumnsize(b), decimaldigits(b.value), pointer(b.value), b.bufferlength, pointer(b.strlen_or_indptr))
+end
 
 # if no bindings have been made yet, allocate them fresh
 bindparams(stmt, params, ::Nothing) = [Binding(stmt, x, i) for (i, x) in enumerate(params)]
