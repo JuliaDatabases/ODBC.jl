@@ -408,32 +408,11 @@ DBInterface.close!(dsnconn)
 cursor = DBInterface.execute(DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB"), "select * from Employee"; iterate_rows=true)
 GC.gc(); GC.gc()
 @test length(columntable(cursor).ID) == 5
-||||||| ade91c4
-# #366: SQL_C_GUID structs are native-endian fields + 8 bytes, not the big-endian bytes of a UUID
-let u = UUID("99685768-257e-462e-a29f-e6902550f030"), g = ODBC.API.SQLGUID(u)
-    @test UUID(g) == u
-    @test g.Data1 == 0x99685768 && g.Data2 == 0x257e && g.Data3 == 0x462e
-    @test g.Data4 == (0xa2, 0x9f, 0xe6, 0x90, 0x25, 0x50, 0xf0, 0x30)
-    @test ODBC.Buffer(u).buffer == Union{Missing, ODBC.API.SQLGUID}[g]
-    @test sprint(show, g) == sprint(show, u)
-end
-||||||| ade91c4
-# #393/#356: string/binary parameters longer than 8000 bytes bind with ColumnSize = 0
-DBInterface.execute(conn, "CREATE TABLE big_params (id INT, t LONGTEXT CHARACTER SET utf8mb4, b LONGBLOB)")
-stmt = DBInterface.prepare(conn, "INSERT INTO big_params VALUES (?, ?, ?)")
-bigtext = "望"^8001
-bigblob = rand(UInt8, 100_000)
-DBInterface.execute(stmt, (1, bigtext, bigblob))
-DBInterface.execute(stmt, (2, "short", UInt8[]))
-DBInterface.close!(stmt)
-ret = DBInterface.execute(conn, "select * from big_params order by id") |> columntable
-@test ret.t == [bigtext, "short"]
-@test ret.b == [bigblob, UInt8[]]
-@test (DBInterface.execute(conn, "select id from big_params where t = ?", (bigtext,)) |> columntable).id == [1]
-||||||| ade91c4
-# #337: a failing SQLGetData (here: column index out of range) raises the driver error instead of returning garbage
-cursor = DBInterface.execute(conn, "select * from Employee"; iterate_rows=true)
-row = first(cursor)
-@test_throws ErrorException ODBC.getdata(cursor.stmt, 100, cursor.bindings[1])
+# #330/#334/#342/#333: ODBC.load of AbstractString, unsigned integer, all-missing and Float32/Float64 columns
+tbl = (a=[SubString("hello", 1, 3), SubString("world", 2, 4)], b=UInt8[1, 2], c=UInt16[3, 4], d=UInt32[5, 6], e=UInt64[7, 8],
+       f=[missing, missing], g=Float32[1.5, 2.5], h=Float64[3.5, 4.5])
+ODBC.load(tbl, conn, "load_types")
+ret = DBInterface.execute(conn, "select * from load_types") |> columntable
+@test isequal(ret, (a=["hel", "orl"], b=Int8[1, 2], c=Int16[3, 4], d=Int32[5, 6], e=Int64[7, 8], f=[missing, missing], g=Float32[1.5, 2.5], h=[3.5, 4.5]))
 
 DBInterface.close!(conn)
