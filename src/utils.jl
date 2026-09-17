@@ -301,8 +301,13 @@ end
 getbindings(stmt, columnar, ctypes, sqltypes, columnsizes, nullables, longtexts, rows) =
     [Binding(stmt, columnar, i, ctypes[i], sqltypes[i], columnsizes[i], nullables[i], longtexts[i], rows) for i = 1:length(ctypes)]
 
+@noinline getdataerror(stmt) = error(API.diagnostics(stmt))
+# a failed SQLGetData leaves strlen_or_indptr and the buffer unset; reading them turned the garbage into data (#337)
+checkgetdata(stmt, status) = (status == API.SQL_ERROR || status == API.SQL_INVALID_HANDLE) && getdataerror(stmt)
+
 function getdata(stmt, i, b::Binding)
     status = API.SQLGetData(API.getptr(stmt), i, b.valuetype, pointer(b.value), b.bufferlength, b.strlen_or_indptr)
+    checkgetdata(stmt, status)
     b.totallen = b.strlen_or_indptr[1]
     if (b.long || status == API.SQL_SUCCESS_WITH_INFO) && b.strlen_or_indptr[1] != API.SQL_NULL_DATA
         chardata = b.valuetype != API.SQL_C_BINARY
@@ -315,6 +320,7 @@ function getdata(stmt, i, b::Binding)
                 resize!(b.value.buffer, b.bufferlength)
                 newlen = b.bufferlength - len + chardata
                 status = API.SQLGetData(API.getptr(stmt), i, b.valuetype, pointer(b.value, len + !chardata), newlen, b.strlen_or_indptr)
+                checkgetdata(stmt, status)
                 ind = b.strlen_or_indptr[1]
                 fetched = (ind >= newlen || ind == API.SQL_NO_TOTAL) ? newlen - chardata : ind
                 tl = b.totallen
@@ -327,6 +333,7 @@ function getdata(stmt, i, b::Binding)
             b.bufferlength += ind - b.bufferlength + chardata
             resize!(b.value.buffer, b.bufferlength)
             status = API.SQLGetData(API.getptr(stmt), i, b.valuetype, pointer(b.value, len + !chardata), b.bufferlength - len + chardata, b.strlen_or_indptr)
+            checkgetdata(stmt, status)
             b.totallen = b.bufferlength - chardata
         end
     end
