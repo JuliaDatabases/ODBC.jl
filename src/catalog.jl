@@ -19,7 +19,7 @@ percent signs, and escape characters as literals.
 """
 function tables(conn; catalogname=nothing, schemaname=nothing, tablename=nothing, tabletype=nothing)
     clear!(conn)
-    stmt = API.Handle(API.SQL_HANDLE_STMT, API.getptr(conn.dbc))
+    stmt = API.Handle(API.SQL_HANDLE_STMT, conn.dbc)
     conn.stmts[stmt] = 0
     conn.cursorstmt = stmt
     API.enableasync(stmt)
@@ -46,7 +46,7 @@ percent signs, and escape characters as literals.
 """
 function columns(conn; catalogname=nothing, schemaname=nothing, tablename=nothing, columnname=nothing)
     clear!(conn)
-    stmt = API.Handle(API.SQL_HANDLE_STMT, API.getptr(conn.dbc))
+    stmt = API.Handle(API.SQL_HANDLE_STMT, conn.dbc)
     conn.stmts[stmt] = 0
     conn.cursorstmt = stmt
     API.enableasync(stmt)

@@ -404,4 +404,9 @@ ret = DBInterface.execute(dsnconn, "select current_user() as user") |> columntab
 @test startswith(ret.user[1], "authtest@")
 DBInterface.close!(dsnconn)
 
+# #381: a cursor keeps its connection handle alive even after the Connection object becomes unreachable
+cursor = DBInterface.execute(DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB"), "select * from Employee"; iterate_rows=true)
+GC.gc(); GC.gc()
+@test length(columntable(cursor).ID) == 5
+
 DBInterface.close!(conn)
