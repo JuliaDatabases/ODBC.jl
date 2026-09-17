@@ -431,4 +431,8 @@ ret = DBInterface.execute(conn, "select * from big_params order by id") |> colum
 @test ret.b == [bigblob, UInt8[]]
 @test (DBInterface.execute(conn, "select id from big_params where t = ?", (bigtext,)) |> columntable).id == [1]
 
+# #337: a failing SQLGetData (here: no row fetched yet, 24000 from the driver manager) raises instead of returning garbage
+cursor = DBInterface.execute(conn, "select * from Employee"; iterate_rows=true)
+@test_throws ErrorException ODBC.getdata(cursor.stmt, 1, cursor.bindings[1])
+
 DBInterface.close!(conn)
