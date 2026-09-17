@@ -430,5 +430,10 @@ ret = DBInterface.execute(conn, "select * from big_params order by id") |> colum
 @test ret.t == [bigtext, "short"]
 @test ret.b == [bigblob, UInt8[]]
 @test (DBInterface.execute(conn, "select id from big_params where t = ?", (bigtext,)) |> columntable).id == [1]
+||||||| ade91c4
+# #337: a failing SQLGetData (here: column index out of range) raises the driver error instead of returning garbage
+cursor = DBInterface.execute(conn, "select * from Employee"; iterate_rows=true)
+row = first(cursor)
+@test_throws ErrorException ODBC.getdata(cursor.stmt, 100, cursor.bindings[1])
 
 DBInterface.close!(conn)
