@@ -11,9 +11,9 @@ ccast(x::Date) = API.SQLDate(x)
 ccast(x::DateTime) = API.SQLTimestamp(x)
 ccast(x::Time) = API.SQLTime(x)
 ccast(x::DecFP.DecimalFloatingPoint) = string(x)
+ccast(x::UUID) = API.SQLGUID(x)
 
 _zero(T) = zero(T)
-_zero(::Type{UUID}) = UUID(0)
 
 function newarray(T, nullable, rows)
     if nullable == API.SQL_NO_NULLS
@@ -52,7 +52,7 @@ end
         return f(x)
     elseif x isa Vector{API.SQLTime}
         return f(x)
-    elseif x isa Vector{UUID}
+    elseif x isa Vector{API.SQLGUID}
         return f(x)
     elseif x isa Vector{Union{Missing, Float32}}
         return f(x)
@@ -74,7 +74,7 @@ end
         return f(x)
     elseif x isa Vector{Union{Missing, API.SQLTime}}
         return f(x)
-    elseif x isa Vector{Union{Missing, UUID}}
+    elseif x isa Vector{Union{Missing, API.SQLGUID}}
         return f(x)
     end
 end
@@ -94,7 +94,7 @@ mutable struct Buffer
         Vector{API.SQLDate},
         Vector{API.SQLTimestamp},
         Vector{API.SQLTime},
-        Vector{UUID},
+        Vector{API.SQLGUID},
         Vector{Union{Missing, Float32}},
         Vector{Union{Missing, Float64}},
         Vector{Union{Missing, Int8}},
@@ -105,7 +105,7 @@ mutable struct Buffer
         Vector{Union{Missing, API.SQLDate}},
         Vector{Union{Missing, API.SQLTimestamp}},
         Vector{Union{Missing, API.SQLTime}},
-        Vector{Union{Missing, UUID}},
+        Vector{Union{Missing, API.SQLGUID}},
     }
 
     # for parameter binding
@@ -137,7 +137,7 @@ mutable struct Buffer
         elseif ctype == API.SQL_C_TYPE_TIME
             return new(newarray(API.SQLTime, nullable, rows))
         elseif ctype == API.SQL_C_GUID
-            return new(newarray(UUID, nullable, rows))
+            return new(newarray(API.SQLGUID, nullable, rows))
         else
             return new(Vector{UInt8}(undef, columnsize * rows))
         end

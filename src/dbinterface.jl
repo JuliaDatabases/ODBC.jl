@@ -344,7 +344,7 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
                     cur += elsize
                 end
                 columns[i] = A
-            elseif ctype == API.SQL_C_TYPE_DATE || ctype == API.SQL_C_TYPE_TIME || ctype == API.SQL_C_TYPE_TIMESTAMP
+            elseif ctype == API.SQL_C_TYPE_DATE || ctype == API.SQL_C_TYPE_TIME || ctype == API.SQL_C_TYPE_TIMESTAMP || ctype == API.SQL_C_GUID
                 specialize(binding.value.buffer) do data
                     T = types[i]
                     A = Vector{T}(undef, rowsfetched)
@@ -428,7 +428,7 @@ function Tables.getcolumn(x::Row, ::Type{T}, i::Int, nm::Symbol) where {T}
         data = b.value.buffer::Vector{UInt8}
         bytes = data[1:b.totallen]
         return jlcast(Base.nonmissingtype(T), bytes)
-    elseif b.valuetype == API.SQL_C_TYPE_DATE || b.valuetype == API.SQL_C_TYPE_TIME || b.valuetype == API.SQL_C_TYPE_TIMESTAMP
+    elseif b.valuetype == API.SQL_C_TYPE_DATE || b.valuetype == API.SQL_C_TYPE_TIME || b.valuetype == API.SQL_C_TYPE_TIMESTAMP || b.valuetype == API.SQL_C_GUID
         return specialize(x -> Base.nonmissingtype(T)(x[1]), b.value.buffer)
     else
         return specialize(x -> x[1], b.value.buffer)

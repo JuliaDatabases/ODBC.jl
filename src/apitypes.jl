@@ -1,4 +1,4 @@
-using Dates
+using Dates, UUIDs
 
 # Julia mapping C structs
 struct SQLDate <: Dates.AbstractTime
@@ -52,6 +52,32 @@ Base.zero(::Type{SQLTimestamp}) = SQLTimestamp()
 ==(y::Dates.DateTime, x::SQLTimestamp) = x.year == Dates.year(y) && x.month == Dates.month(y) && x.day == Dates.day(y) &&
                                x.hour == Dates.hour(y) && x.minute == Dates.minute(y) && x.second == Dates.second(y)
 Dates.DateTime(x::SQLTimestamp) = DateTime(Dates.UTM((x.fraction ÷ 1_000_000) + 1000 * (x.second + 60 * x.minute + 3600 * x.hour + 86400 * Dates.totaldays(x.year, max(x.month, 1), x.day))))
+
+# SQLGUID is the SQL_C_GUID transfer struct: Data1/Data2/Data3 are native-endian integers and Data4 is 8 raw bytes,
+# so on little-endian machines its 16 bytes are not the big-endian byte order of a `UUID` (#366)
+struct SQLGUID
+    Data1::UInt32
+    Data2::UInt16
+    Data3::UInt16
+    Data4::NTuple{8, UInt8}
+end
+
+SQLGUID() = SQLGUID(0, 0, 0, ntuple(_ -> 0x00, 8))
+Base.zero(::Type{SQLGUID}) = SQLGUID()
+Base.show(io::IO, x::SQLGUID) = show(io, UUID(x))
+
+function SQLGUID(u::UUID)
+    v = u.value
+    return SQLGUID(UInt32(v >> 96), UInt16((v >> 80) & 0xffff), UInt16((v >> 64) & 0xffff), ntuple(i -> UInt8((v >> (8 * (8 - i))) & 0xff), 8))
+end
+
+function UUIDs.UUID(g::SQLGUID)
+    lo = UInt64(0)
+    for b in g.Data4
+        lo = (lo << 8) | b
+    end
+    return UUID((UInt128(g.Data1) << 96) | (UInt128(g.Data2) << 80) | (UInt128(g.Data3) << 64) | lo)
+end
 
 const SQL_MAX_NUMERIC_LEN = 16
 struct SQLNumeric
