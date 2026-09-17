@@ -249,7 +249,8 @@ mutable struct Binding
         b.valuetype = v
         b.parametertype = p
         b.value = Buffer(x)
-        b.strlen_or_indptr = [Int(x === missing ? API.SQL_NULL_DATA : bufferlength(b.value))]
+        b.bufferlength = bufferlength(b.value)
+        b.strlen_or_indptr = [Int(x === missing ? API.SQL_NULL_DATA : b.bufferlength)]
         bindparam(stmt, i, b)
         return b
     end
