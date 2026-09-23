@@ -30,7 +30,53 @@ Once a driver or two are installed (viewable by calling `ODBC.drivers()`), you c
   * Setup a DSN, via `ODBC.adddsn("dsn name", "driver name"; kw...)`
   * Make a connection directly by using a full connection string like `ODBC.Connection(connection_string)`
 
-In setting up a DSN, you can specify all the configuration options once, then connect by just calling `ODBC.Connection("dsn name")` or `DBInterface.execute(ODBC.Connection, "dsn name")`, optionally passing a username and password as the 2nd and 3rd arguments. Alternatively, crafting and connecting via a fully specified connection string can mean less config-file dependency.
+In setting up a DSN, you can specify all the configuration options once, then connect by calling `ODBC.Connection("dsn name")` or `DBInterface.connect(ODBC.Connection, "dsn name")`. Pass credentials with the `user` and `password` keyword arguments when needed. A full connection string lets you connect without creating a DSN.
+
+#### Connecting without a DSN
+
+ODBC.jl supplies a **driver manager**, not a default database driver. Install an
+ODBC driver for your database first. For example, PostgreSQL uses
+[psqlODBC](https://odbc.postgresql.org/), while SQLite can use the
+[SQLite ODBC driver](http://www.ch-werner.de/sqliteodbc/). The driver must match
+your platform and driver manager. `ODBC.drivers()` lists registered drivers;
+an empty result means no drivers are registered in the active configuration.
+
+A connection string contains semicolon-separated `KEY=VALUE` options. `Driver`
+selects a registered driver name, or the full path to its shared library. The
+remaining options depend on that driver. For example, the SQLite ODBC driver
+uses `Database` for the database file path:
+
+```julia
+using ODBC, Tables
+
+# Replace this path with your installed SQLite ODBC driver library.
+driver = "/absolute/path/to/libsqlite3odbc.so"
+# Select the manager your driver was built for, before opening any connections.
+ODBC.setunixODBC()
+
+mktempdir() do dir
+    connection_string = "Driver={$driver};Database=$(joinpath(dir, "example.sqlite"))"
+    conn = ODBC.Connection(connection_string)
+    try
+        result = Tables.columntable(DBInterface.execute(conn, "SELECT 1 AS value"))
+        @assert result.value == [1]
+    finally
+        DBInterface.close!(conn)
+    end
+end
+```
+
+This example uses a local file and needs no server or credentials. It assumes a
+SQLite driver built for unixODBC; use your platform's library path and manager.
+If the driver is registered, replace the library path in `Driver={...}` with its
+exact registered name. Braces delimit the driver value, including names with spaces.
+
+For PostgreSQL, use psqlODBC's server, port, and database options instead of the
+SQLite file option; see the [psqlODBC connection options](https://odbc.postgresql.org/docs/config.html).
+`user` and `password` are optional Julia keywords that append `UID` and `PWD` to
+the connection string. `extraauth` appends driver-specific authentication options.
+Do not also put credentials in the first argument: ODBC.jl stores and displays it.
+See the credential examples below for databases that require authentication.
 
 #### Secure Credential Handling
 
