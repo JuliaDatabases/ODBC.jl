@@ -336,38 +336,40 @@ getbindings(stmt, columnar, ctypes, sqltypes, columnsizes, nullables, longtexts,
 checkgetdata(stmt, status) = (status == API.SQL_ERROR || status == API.SQL_INVALID_HANDLE) && getdataerror(stmt)
 
 function getdata(stmt, i, b::Binding)
-    status = API.SQLGetData(API.getptr(stmt), i, b.valuetype, pointer(b.value), b.bufferlength, b.strlen_or_indptr)
-    checkgetdata(stmt, status)
-    b.totallen = b.strlen_or_indptr[1]
-    if (b.long || status == API.SQL_SUCCESS_WITH_INFO) && b.strlen_or_indptr[1] != API.SQL_NULL_DATA
-        chardata = b.valuetype != API.SQL_C_BINARY
-        if b.strlen_or_indptr[1] == API.SQL_NO_TOTAL
-            b.totallen = b.bufferlength - 1
-            while true
-                # additional data to receive
-                len = b.bufferlength
-                b.bufferlength <<= 1
-                resize!(b.value.buffer, b.bufferlength)
-                newlen = b.bufferlength - len + chardata
-                status = API.SQLGetData(API.getptr(stmt), i, b.valuetype, pointer(b.value, len + !chardata), newlen, b.strlen_or_indptr)
-                checkgetdata(stmt, status)
-                ind = b.strlen_or_indptr[1]
-                fetched = (ind >= newlen || ind == API.SQL_NO_TOTAL) ? newlen - chardata : ind
-                tl = b.totallen
-                b.totallen += fetched
-                (status == API.SQL_NO_DATA || (ind != API.SQL_NO_TOTAL && ind < newlen)) && break
-            end
-        elseif b.strlen_or_indptr[1] >= b.bufferlength
-            ind = b.strlen_or_indptr[1]
-            len = b.bufferlength
-            b.bufferlength += ind - b.bufferlength + chardata
-            resize!(b.value.buffer, b.bufferlength)
-            status = API.SQLGetData(API.getptr(stmt), i, b.valuetype, pointer(b.value, len + !chardata), b.bufferlength - len + chardata, b.strlen_or_indptr)
-            checkgetdata(stmt, status)
-            b.totallen = b.bufferlength - chardata
+    variable = b.valuetype in (API.SQL_C_CHAR, API.SQL_C_WCHAR, API.SQL_C_BINARY)
+    terminator = b.valuetype == API.SQL_C_CHAR ? 1 :
+        b.valuetype == API.SQL_C_WCHAR ? sizeof(API.sqlwcharsize()) : 0
+    b.totallen = 0
+    while true
+        available = b.bufferlength - b.totallen
+        status = GC.@preserve stmt b API.SQLGetData(API.getptr(stmt), i, b.valuetype,
+            pointer(b.value, b.totallen + 1), available, b.strlen_or_indptr)
+        checkgetdata(stmt, status)
+        # SQL_NO_DATA leaves both output arguments undefined. A complete value
+        # must have supplied its final length on the preceding successful call.
+        status == API.SQL_NO_DATA && error("SQLGetData returned no data before column $i was complete")
+        status in (API.SQL_SUCCESS, API.SQL_SUCCESS_WITH_INFO) ||
+            error("SQLGetData returned unexpected status $status for column $i")
+        ind = b.strlen_or_indptr[1]
+        if ind == API.SQL_NULL_DATA || !variable
+            b.totallen = ind
+            return
         end
+        capacity = max(0, available - terminator)
+        terminator > 1 && (capacity -= capacity % terminator)
+        if 0 <= ind <= capacity
+            b.totallen += ind
+            return
+        end
+        (status == API.SQL_SUCCESS_WITH_INFO && (ind == API.SQL_NO_TOTAL || ind > capacity)) ||
+            error("SQLGetData returned an invalid length for column $i")
+        # The indicator describes the data remaining before this call. Binary
+        # chunks use the full buffer; character chunks reserve a terminator.
+        b.totallen += capacity
+        b.bufferlength = ind == API.SQL_NO_TOTAL ? max(2 * b.bufferlength, 2 * terminator, 1) :
+            b.totallen + ind - capacity + terminator
+        resize!(b.value.buffer, b.bufferlength)
     end
-    return
 end
 
 bindcol(stmt, i, b::Binding) = API.SQLBindCol(API.getptr(stmt), i, 
