@@ -1,5 +1,7 @@
 using Test, ODBC, DBInterface, Tables, Dates, DecFP, UUIDs, MariaDB_Connector_ODBC_jll, MariaDB_Connector_C_jll
 
+include("getdata.jl")
+
 tracefile = abspath(joinpath(@__DIR__, "odbc.log"))
 ODBC.setdebug(true, tracefile)
 @show ODBC.drivers()
@@ -418,6 +420,28 @@ ret = DBInterface.execute(conn, "select * from big_params order by id") |> colum
 @test ret.t == [bigtext, "short"]
 @test ret.b == [bigblob, UInt8[]]
 @test (DBInterface.execute(conn, "select id from big_params where t = ?", (bigtext,)) |> columntable).id == [1]
+
+@testset "Owned row values" begin
+    cursor = DBInterface.execute(conn, "select t, b from big_params order by id"; iterate_rows=true)
+    row, state = iterate(cursor)
+    text = Tables.getcolumn(row, :t)
+    blob = Tables.getcolumn(row, :b)
+    other = Tables.getcolumn(row, :b)
+    @test text == bigtext
+    @test blob == bigblob
+    @test blob !== other
+    # One owned result should require one payload-sized allocation.
+    @test (@allocated Tables.getcolumn(row, :b)) < 3 * length(bigblob) ÷ 2
+    nextrow, _ = iterate(cursor, state)
+    @test Tables.getcolumn(nextrow, :t) == "short"
+    @test isempty(Tables.getcolumn(nextrow, :b))
+    @test text == bigtext
+    @test blob == bigblob
+    DBInterface.close!(cursor)
+    other[1] ⊻= 0xff
+    @test blob == bigblob
+    @test text == bigtext
+end
 
 # #337: a failing SQLGetData (here: no row fetched yet, 24000 from the driver manager) raises instead of returning garbage
 cursor = DBInterface.execute(conn, "select * from Employee"; iterate_rows=true)
