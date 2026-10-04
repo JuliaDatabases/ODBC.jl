@@ -210,7 +210,7 @@ const SQL_C_UBIGINT = (SQL_BIGINT+SQL_UNSIGNED_OFFSET)
 #const SQL_C_INTERVAL_MINUTE_TO_SECOND = Int16(113)
 const SQL_C_GUID                      = Int16(-11)
 
-"Convenience mapping of SQL types to their string representation"
+# SQL type codes mapped to their names.
 const SQL_TYPES = Dict(
       1 => "SQL_CHAR",
      12 => "SQL_VARCHAR",
@@ -251,7 +251,7 @@ const SQL_TYPES = Dict(
     113 => "SQL_INTERVAL_MINUTE_TO_SECOND",
     -11 => "SQL_GUID")
 
-"Convenience mapping of SQL types to their C-type equivalent as a string"
+# ODBC C type codes mapped to their names.
 const C_TYPES = Dict(
   SQL_C_CHAR => "SQL_C_CHAR",
   SQL_C_WCHAR => "SQL_C_WCHAR",

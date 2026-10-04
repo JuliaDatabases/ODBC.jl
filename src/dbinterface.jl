@@ -493,5 +493,12 @@ function Base.iterate(cursors::Cursors, first=true)
     return cursors.cursor, false
 end
 
+"""
+    DBInterface.executemultiple(conn::ODBC.Connection, sql, params=(); kw...)
+
+Execute a query and iterate over its result sets as Tables.jl-compatible cursors.
+The driver must support multiple result sets. Consume each cursor before
+requesting the next result set, since they share the same prepared statement.
+"""
 DBInterface.executemultiple(conn::Connection, sql::AbstractString, params=(); kw...) =
     Cursors(DBInterface.execute(conn, sql, params; kw...), kw)
