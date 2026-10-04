@@ -95,7 +95,7 @@ List installed ODBC drivers. The primary config location for installed drivers o
 a reserved "scratch" space directory, i.e. an ODBC.jl-managed
 location. Other system/user locations may also be checked (and are used by default on windows)
 by the underlying ODBC driver manager, but for the most consistent results, aim to allow ODBC.jl to manage
-installed drivers/datasources via `ODBC.addriver`, `ODBC.removedriver`, etc.
+installed drivers/datasources via `ODBC.adddriver`, `ODBC.removedriver`, etc.
 
 Note that the odbc driver shared libraries can be "sticky" with regards to changing to
 system configuration files. You may need to set a `OVERRIDE_ODBCJL_CONFIG` environment
@@ -124,7 +124,7 @@ variable before starting `julia` and running `import ODBC` to ensure that no env
 variables are changed by ODBC.jl itself.
 
 On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
-datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+datasources can still be added via `ODBC.adddriver`/`ODBC.removedriver` and `ODBC.adddsn`/`ODBC.removedsn`,
 but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
 CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
@@ -148,7 +148,7 @@ an issue for driver libraries built against iODBC and then tried to use with uni
 or vice-versa.
 
 On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
-datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+datasources can still be added via `ODBC.adddriver`/`ODBC.removedriver` and `ODBC.adddsn`/`ODBC.removedsn`,
 but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
 CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
@@ -161,7 +161,7 @@ Remove an installed ODBC driver by `name` (as returned from `ODBC.drivers()`).
 `removedsns=true` also removes any datasources that were specified to use the driver.
 
 On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
-datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+datasources can still be added via `ODBC.adddriver`/`ODBC.removedriver` and `ODBC.adddsn`/`ODBC.removedsn`,
 but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
 CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
@@ -184,7 +184,7 @@ that includes all connection properties in a single string passed to `DBInterfac
 that provides connection string templates for various database systems.
 
 On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
-datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+datasources can still be added via `ODBC.adddriver`/`ODBC.removedriver` and `ODBC.adddsn`/`ODBC.removedsn`,
 but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
 CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
@@ -196,7 +196,7 @@ adddsn(name, driver; kw...) = API.adddsn(name, driver; kw...)
 Remove an installed datasource by `name` (as returned from `ODBC.dsns()`).
 
 On windows, ODBC.jl uses the system-wide configurations for drivers and datasources. Drivers and
-datasources can still be added via `ODBC.adddriver`/`ODBC.removdriver` and `ODBC.adddsn`/`ODBC.removedsn`,
+datasources can still be added via `ODBC.adddriver`/`ODBC.removedriver` and `ODBC.adddsn`/`ODBC.removedsn`,
 but you must have administrator privileges in the Julia session. This is accomplished easiest by pressing
 CTRL then right-clicking on the terminal/Julia application and choosing "Run as administrator".
 """
