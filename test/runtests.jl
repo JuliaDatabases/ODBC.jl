@@ -473,6 +473,8 @@ for kw in ((;), (iterate_rows=true,))
     local ret = DBInterface.execute(conn, "select s from utf8_check order by id"; kw...) |> columntable
     @test isequal(ret.s, ["ééééé", "abcde", "日本語テキ", "😀😀😀😀😀", missing, "x"])
 end
+# a value longer than its column buffer is reported, not read past the buffer
+@test occursin("6-byte value for a 5-byte column buffer", try ODBC.truncatedvalue(:s, 6, 6) catch e; e.msg end)
 
 # #385: DBInterface.execute(f, ...) closes the cursor through DBInterface.close!(::ODBC.Cursor)
 @test DBInterface.execute(columntable, conn, "select 1 as x").x == [1]
