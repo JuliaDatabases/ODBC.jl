@@ -98,6 +98,15 @@ DBInterface.close!(conn)
         Base.shred!(result)
     end
 
+    @testset "getextraauth escapes closing braces" begin
+        for (usr, pwd) in (("u}x", "p}w;SERVER={evil}"), (Base.SecretBuffer("u}x"), Base.SecretBuffer("p}w;SERVER={evil}")))
+            result = ODBC.getextraauth(usr, pwd, nothing)
+            seekstart(result)
+            @test String(read(result, result.size)) == "UID={u}}x};PWD={p}}w;SERVER={evil}}}"
+            Base.shred!(result)
+        end
+    end
+
     @testset "API.connect with SecretBuffer" begin
         usr = Base.SecretBuffer("root")
         pword = Base.SecretBuffer("")
@@ -121,6 +130,14 @@ conn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=1
 DBInterface.execute(conn, "DROP DATABASE if exists mysqltest")
 DBInterface.execute(conn, "CREATE DATABASE mysqltest")
 DBInterface.execute(conn, "use mysqltest")
+
+# a password containing `}` and `;` authenticates instead of ending the PWD value early
+DBInterface.execute(conn, "DROP USER IF EXISTS 'odbc_brace'@'%'")
+DBInterface.execute(conn, "CREATE USER 'odbc_brace'@'%' IDENTIFIED BY 'pa}ss;x={1}'")
+brace_conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB"; user="odbc_brace", password="pa}ss;x={1}")
+@test only(columntable(DBInterface.execute(brace_conn, "SELECT CURRENT_USER() AS u")).u) == "odbc_brace@%"
+DBInterface.close!(brace_conn)
+DBInterface.execute(conn, "DROP USER 'odbc_brace'@'%'")
 DBInterface.execute(conn, """CREATE TABLE Employee
                  (
                      ID INT NOT NULL AUTO_INCREMENT,
