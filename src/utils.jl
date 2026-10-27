@@ -276,7 +276,9 @@ mutable struct Binding
         b.parametertype = sqltype
         b.value = Buffer(ctype, columnsize, rows, nullable)
         b.bufferlength = columnsize
-        b.strlen_or_indptr = Vector{Int}(undef, rows)
+        # zeroed: MariaDB Connector/ODBC leaves the indicator of a non-NULL BIT value unwritten in a
+        # columnar fetch, and leftover memory equal to SQL_NULL_DATA would read as `missing`
+        b.strlen_or_indptr = zeros(Int, rows)
         if columnar
             bindcol(stmt, i, b)
         end
