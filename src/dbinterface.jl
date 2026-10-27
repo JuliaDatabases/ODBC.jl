@@ -21,6 +21,27 @@ function clear!(conn::Connection)
     return
 end
 
+# write `x` as a brace-quoted connection string value; a `}` inside braces is written `}}`
+function writebraced(buf::Base.SecretBuffer, x::Union{AbstractString, Base.SecretBuffer})
+    write(buf, '{')
+    if x isa Base.SecretBuffer
+        seekstart(x)
+        while !eof(x)
+            b = read(x, UInt8)
+            write(buf, b)
+            b == UInt8('}') && write(buf, b)
+        end
+        Base.shred!(x)
+    else
+        for b in codeunits(String(x))
+            write(buf, b)
+            b == UInt8('}') && write(buf, b)
+        end
+    end
+    write(buf, '}')
+    return
+end
+
 # format usr, pwd, and extraauth into UID=user;PWD=pass;extraauth
 # SECURITY: Returns SecretBuffer to keep credentials secure throughout the call chain
 function getextraauth(usr::Union{AbstractString, Base.SecretBuffer, Nothing},
@@ -30,21 +51,15 @@ function getextraauth(usr::Union{AbstractString, Base.SecretBuffer, Nothing},
 
     # Add username if provided
     if usr !== nothing
-        write(buf, "UID={")
-        usr isa Base.SecretBuffer && seekstart(usr)
-        write(buf, usr)
-        usr isa Base.SecretBuffer && Base.shred!(usr)
-        write(buf, "}")
+        write(buf, "UID=")
+        writebraced(buf, usr)
     end
 
     # Add password if provided
     if pwd !== nothing
         usr !== nothing && write(buf, ";")
-        write(buf, "PWD={")
-        pwd isa Base.SecretBuffer && seekstart(pwd)
-        write(buf, pwd)
-        pwd isa Base.SecretBuffer && Base.shred!(pwd)
-        write(buf, "}")
+        write(buf, "PWD=")
+        writebraced(buf, pwd)
     end
 
     # Add extra auth parameters if provided
@@ -271,6 +286,8 @@ mutable struct Cursor{columnar, knownlength}
     metadata::Any
 end
 
+@noinline truncatedvalue(name, len, elsize) = error("column $name: the driver returned a $len-byte value for a $(elsize - 1)-byte column buffer; pass `iterate_rows=true` to fetch it")
+
 # takes a recently executed statement handle and handles any produced resultsets
 function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=false, normalizenames::Bool=false, debug::Bool=false)
     rows = API.numrows(stmt)
@@ -304,6 +321,9 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
             end
             if sqltype == API.SQL_DECIMAL || sqltype == API.SQL_NUMERIC
                 columnsizes[i] += 3 # 3 bytes for \0 + sign + decimal point
+            elseif ctype == API.SQL_C_CHAR
+                # character column sizes count characters; UTF-8 takes up to 4 bytes each, plus \0
+                columnsizes[i] = 4 * columnsizes[i] + 1
             else
                 columnsizes[i] += 1 # 1 byte for \0
             end
@@ -340,6 +360,8 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
                 elsize = columnsizes[i]
                 for j = 1:rowsfetched
                     @inbounds ind = inds[j]
+                    # a truncated value reports its full length, which runs past its slot in `data`
+                    (ind == API.SQL_NULL_DATA || 0 <= ind < elsize) || truncatedvalue(names[i], ind, elsize)
                     A[j] = ind == API.SQL_NULL_DATA ? missing : jlcast(Base.nonmissingtype(T), unsafe_wrap(Array, pointer(data, cur), ind))
                     cur += elsize
                 end

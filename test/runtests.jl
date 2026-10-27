@@ -98,6 +98,15 @@ DBInterface.close!(conn)
         Base.shred!(result)
     end
 
+    @testset "getextraauth escapes closing braces" begin
+        for (usr, pwd) in (("u}x", "p}w;SERVER={evil}"), (Base.SecretBuffer("u}x"), Base.SecretBuffer("p}w;SERVER={evil}")))
+            result = ODBC.getextraauth(usr, pwd, nothing)
+            seekstart(result)
+            @test String(read(result, result.size)) == "UID={u}}x};PWD={p}}w;SERVER={evil}}}"
+            Base.shred!(result)
+        end
+    end
+
     @testset "API.connect with SecretBuffer" begin
         usr = Base.SecretBuffer("root")
         pword = Base.SecretBuffer("")
@@ -121,6 +130,14 @@ conn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=1
 DBInterface.execute(conn, "DROP DATABASE if exists mysqltest")
 DBInterface.execute(conn, "CREATE DATABASE mysqltest")
 DBInterface.execute(conn, "use mysqltest")
+
+# a password containing `}` and `;` authenticates instead of ending the PWD value early
+DBInterface.execute(conn, "DROP USER IF EXISTS 'odbc_brace'@'%'")
+DBInterface.execute(conn, "CREATE USER 'odbc_brace'@'%' IDENTIFIED BY 'pa}ss;x={1}'")
+brace_conn = DBInterface.connect(ODBC.Connection, "ODBC_Test_DSN_MariaDB"; user="odbc_brace", password="pa}ss;x={1}")
+@test only(columntable(DBInterface.execute(brace_conn, "SELECT CURRENT_USER() AS u")).u) == "odbc_brace@%"
+DBInterface.close!(brace_conn)
+DBInterface.execute(conn, "DROP USER 'odbc_brace'@'%'")
 DBInterface.execute(conn, """CREATE TABLE Employee
                  (
                      ID INT NOT NULL AUTO_INCREMENT,
@@ -464,6 +481,17 @@ for kw in ((;), (iterate_rows=true,))
     ret = DBInterface.execute(conn, "select id, t from nul_check order by id"; kw...) |> columntable
     @test isequal(ret.t, ["x"^60000, "", "x\0\0", missing])
 end
+
+# column sizes count characters, so multi-byte text must still fit the columnar fetch buffers
+DBInterface.execute(conn, "CREATE TABLE utf8_check (id INT, s VARCHAR(5) CHARACTER SET utf8mb4)")
+DBInterface.execute(conn, "INSERT INTO utf8_check VALUES (1, 'ééééé'), (2, 'abcde'), (3, '日本語テキ'), (4, '😀😀😀😀😀'), (5, NULL), (6, 'x')")
+@test DBInterface.execute(conn, "select s from utf8_check") isa ODBC.Cursor{true}
+for kw in ((;), (iterate_rows=true,))
+    local ret = DBInterface.execute(conn, "select s from utf8_check order by id"; kw...) |> columntable
+    @test isequal(ret.s, ["ééééé", "abcde", "日本語テキ", "😀😀😀😀😀", missing, "x"])
+end
+# a value longer than its column buffer is reported, not read past the buffer
+@test occursin("6-byte value for a 5-byte column buffer", try ODBC.truncatedvalue(:s, 6, 6) catch e; e.msg end)
 
 # #385: DBInterface.execute(f, ...) closes the cursor through DBInterface.close!(::ODBC.Cursor)
 @test DBInterface.execute(columntable, conn, "select 1 as x").x == [1]
