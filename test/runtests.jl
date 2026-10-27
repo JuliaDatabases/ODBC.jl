@@ -493,12 +493,13 @@ end
 # the driver leaves a non-NULL BIT value's indicator unwritten in a columnar fetch; freed
 # memory holding SQL_NULL_DATA (-1) must not turn it into `missing`
 DBInterface.execute(conn, "CREATE TABLE bit_check (id INT, b BIT(1))")
-DBInterface.execute(conn, "INSERT INTO bit_check VALUES (1, b'1'), (2, NULL), (3, b'0'), (4, b'1')")
+DBInterface.execute(conn, "INSERT INTO bit_check SELECT seq, seq % 2 FROM seq_1_to_1000")
 for _ in 1:20
-    local junk = [fill(-1, n) for n in 1:8 for _ in 1:20_000]
+    # freed blocks the size of the 1000-row indicator array, and of small ones
+    local junk = ([fill(-1, 1000) for _ in 1:100], [fill(-1, n) for n in 1:8 for _ in 1:20_000])
     junk = nothing
     GC.gc(true)
-    @test isequal(columntable(DBInterface.execute(conn, "select b from bit_check order by id")).b, [true, missing, false, true])
+    @test isequal(columntable(DBInterface.execute(conn, "select b from bit_check order by id")).b, isodd.(1:1000))
 end
 
 # a value longer than its column buffer is reported, not read past the buffer
