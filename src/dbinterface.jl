@@ -286,6 +286,8 @@ mutable struct Cursor{columnar, knownlength}
     metadata::Any
 end
 
+@noinline truncatedvalue(name, len, elsize) = error("column $name: the driver returned a $len-byte value for a $(elsize - 1)-byte column buffer; pass `iterate_rows=true` to fetch it")
+
 # takes a recently executed statement handle and handles any produced resultsets
 function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=false, normalizenames::Bool=false, debug::Bool=false)
     rows = API.numrows(stmt)
@@ -319,6 +321,9 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
             end
             if sqltype == API.SQL_DECIMAL || sqltype == API.SQL_NUMERIC
                 columnsizes[i] += 3 # 3 bytes for \0 + sign + decimal point
+            elseif ctype == API.SQL_C_CHAR
+                # character column sizes count characters; UTF-8 takes up to 4 bytes each, plus \0
+                columnsizes[i] = 4 * columnsizes[i] + 1
             else
                 columnsizes[i] += 1 # 1 byte for \0
             end
@@ -355,6 +360,8 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
                 elsize = columnsizes[i]
                 for j = 1:rowsfetched
                     @inbounds ind = inds[j]
+                    # a truncated value reports its full length, which runs past its slot in `data`
+                    (ind == API.SQL_NULL_DATA || 0 <= ind < elsize) || truncatedvalue(names[i], ind, elsize)
                     A[j] = ind == API.SQL_NULL_DATA ? missing : jlcast(Base.nonmissingtype(T), unsafe_wrap(Array, pointer(data, cur), ind))
                     cur += elsize
                 end
