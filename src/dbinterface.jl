@@ -21,6 +21,27 @@ function clear!(conn::Connection)
     return
 end
 
+# write `x` as a brace-quoted connection string value; a `}` inside braces is written `}}`
+function writebraced(buf::Base.SecretBuffer, x::Union{AbstractString, Base.SecretBuffer})
+    write(buf, '{')
+    if x isa Base.SecretBuffer
+        seekstart(x)
+        while !eof(x)
+            b = read(x, UInt8)
+            write(buf, b)
+            b == UInt8('}') && write(buf, b)
+        end
+        Base.shred!(x)
+    else
+        for b in codeunits(String(x))
+            write(buf, b)
+            b == UInt8('}') && write(buf, b)
+        end
+    end
+    write(buf, '}')
+    return
+end
+
 # format usr, pwd, and extraauth into UID=user;PWD=pass;extraauth
 # SECURITY: Returns SecretBuffer to keep credentials secure throughout the call chain
 function getextraauth(usr::Union{AbstractString, Base.SecretBuffer, Nothing},
@@ -30,21 +51,15 @@ function getextraauth(usr::Union{AbstractString, Base.SecretBuffer, Nothing},
 
     # Add username if provided
     if usr !== nothing
-        write(buf, "UID={")
-        usr isa Base.SecretBuffer && seekstart(usr)
-        write(buf, usr)
-        usr isa Base.SecretBuffer && Base.shred!(usr)
-        write(buf, "}")
+        write(buf, "UID=")
+        writebraced(buf, usr)
     end
 
     # Add password if provided
     if pwd !== nothing
         usr !== nothing && write(buf, ";")
-        write(buf, "PWD={")
-        pwd isa Base.SecretBuffer && seekstart(pwd)
-        write(buf, pwd)
-        pwd isa Base.SecretBuffer && Base.shred!(pwd)
-        write(buf, "}")
+        write(buf, "PWD=")
+        writebraced(buf, pwd)
     end
 
     # Add extra auth parameters if provided
