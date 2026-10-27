@@ -465,6 +465,17 @@ for kw in ((;), (iterate_rows=true,))
     @test isequal(ret.t, ["x"^60000, "", "x\0\0", missing])
 end
 
+# column sizes count characters, so multi-byte text must still fit the columnar fetch buffers
+DBInterface.execute(conn, "CREATE TABLE utf8_check (id INT, s VARCHAR(5) CHARACTER SET utf8mb4)")
+DBInterface.execute(conn, "INSERT INTO utf8_check VALUES (1, 'ééééé'), (2, 'abcde'), (3, '日本語テキ'), (4, '😀😀😀😀😀'), (5, NULL), (6, 'x')")
+@test DBInterface.execute(conn, "select s from utf8_check") isa ODBC.Cursor{true}
+for kw in ((;), (iterate_rows=true,))
+    local ret = DBInterface.execute(conn, "select s from utf8_check order by id"; kw...) |> columntable
+    @test isequal(ret.s, ["ééééé", "abcde", "日本語テキ", "😀😀😀😀😀", missing, "x"])
+end
+# a value longer than its column buffer is reported, not read past the buffer
+@test occursin("6-byte value for a 5-byte column buffer", try ODBC.truncatedvalue(:s, 6, 6) catch e; e.msg end)
+
 # #385: DBInterface.execute(f, ...) closes the cursor through DBInterface.close!(::ODBC.Cursor)
 @test DBInterface.execute(columntable, conn, "select 1 as x").x == [1]
 stmt = DBInterface.prepare(conn, "select 2 as x")
