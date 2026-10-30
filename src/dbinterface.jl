@@ -10,7 +10,51 @@ end
 
 Connection(dbc::API.Handle, dsn) = Connection(dbc, dsn, '\0', Dict{Type, String}(), nothing, nothing, WeakKeyDict())
 
-Base.show(io::IO, conn::Connection) = print(io, "ODBC.Connection($(conn.dsn))")
+Base.show(io::IO, conn::Connection) = print(io, "ODBC.Connection(", redactdsn(conn.dsn), ")")
+
+# Connection-string keys whose values `show` hides, matched case-insensitively as
+# substrings: `PWD`, `Password`, `ClientSecret`, `AccessToken`, ...
+const SECRET_KEYS = ("PWD", "PASSWORD", "SECRET", "TOKEN")
+
+# `dsn` with the value of every credential key replaced by `***`. A value may be
+# brace-quoted (`{...}`, `}}` for a literal `}`), so a `;` inside braces does not end it;
+# anything after the closing brace up to the next `;` counts as part of the value.
+function redactdsn(dsn::AbstractString)
+    s = codeunits(String(dsn))
+    n = length(s)
+    out = IOBuffer()
+    i = 1
+    while i <= n
+        j = i
+        while j <= n && s[j] != UInt8('=') && s[j] != UInt8(';')
+            j += 1
+        end
+        write(out, view(s, i:j-1))
+        if j > n || s[j] == UInt8(';')
+            # a segment without a value, such as a bare DSN name
+            j <= n && write(out, UInt8(';'))
+            i = j + 1
+            continue
+        end
+        # ASCII case folding: never throws on malformed UTF-8, and the keys are ASCII
+        key = String(map(b -> UInt8('a') <= b <= UInt8('z') ? b - 0x20 : b, s[i:j-1]))
+        secret = any(k -> occursin(k, key), SECRET_KEYS)
+        k = j + 1
+        if k <= n && s[k] == UInt8('{')
+            k += 1
+            while k <= n && !(s[k] == UInt8('}') && (k == n || s[k+1] != UInt8('}')))
+                k += s[k] == UInt8('}') ? 2 : 1
+            end
+        end
+        while k <= n && s[k] != UInt8(';')
+            k += 1
+        end
+        write(out, UInt8('='))
+        secret ? write(out, "***") : write(out, view(s, j+1:k-1))
+        i = k
+    end
+    return String(take!(out))
+end
 
 # make sure any previous open cursors are closed on the connection
 function clear!(conn::Connection)
@@ -85,8 +129,8 @@ For enhanced security, credentials (`user`, `password`, `extraauth`) can be prov
 which will be securely shredded (zeroed in memory) after use to minimize exposure of sensitive data in memory dumps
 or swap files.
 
-Note: The `dsn` parameter should not contain credentials as it is stored in the Connection object and displayed
-by the `show` method. Use the keyword arguments for credentials instead.
+Note: The `dsn` parameter is stored in the Connection object. `show` replaces the values of credential keys
+(`PWD`, `Password`, `ClientSecret`, `AccessToken`, ...) with `***`, but prefer the keyword arguments for credentials.
 
 # Security Best Practice
 For sensitive credentials, use `Base.SecretBuffer`:
@@ -129,8 +173,8 @@ For enhanced security, credentials (`user`, `password`, `extraauth`) can be prov
 which will be securely shredded (zeroed in memory) after use to minimize exposure of sensitive data in memory dumps
 or swap files.
 
-Note: The `dsn` parameter should not contain credentials as it is stored in the Connection object and displayed
-by the `show` method. Use the keyword arguments for credentials instead.
+Note: The `dsn` parameter is stored in the Connection object. `show` replaces the values of credential keys
+(`PWD`, `Password`, `ClientSecret`, `AccessToken`, ...) with `***`, but prefer the keyword arguments for credentials.
 
 # Security Best Practice
 For sensitive credentials, use `Base.SecretBuffer`:

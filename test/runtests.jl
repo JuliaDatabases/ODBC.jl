@@ -125,6 +125,26 @@ DBInterface.close!(conn)
     end
 end
 
+@testset "show hides connection-string credentials" begin
+    for (dsn, shown) in (
+            "ODBC_Test_DSN_MariaDB" => "ODBC_Test_DSN_MariaDB",
+            "Driver={X Y};Server=h;UID=u;PWD=secret;Option=3" => "Driver={X Y};Server=h;UID=u;PWD=***;Option=3",
+            "pwd={a;b}}c};Database=d" => "pwd=***;Database=d",
+            " Password = p ;x=1" => " Password =***;x=1",
+            "UID=app;ClientSecret=s;AccessToken={t;t}" => "UID=app;ClientSecret=***;AccessToken=***",
+            "PWD={x}junk;A=1" => "PWD=***;A=1",
+            "PWD={unterminated;A=1" => "PWD=***",
+            "A=1;;PWD=z;" => "A=1;;PWD=***;",
+            "Driver={a=b;PWD=c};PWD=d" => "Driver={a=b;PWD=c};PWD=***",
+            "k\xff=1;pwd\xff=2" => "k\xff=1;pwd\xff=***")
+        @test ODBC.redactdsn(dsn) == shown
+    end
+    dsn = "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4;USER=root;PWD="
+    conn = DBInterface.connect(ODBC.Connection, dsn)
+    @test sprint(show, conn) == "ODBC.Connection($(replace(dsn, "PWD=" => "PWD=***")))"
+    DBInterface.close!(conn)
+end
+
 conn = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=utf8mb4;USER=root")
 
 DBInterface.execute(conn, "DROP DATABASE if exists mysqltest")
