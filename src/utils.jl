@@ -385,6 +385,14 @@ function jlcast(::Type{T}, bytes) where {T <: DecFP.DecimalFloatingPoint}
 end
 jlcast(::Type{Vector{UInt8}}, bytes) = copy(bytes)
 jlcast(::Type{String}, bytes) = String(bytes)
+# SQL_C_WCHAR data is UTF-16 code units (UTF-32 under iODBC)
+widestring(bytes) = transcode(String, collect(reinterpret(API.sqlwcharsize(), bytes)))
+
+# Drivers convert SQL_C_CHAR text to the client character set: the ANSI code page on Windows, and the
+# LC_CTYPE codeset elsewhere. Julia starts with a UTF-8 LC_CTYPE, but psqlODBC resets the locale from LANG
+# on connect, and under the resulting C locale it fails on non-ASCII text.
+utf8client() = @static Sys.iswindows() ? ccall(:GetACP, stdcall, Cuint, ()) == 65001 :
+    unsafe_string(ccall(:nl_langinfo, Cstring, (Cint,), Sys.isbsd() ? 0 : 14)) == "UTF-8"
 
 # given the SQL type as described by the driver library
 # what is the C storage needed for data transfer, and
@@ -427,6 +435,9 @@ function fetchtypes(x, prec)
         return (API.SQL_C_TYPE_TIME, Time)
     elseif x == API.SQL_GUID
         return (API.SQL_C_GUID, UUID)
+    elseif (x == API.SQL_WCHAR || x == API.SQL_WVARCHAR || x == API.SQL_WLONGVARCHAR) && !utf8client()
+        # as SQL_C_CHAR, the driver would convert Unicode text to the non-UTF-8 client character set (#379)
+        return (API.SQL_C_WCHAR, String)
     else
         return (API.SQL_C_CHAR, String)
     end
