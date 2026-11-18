@@ -494,25 +494,12 @@ ret = DBInterface.execute(conn, "select * from load_types") |> columntable
 # strings and blobs round trip exactly in both fetch modes: empty values and NULs are data, not terminators
 DBInterface.execute(conn, "CREATE TABLE nul_check (id INT, s VARCHAR(20), t TEXT, b VARBINARY(10))")
 DBInterface.execute(conn, "INSERT INTO nul_check VALUES (1, 'abc', REPEAT('x', 60000), X'610062'), (2, '', '', X''), (3, 'a\\0', 'x\\0\\0', X'00'), (4, NULL, NULL, NULL)")
-# text columns fetch as SQL_C_WCHAR: Connector/ODBC before 3.1.22 ends those values at their first NUL,
-# and so does iODBC's conversion of columnar (bound) results
-widenul(columnar) = VersionNumber(get(ENV, "MARIADB_CONNECTOR_VERSION", "3.1.22")) >= v"3.1.22" &&
-    !(columnar && ODBC.API.odbc_dm[] == ODBC.API.iODBC)
 for kw in ((;), (iterate_rows=true,))
     local ret = DBInterface.execute(conn, "select id, s, b from nul_check order by id"; kw...) |> columntable
-    if widenul(isempty(kw))
-        @test isequal(ret.s, ["abc", "", "a\0", missing])
-    else
-        @test_broken isequal(ret.s, ["abc", "", "a\0", missing])
-    end
+    @test isequal(ret.s, ["abc", "", "a\0", missing])
     @test isequal(ret.b, [UInt8[0x61, 0x00, 0x62], UInt8[], UInt8[0x00], missing])
-    # TEXT values are fetched row by row
     ret = DBInterface.execute(conn, "select id, t from nul_check order by id"; kw...) |> columntable
-    if widenul(false)
-        @test isequal(ret.t, ["x"^60000, "", "x\0\0", missing])
-    else
-        @test_broken isequal(ret.t, ["x"^60000, "", "x\0\0", missing])
-    end
+    @test isequal(ret.t, ["x"^60000, "", "x\0\0", missing])
 end
 
 # column sizes count characters, so multi-byte text must still fit the columnar fetch buffers
@@ -524,14 +511,24 @@ for kw in ((;), (iterate_rows=true,))
     @test isequal(ret.s, ["ééééé", "abcde", "日本語テキ", "😀😀😀😀😀", missing, "x"])
 end
 
-# #379/#310: Unicode columns read the same over a latin1 connection, whose SQL_C_CHAR text is not UTF-8
+# #379/#310: Unicode columns read correctly when SQL_C_CHAR text is not UTF-8: a latin1 connection under the
+# C locale's ASCII codeset, as with a Windows ANSI code page
+LC_CTYPE = Sys.isbsd() ? 2 : 0
+ctype_locale = unsafe_string(ccall(:setlocale, Cstring, (Cint, Cstring), LC_CTYPE, C_NULL))
 latin1 = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=latin1;USER=root;DATABASE=mysqltest")
 DBInterface.execute(conn, "CREATE TABLE latin1_check (v VARCHAR(20) CHARACTER SET utf8mb4, t TEXT CHARACTER SET utf8mb4)")
 DBInterface.execute(conn, "INSERT INTO latin1_check VALUES ('Bjørnefjært', 'Bjørnefjært')")
-for kw in ((;), (iterate_rows=true,))
-    local ret = DBInterface.execute(latin1, "select v, t from latin1_check"; kw...) |> columntable
-    @test ret.v == ret.t == ["Bjørnefjært"]
+try
+    ccall(:setlocale, Cstring, (Cint, Cstring), LC_CTYPE, "C")
+    @test !ODBC.utf8client()
+    for kw in ((;), (iterate_rows=true,))
+        local ret = DBInterface.execute(latin1, "select v, t from latin1_check"; kw...) |> columntable
+        @test ret.v == ret.t == ["Bjørnefjært"]
+    end
+finally
+    ccall(:setlocale, Cstring, (Cint, Cstring), LC_CTYPE, ctype_locale)
 end
+@test ODBC.utf8client()
 DBInterface.close!(latin1)
 
 # the driver leaves a non-NULL BIT value's indicator unwritten in a columnar fetch; freed

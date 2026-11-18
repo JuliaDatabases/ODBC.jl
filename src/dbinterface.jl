@@ -402,11 +402,17 @@ function Cursor(stmt; iterate_rows::Bool=false, ignore_driver_row_count::Bool=fa
                 inds = binding.strlen_or_indptr
                 cur = 1
                 elsize = columnsizes[i]
+                wide = ctype == API.SQL_C_WCHAR
                 for j = 1:rowsfetched
                     @inbounds ind = inds[j]
                     # a truncated value reports its full length, which runs past its slot in `data`
                     (ind == API.SQL_NULL_DATA || 0 <= ind < elsize) || truncatedvalue(names[i], ind, elsize)
-                    A[j] = ind == API.SQL_NULL_DATA ? missing : jlcast(Base.nonmissingtype(T), ctype, unsafe_wrap(Array, pointer(data, cur), ind))
+                    if ind == API.SQL_NULL_DATA
+                        A[j] = missing
+                    else
+                        bytes = unsafe_wrap(Array, pointer(data, cur), ind)
+                        A[j] = wide ? widestring(bytes) : jlcast(Base.nonmissingtype(T), bytes)
+                    end
                     cur += elsize
                 end
                 columns[i] = A
@@ -501,7 +507,7 @@ function Tables.getcolumn(x::Row, ::Type{T}, i::Int, nm::Symbol) where {T}
     elseif b.valuetype == API.SQL_C_CHAR || b.valuetype == API.SQL_C_WCHAR || b.valuetype == API.SQL_C_BINARY
         data = b.value.buffer::Vector{UInt8}
         bytes = view(data, 1:b.totallen)
-        return jlcast(Base.nonmissingtype(T), b.valuetype, bytes)
+        return b.valuetype == API.SQL_C_WCHAR ? widestring(bytes) : jlcast(Base.nonmissingtype(T), bytes)
     elseif b.valuetype == API.SQL_C_TYPE_DATE || b.valuetype == API.SQL_C_TYPE_TIME || b.valuetype == API.SQL_C_TYPE_TIMESTAMP || b.valuetype == API.SQL_C_GUID
         return specialize(x -> Base.nonmissingtype(T)(x[1]), b.value.buffer)
     else
