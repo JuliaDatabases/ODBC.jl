@@ -193,12 +193,14 @@ columnsize(x::Vector{Bool}) = 1
 columnsize(x::Vector{T}) where {T <: Integer} = ndigits(typemax(T))
 columnsize(x::Vector{API.SQLDate}) = 10
 columnsize(x::Vector{API.SQLTime}) = 9
-columnsize(x::Vector{API.SQLTimestamp}) = 20
+# a DateTime parameter, "yyyy-mm-dd hh:mm:ss.fff", carries milliseconds; SQL Server rejects fractional seconds
+# beyond DecimalDigits. Parameter buffers are Vector{Union{Missing, T}}.
+columnsize(x::Vector{Union{Missing, API.SQLTimestamp}}) = 23
 columnsize(b::Buffer) = specialize(columnsize, b.buffer)
 
 # https://docs.microsoft.com/en-us/sql/odbc/reference/appendixes/decimal-digits?view=sql-server-ver15
 decimaldigits(x) = 0
-decimaldigits(x::Vector{API.SQLTimestamp}) = length(rstrip(Printf.@sprintf("%.9f", 500000 / 1e9), '0')) - 2
+decimaldigits(x::Vector{Union{Missing, API.SQLTimestamp}}) = 3
 decimaldigits(b::Buffer) = specialize(decimaldigits, b.buffer)
 
 # returns (C type, SQL type) given an input julia value
