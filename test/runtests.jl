@@ -510,6 +510,16 @@ for kw in ((;), (iterate_rows=true,))
     local ret = DBInterface.execute(conn, "select s from utf8_check order by id"; kw...) |> columntable
     @test isequal(ret.s, ["ééééé", "abcde", "日本語テキ", "😀😀😀😀😀", missing, "x"])
 end
+
+# #379/#310: Unicode columns read the same over a latin1 connection, whose SQL_C_CHAR text is not UTF-8
+latin1 = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=latin1;USER=root;DATABASE=mysqltest")
+DBInterface.execute(conn, "CREATE TABLE latin1_check (v VARCHAR(20) CHARACTER SET utf8mb4, t TEXT CHARACTER SET utf8mb4)")
+DBInterface.execute(conn, "INSERT INTO latin1_check VALUES ('Bjørnefjært', 'Bjørnefjært')")
+for kw in ((;), (iterate_rows=true,))
+    local ret = DBInterface.execute(latin1, "select v, t from latin1_check"; kw...) |> columntable
+    @test ret.v == ret.t == ["Bjørnefjært"]
+end
+DBInterface.close!(latin1)
 # the driver leaves a non-NULL BIT value's indicator unwritten in a columnar fetch; freed
 # memory holding SQL_NULL_DATA (-1) must not turn it into `missing`
 DBInterface.execute(conn, "CREATE TABLE bit_check (id INT, b BIT(1))")
