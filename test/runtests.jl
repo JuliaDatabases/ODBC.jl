@@ -533,6 +533,11 @@ stmt = DBInterface.prepare(conn, "select 2 as x")
 DBInterface.close!(stmt)
 
 
+# a DateTime parameter declares millisecond precision: SQL Server rejects fractional seconds beyond its DecimalDigits
+stmt = DBInterface.prepare(conn, "select ? as value")
+@test ODBC.decimaldigits(ODBC.Binding(stmt.stmt, DateTime(2020, 1, 2, 3, 4, 5, 678), 1).value) == 3
+DBInterface.close!(stmt)
+
 @testset "Polling delay and initial parameter length" begin
     # After the initial yields, a poll must actually wait for the timer.
     @test (@elapsed ODBC.API.asyncwait(101)) >= 0.001

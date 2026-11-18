@@ -31,6 +31,9 @@ conn = ODBC.Connection(ENV["ODBC_TEST_SQLSERVER"]; user=ENV["ODBC_TEST_SQLSERVER
     @test DBInterface.execute(Tables.columntable,stmt,(u,)).u == [u]
     @test DBInterface.execute(Tables.columntable,stmt,(u,)).u == [u]
     DBInterface.close!(stmt)
+    # DateTime parameters keep their milliseconds
+    t = ODBC.Dates.DateTime(2020, 1, 2, 3, 4, 5, 678)
+    @test DBInterface.execute(Tables.columntable, conn, "SELECT CAST(? AS datetime2(3)) AS t", (t,)).t == [t]
     function temporarycursor()
         c=ODBC.Connection(ENV["ODBC_TEST_SQLSERVER"]; user=ENV["ODBC_TEST_SQLSERVER_USER"],password=ENV["ODBC_TEST_SQLSERVER_PASSWORD"])
         DBInterface.execute(c,"SELECT 42 AS n";iterate_rows=true)
