@@ -494,12 +494,25 @@ ret = DBInterface.execute(conn, "select * from load_types") |> columntable
 # strings and blobs round trip exactly in both fetch modes: empty values and NULs are data, not terminators
 DBInterface.execute(conn, "CREATE TABLE nul_check (id INT, s VARCHAR(20), t TEXT, b VARBINARY(10))")
 DBInterface.execute(conn, "INSERT INTO nul_check VALUES (1, 'abc', REPEAT('x', 60000), X'610062'), (2, '', '', X''), (3, 'a\\0', 'x\\0\\0', X'00'), (4, NULL, NULL, NULL)")
+# text columns fetch as SQL_C_WCHAR: Connector/ODBC before 3.1.22 ends those values at their first NUL,
+# and so does iODBC's conversion of columnar (bound) results
+widenul(columnar) = VersionNumber(get(ENV, "MARIADB_CONNECTOR_VERSION", "3.1.22")) >= v"3.1.22" &&
+    !(columnar && ODBC.API.odbc_dm[] == ODBC.API.iODBC)
 for kw in ((;), (iterate_rows=true,))
     local ret = DBInterface.execute(conn, "select id, s, b from nul_check order by id"; kw...) |> columntable
-    @test isequal(ret.s, ["abc", "", "a\0", missing])
+    if widenul(isempty(kw))
+        @test isequal(ret.s, ["abc", "", "a\0", missing])
+    else
+        @test_broken isequal(ret.s, ["abc", "", "a\0", missing])
+    end
     @test isequal(ret.b, [UInt8[0x61, 0x00, 0x62], UInt8[], UInt8[0x00], missing])
+    # TEXT values are fetched row by row
     ret = DBInterface.execute(conn, "select id, t from nul_check order by id"; kw...) |> columntable
-    @test isequal(ret.t, ["x"^60000, "", "x\0\0", missing])
+    if widenul(false)
+        @test isequal(ret.t, ["x"^60000, "", "x\0\0", missing])
+    else
+        @test_broken isequal(ret.t, ["x"^60000, "", "x\0\0", missing])
+    end
 end
 
 # column sizes count characters, so multi-byte text must still fit the columnar fetch buffers
@@ -520,6 +533,7 @@ for kw in ((;), (iterate_rows=true,))
     @test ret.v == ret.t == ["Bjørnefjært"]
 end
 DBInterface.close!(latin1)
+
 # the driver leaves a non-NULL BIT value's indicator unwritten in a columnar fetch; freed
 # memory holding SQL_NULL_DATA (-1) must not turn it into `missing`
 DBInterface.execute(conn, "CREATE TABLE bit_check (id INT, b BIT(1))")
