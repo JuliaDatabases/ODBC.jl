@@ -45,7 +45,9 @@ function sqltype(conn, T)
                 i = findfirst(==(t), types.DATA_TYPE)
             end
             nm = i !== nothing ? types.TYPE_NAME[i] : defaultT
-            if i !== nothing && types.CREATE_PARAMS[i] !== missing && nm != "DOUBLE" && nm != "FLOAT"
+            # for a type whose only parameter is "scale" (SQL Server datetime2), COLUMN_SIZE is its display size,
+            # not a scale, so the type keeps its default scale
+            if i !== nothing && types.CREATE_PARAMS[i] !== missing && types.CREATE_PARAMS[i] != "scale" && nm != "DOUBLE" && nm != "FLOAT"
                 nm *= occursin(',', types.CREATE_PARAMS[i]) ? "($(typeprecision(jlT)),$(typescale(jlT)))" : "($(columnsizeparam(types.COLUMN_SIZE[i])))"
             end
             conn.types[jlT] = nm
