@@ -1,5 +1,5 @@
 # Optional integration checks against SQL Server with a configured ODBC driver.
-using ODBC, DBInterface, Tables, UUIDs, Test
+using ODBC, DBInterface, Tables, UUIDs, Dates, Test
 ODBC.setunixODBC()
 conn = ODBC.Connection(ENV["ODBC_TEST_SQLSERVER"]; user=ENV["ODBC_TEST_SQLSERVER_USER"], password=ENV["ODBC_TEST_SQLSERVER_PASSWORD"])
 @testset "SQL Server release regressions" begin
@@ -22,10 +22,18 @@ conn = ODBC.Connection(ENV["ODBC_TEST_SQLSERVER"]; user=ENV["ODBC_TEST_SQLSERVER
         @test only(DBInterface.execute(Tables.columntable, conn, "SELECT CONVERT(nvarchar(max), ?) AS t", (text,)).t) == text
     end
     @test ODBC.sqltype(conn,Float64) == "float(53)" || ODBC.sqltype(conn,Float64) == "float"
+    # DateTime columns are created as datetime2, whose lone "scale" parameter is not the reported column size
+    DBInterface.execute(conn, "IF OBJECT_ID('load_datetime') IS NOT NULL DROP TABLE load_datetime")
+    ODBC.load((d=[DateTime(2020, 1, 2, 3, 4, 5)],), conn, "load_datetime")
+    @test DBInterface.execute(Tables.columntable, conn, "SELECT d FROM load_datetime").d == [DateTime(2020, 1, 2, 3, 4, 5)]
+    DBInterface.execute(conn, "DROP TABLE load_datetime")
     stmt = DBInterface.prepare(conn,"SELECT CONVERT(uniqueidentifier, ?) AS u")
     @test DBInterface.execute(Tables.columntable,stmt,(u,)).u == [u]
     @test DBInterface.execute(Tables.columntable,stmt,(u,)).u == [u]
     DBInterface.close!(stmt)
+    # DateTime parameters keep their milliseconds
+    t = ODBC.Dates.DateTime(2020, 1, 2, 3, 4, 5, 678)
+    @test DBInterface.execute(Tables.columntable, conn, "SELECT CAST(? AS datetime2(3)) AS t", (t,)).t == [t]
     function temporarycursor()
         c=ODBC.Connection(ENV["ODBC_TEST_SQLSERVER"]; user=ENV["ODBC_TEST_SQLSERVER_USER"],password=ENV["ODBC_TEST_SQLSERVER_PASSWORD"])
         DBInterface.execute(c,"SELECT 42 AS n";iterate_rows=true)
