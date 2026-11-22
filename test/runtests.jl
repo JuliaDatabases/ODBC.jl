@@ -510,6 +510,27 @@ for kw in ((;), (iterate_rows=true,))
     local ret = DBInterface.execute(conn, "select s from utf8_check order by id"; kw...) |> columntable
     @test isequal(ret.s, ["ééééé", "abcde", "日本語テキ", "😀😀😀😀😀", missing, "x"])
 end
+
+# #379/#310: Unicode columns read correctly when SQL_C_CHAR text is not UTF-8: a latin1 connection under the
+# C locale's ASCII codeset, as with a Windows ANSI code page
+LC_CTYPE = Sys.isbsd() ? 2 : 0
+ctype_locale = unsafe_string(ccall(:setlocale, Cstring, (Cint, Cstring), LC_CTYPE, C_NULL))
+latin1 = DBInterface.connect(ODBC.Connection, "Driver={ODBC_Test_MariaDB};SERVER=127.0.0.1;PLUGIN_DIR=$PLUGIN_DIR;Option=67108864;CHARSET=latin1;USER=root;DATABASE=mysqltest")
+DBInterface.execute(conn, "CREATE TABLE latin1_check (v VARCHAR(20) CHARACTER SET utf8mb4, t TEXT CHARACTER SET utf8mb4)")
+DBInterface.execute(conn, "INSERT INTO latin1_check VALUES ('Bjørnefjært', 'Bjørnefjært')")
+try
+    ccall(:setlocale, Cstring, (Cint, Cstring), LC_CTYPE, "C")
+    @test !ODBC.utf8client()
+    for kw in ((;), (iterate_rows=true,))
+        local ret = DBInterface.execute(latin1, "select v, t from latin1_check"; kw...) |> columntable
+        @test ret.v == ret.t == ["Bjørnefjært"]
+    end
+finally
+    ccall(:setlocale, Cstring, (Cint, Cstring), LC_CTYPE, ctype_locale)
+end
+@test ODBC.utf8client()
+DBInterface.close!(latin1)
+
 # the driver leaves a non-NULL BIT value's indicator unwritten in a columnar fetch; freed
 # memory holding SQL_NULL_DATA (-1) must not turn it into `missing`
 DBInterface.execute(conn, "CREATE TABLE bit_check (id INT, b BIT(1))")
